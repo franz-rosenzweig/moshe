@@ -9,7 +9,7 @@ RUN npm run build
 
 # ---- the server: no dependencies, Node's own library only ----
 FROM node:22-alpine
-ENV TZ=America/Phoenix MOSHE_ROOT=/data MOSHE_STATIC=/app/static NODE_ENV=production
+ENV TZ=UTC MOSHE_ROOT=/data MOSHE_STATIC=/app/static NODE_ENV=production
 RUN apk add --no-cache tzdata
 WORKDIR /app
 COPY engine/package.json ./engine/package.json
