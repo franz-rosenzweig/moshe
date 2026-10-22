@@ -1,0 +1,9 @@
+{
+  "name": "moshe-server",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "description": "The Moshe server: the library folder for the app's page, backups, WebDAV. No dependencies.",
+  "engines": { "node": ">=20" },
+  "scripts": { "start": "node src/main.js", "test": "node --test test/*.test.js" }
+}

@@ -1,0 +1,104 @@
+/* The taste of Moshe on stuffs (stuffs.tiresia.xyz/moshe/): the page around
+   the app. The app itself is app/, in the frame. System fonts only, as the
+   app uses, so nothing is fetched from anywhere else. */
+:root {
+  color-scheme: light dark;
+  --bg: #f7f6f2;
+  --card: #ffffff;
+  --ink: #1d1d1f;
+  --ink-2: #3d3d40;
+  --muted: #74747a;
+  --rule: #e4e2dc;
+  --accent: #f5b31f;
+  --accent-ink: #94600a;
+  --on-accent: #1d1d1f;
+  --shadow: 0 18px 50px rgba(40, 30, 0, 0.14), 0 2px 8px rgba(0, 0, 0, 0.06);
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1b1b1c;
+    --card: #242426;
+    --ink: #f1f1f1;
+    --ink-2: #d2d2d4;
+    --muted: #9a9aa0;
+    --rule: #3a3a3c;
+    --accent: #ffc53d;
+    --accent-ink: #ffc53d;
+    --shadow: 0 18px 50px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 var(--sans); }
+a { color: var(--accent-ink); }
+code { font: 0.9em var(--mono); }
+img { max-width: 100%; height: auto; }
+
+.page { max-width: 1240px; margin: 0 auto; padding: calc(env(safe-area-inset-top) + 20px) 16px calc(env(safe-area-inset-bottom) + 56px); display: grid; gap: 40px; }
+.crumb { font-size: 14px; margin-bottom: -24px; }
+.crumb a { text-decoration: none; color: var(--muted); }
+.crumb a:hover { color: var(--ink); }
+
+.intro { max-width: 760px; }
+@media (min-width: 1000px) {
+  .intro { max-width: none; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); column-gap: 56px; align-items: center; }
+  .intro .mark { grid-column: 1 / -1; }
+  .intro h1 { grid-column: 1; margin-bottom: 0; }
+  .intro .lede { grid-column: 2; font-size: 17px; }
+}
+.mark { display: flex; align-items: center; gap: 12px; }
+.mark img { width: 56px; height: 56px; }
+.mark b { font-size: 26px; letter-spacing: -0.2px; }
+.mark .he { font: 22px var(--serif); color: var(--muted); margin-left: 10px; }
+h1 { font: 600 34px/1.15 var(--serif); letter-spacing: -0.3px; margin: 18px 0 10px; }
+.lede { font: 18px/1.65 var(--serif); color: var(--ink-2); margin: 0; }
+h2 { font: 600 24px/1.25 var(--serif); margin: 0 0 14px; }
+
+.btn { display: inline-block; font: 600 14px/1 var(--sans); padding: 11px 16px; border-radius: 999px; border: 1px solid transparent; background: var(--accent); color: var(--on-accent); text-decoration: none; cursor: pointer; white-space: nowrap; }
+.btn.ghost { background: transparent; color: var(--ink); border-color: var(--rule); }
+.btn:hover { filter: brightness(1.04); }
+.btn.ghost:hover { border-color: var(--muted); }
+.btn:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; }
+
+.try { display: grid; gap: 14px; }
+.trybar { display: flex; align-items: center; justify-content: space-between; gap: 12px 18px; flex-wrap: wrap; }
+.trybar p { margin: 0; color: var(--ink-2); }
+.tryacts { display: flex; gap: 8px; flex-wrap: wrap; }
+.window { border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); background: var(--card); border: 1px solid var(--rule); height: clamp(560px, 78vh, 820px); }
+.window iframe { display: block; width: 100%; height: 100%; border: 0; background: var(--card); }
+.tips { margin: 4px 0 0; padding-left: 20px; display: grid; gap: 6px; color: var(--ink-2); font-size: 15px; max-width: 900px; }
+
+/* On a phone: a card that opens the app full screen, instead of an app in a frame */
+.trycard { display: none; }
+@media (max-width: 759px) {
+  .trybar, .window { display: none; }
+  .trycard { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 16px; align-items: center; background: var(--card); border: 1px solid var(--rule); border-radius: 16px; padding: 14px; box-shadow: var(--shadow); }
+  .trycard img { width: 112px; border-radius: 14px; }
+  .trytext p { margin: 0 0 8px; font-size: 14.5px; color: var(--ink-2); }
+  .trytext .big { font: 600 18px/1.3 var(--serif); color: var(--ink); }
+  .cardacts { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 0 !important; }
+  h1 { font-size: 28px; }
+  .lede { font-size: 17px; }
+}
+
+.what .cols { display: grid; gap: 12px 40px; }
+.what p { margin: 0; color: var(--ink-2); font-size: 15.5px; }
+.what b { color: var(--ink); }
+@media (min-width: 900px) { .what .cols { grid-template-columns: 1fr 1fr; } }
+
+.shots .strip { display: grid; grid-auto-flow: column; grid-auto-columns: min(82%, 420px); gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 4px 16px 10px; margin: 0 -16px; }
+.shots figure { margin: 0; scroll-snap-align: start; }
+.shots img { display: block; width: 100%; }
+.shots figcaption { font-size: 13.5px; color: var(--muted); margin-top: 6px; line-height: 1.45; }
+@media (min-width: 900px) {
+  .shots .strip { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: visible; margin: 0; padding: 0; gap: 24px 28px; }
+}
+
+.own { max-width: 760px; }
+.own p { color: var(--ink-2); margin: 0 0 14px; }
+.links { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px !important; }
+.foot { font-size: 13.5px; color: var(--muted) !important; margin-top: 22px !important; }

@@ -1,0 +1,17 @@
+# Moshe's LanguageTool, started by the first request (languagetool-proxy.service).
+# Two addresses: this machine, and the gateway of the Docker network the moshe
+# container is on. 172.19.0.1 is that gateway on the machine this was written
+# for; find yours with
+#   docker network inspect <network> -f '{{(index .IPAM.Config 0).Gateway}}'
+# and drop the line if the server doesn't run in Docker.
+[Unit]
+Description=LanguageTool on demand (socket)
+
+[Socket]
+ListenStream=127.0.0.1:8431
+ListenStream=172.19.0.1:8431
+FreeBind=yes
+Service=languagetool-proxy.service
+
+[Install]
+WantedBy=sockets.target

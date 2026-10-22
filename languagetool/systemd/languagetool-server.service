@@ -1,0 +1,14 @@
+# The LanguageTool container itself, wanted only while the proxy runs.
+[Unit]
+Description=LanguageTool server (container)
+StopWhenUnneeded=yes
+
+[Service]
+ExecStartPre=-/usr/bin/docker rm -f languagetool
+ExecStart=/usr/bin/docker run --rm --name languagetool -p 127.0.0.1:8010:8010 --memory=1200m moshe-languagetool
+# ready when it answers (the proxy waits for this)
+ExecStartPost=/bin/sh -c 'for i in $(seq 1 120); do curl -sf -o /dev/null http://127.0.0.1:8010/v2/languages && exit 0; sleep 0.5; done; exit 1'
+ExecStop=/usr/bin/docker stop -t 5 languagetool
+TimeoutStartSec=90
+# stopped by docker stop: that is how it ends
+SuccessExitStatus=143 137

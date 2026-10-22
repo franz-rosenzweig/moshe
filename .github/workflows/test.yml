@@ -1,0 +1,28 @@
+# The tests a deploy must pass (tools/test-gate.sh), and the web app's build,
+# for every change pushed or offered here. The browser tests (tools/e2e.py)
+# need Docker and a headless Chrome, so they stay on the machine that deploys.
+name: Tests
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      TZ: America/Phoenix
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: The engine's tests
+        working-directory: engine
+        run: node --test test/*.test.js
+      - name: The server's tests
+        working-directory: server
+        run: node --test test/*.test.js
+      - name: The web app builds
+        working-directory: frontend
+        run: npm ci && npx vite build

@@ -1,0 +1,9 @@
+# Passes requests to the LanguageTool container, starting it first; quits
+# after 15 minutes without one, and the container stops with it.
+[Unit]
+Description=LanguageTool on demand (proxy)
+Requires=languagetool-server.service languagetool.socket
+After=languagetool-server.service
+
+[Service]
+ExecStart=/lib/systemd/systemd-socket-proxyd --exit-idle-time=15min 127.0.0.1:8010

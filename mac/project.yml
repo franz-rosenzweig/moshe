@@ -1,0 +1,51 @@
+# XcodeGen spec. Generates Moshe.xcodeproj from this file plus the Swift sources,
+# so the project is reviewable text in git instead of an opaque bundle.
+#   brew install xcodegen && xcodegen generate && open Moshe.xcodeproj
+# build.sh reads the same settings and builds without Xcode.
+name: Moshe
+options:
+  bundleIdPrefix: xyz.tiresia
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+targets:
+  Moshe:
+    type: application
+    platform: macOS
+    # a shared scheme, so `xcodebuild -scheme Moshe` and the Run button agree
+    scheme:
+      configVariants: []
+    sources:
+      - path: Moshe
+    settings:
+      base:
+        PRODUCT_NAME: Moshe
+        PRODUCT_BUNDLE_IDENTIFIER: xyz.tiresia.moshe
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "5.9"
+        ENABLE_HARDENED_RUNTIME: YES
+        # Local-only app: signing to run on this Mac is enough.
+        CODE_SIGN_STYLE: Automatic
+        COMBINE_HIDPI_IMAGES: YES
+    info:
+      path: Moshe/Info.plist
+      properties:
+        CFBundleName: Moshe
+        CFBundleDisplayName: Moshe
+        # XcodeGen otherwise writes 1.0 and 1, whatever the settings above say
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSMinimumSystemVersion: "14.0"
+        LSApplicationCategoryType: public.app-category.productivity
+        NSHumanReadableCopyright: ""
+        NSPrincipalClass: NSApplication
+        # The server fallback may be plain HTTP on the tailnet.
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+    entitlements:
+      path: Moshe/Moshe.entitlements
+      properties:
+        # Sandbox off: the library is a folder anywhere on this Mac (inside the
+        # Obsidian vault), chosen once and kept as a path.
+        com.apple.security.app-sandbox: false

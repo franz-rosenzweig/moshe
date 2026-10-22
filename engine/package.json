@@ -1,0 +1,10 @@
+{
+  "name": "@moshe/engine",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Moshe's rules — the library on disk, the markup, statistics, merging — for every device",
+  "main": "src/store.js",
+  "scripts": { "test": "node --test test/*.test.js" }
+}

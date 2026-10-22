@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
+    <title>Moshe</title>
+    <meta name="description" content="Moshe: a writing app over Markdown files." />
+    <meta name="theme-color" content="#F7F7F7" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#2A2A2B" media="(prefers-color-scheme: dark)" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Moshe" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
+    <script>
+      try {
+        var p = JSON.parse(localStorage.getItem('moshe.ui') || '{}').prefs || {};
+        if (p.appearance === 'light' || p.appearance === 'dark') document.documentElement.setAttribute('data-theme', p.appearance);
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

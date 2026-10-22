@@ -1,0 +1,151 @@
+/* The editor, as the Moshe theme draws the markup: tags grey and quiet,
+   headings in three sizes with their #s in the margin, the text in a column
+   of `--ed-width` characters. Every colour is a token (app.css). */
+.moshe-editor { height: 100%; }
+.moshe-editor .cm-editor { height: 100%; background: var(--editor-bg); color: var(--ed-text); outline: none !important; }
+.moshe-editor .cm-editor.cm-focused { outline: none; }
+.moshe-editor .cm-scroller {
+  font-family: var(--ed-font); font-size: var(--ed-size); line-height: var(--ed-lh);
+  overflow-y: auto; scrollbar-width: thin;
+}
+/* a gutter each side (room for the hanging heading tags), outside the line width */
+.moshe-editor .cm-content {
+  box-sizing: content-box; max-width: calc(var(--ed-width) * 0.51em + 4px);
+  margin: 0 auto; padding: 60px 32px 45vh; caret-color: var(--ed-cursor);
+  user-select: text; -webkit-user-select: text;
+}
+.moshe-editor.stacked .cm-content { padding: 20px 32px 20px; }
+.moshe-editor .cm-line { padding: 0 2px; padding-bottom: var(--ed-para, 0); }
+.moshe-editor .cm-cursor { border-left: 2px solid var(--ed-cursor); margin-left: -1px; }
+.moshe-editor .cm-selectionBackground, .moshe-editor .cm-editor ::selection { background: var(--ed-selection) !important; }
+.moshe-editor .cm-editor.cm-focused .cm-selectionBackground { background: var(--ed-selection) !important; }
+.moshe-editor .cm-activeLine { background: transparent; }
+.moshe-editor.marker .cm-activeLine { background: var(--ed-line-marker); }
+.moshe-editor .cm-gutters { display: none; }
+
+/* tags */
+.moshe-editor .cm-tag { color: var(--ed-tag); font-weight: normal; font-style: normal; text-decoration: none; }
+.moshe-editor .cm-tag-h { color: var(--ed-tag-h); font-size: var(--ed-size); font-weight: 500; letter-spacing: 0.02em; }
+.moshe-editor .cm-list-tag { color: var(--ed-list-tag); }
+.moshe-editor .cm-quote-tag { color: var(--ed-tag); }
+.moshe-editor .cm-link-tag, .moshe-editor .cm-img-tag { color: var(--ed-link-tag); }
+
+/* headings: Title 4XL, Heading XL, Subheading M, then the body size */
+.moshe-editor .cm-heading { font-weight: 700; color: var(--ed-heading, var(--ed-text)); background: var(--ed-heading-bg, transparent); }
+/* a theme's heading band reaches out under the hanging # */
+.moshe-editor .cm-heading { box-shadow: calc(-1 * var(--hang, 0px) - 6px) 0 0 var(--ed-heading-bg, transparent); }
+.moshe-editor .cm-h1 { font-size: 3.2em; line-height: 1.3; letter-spacing: -0.015em; }
+.moshe-editor .cm-h2 { font-size: 1.75em; line-height: 1.3; letter-spacing: -0.01em; }
+.moshe-editor .cm-h3 { font-size: 1.3em; line-height: 1.35; }
+.moshe-editor .cm-h5 { font-style: italic; }
+.moshe-editor .cm-h6 { font-style: italic; font-weight: 600; }
+
+/* inline */
+.moshe-editor .cm-strong { font-weight: 700; color: var(--ed-strong, inherit); }
+.moshe-editor .cm-em { font-style: italic; color: var(--ed-em, inherit); }
+.moshe-editor .cm-strike { text-decoration: line-through; }
+.moshe-editor .cm-mark { background: var(--ed-mark-bg); color: var(--ed-mark-text, inherit); box-shadow: inset 0 0 0 1px var(--ed-mark-border, transparent); border-radius: 2px; }
+.moshe-editor .cm-mark-tag { color: var(--ed-mark-tag); }
+.moshe-editor .cm-code { font-family: var(--font-mono); font-size: 0.9em; background: var(--ed-code-bg); color: var(--ed-code-text, inherit); box-shadow: inset 0 0 0 1px var(--ed-code-border, transparent); border-radius: 3px; }
+.moshe-editor .cm-code-tag { color: var(--ed-code-tag); }
+.moshe-editor .cm-comment { color: var(--ed-comment); }
+.moshe-editor .cm-comment-bg { background: var(--ed-comment-bg); }
+.moshe-editor .cm-comment-tag { color: var(--ed-comment-tag); }
+.moshe-editor .cm-delete { color: var(--ed-delete); text-decoration: line-through; text-decoration-color: var(--ed-delete); }
+.moshe-editor .cm-insert { color: var(--ed-insert); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--ed-insert) 45%, transparent); }
+.moshe-editor .cm-annot { background: var(--ed-annot-bg); box-shadow: inset 0 0 0 1px var(--ed-annot-border); border-radius: 3px; padding: 1px 0; color: var(--ed-annot-text); cursor: pointer; }
+.moshe-editor .cm-annot-tag { color: var(--ed-annot-border); }
+.moshe-editor .cm-annot-note { color: var(--ed-annot-text); font-style: italic; }
+.moshe-editor .cm-fn, .moshe-editor .cm-fn-tag { color: var(--ed-footnote); }
+.moshe-editor .cm-fnmark { color: var(--ed-footnote); background: color-mix(in srgb, var(--ed-footnote-bg) 30%, transparent); border-radius: 4px; padding: 0 3px; margin: 0 1px; font-size: 0.8em; vertical-align: 0.25em; cursor: pointer; }
+.moshe-editor .cm-link { color: var(--ed-link); text-decoration: underline; text-decoration-line: var(--ed-link-deco, underline); box-shadow: inset 0 0 0 1px var(--ed-link-border, transparent); text-decoration-thickness: 1px; text-underline-offset: 2px; background: var(--ed-link-bg); border-radius: 3px; }
+.moshe-editor .cm-url { background: none; }
+.moshe-editor .cm-link-url { color: var(--ed-tag); text-decoration: none; }
+.moshe-editor .cm-linkmark { color: var(--ed-link-tag); font-size: 0.62em; letter-spacing: -0.12em; margin: 0 3px; vertical-align: 0.4em; cursor: pointer; }
+.moshe-editor .cm-img-alt { color: var(--ed-link); }
+.moshe-editor .cm-img-url { color: var(--ed-tag); font-size: 0.85em; }
+.moshe-editor .cm-math { color: var(--ed-math); font-family: var(--font-mono); font-size: 0.92em; }
+
+/* blocks */
+.moshe-editor .cm-quote { color: var(--ed-quote); font-style: italic; }
+.moshe-editor .cm-list { }
+.moshe-editor .cm-task-done { color: var(--muted); }
+.moshe-editor .cm-divider { text-align: left; }
+.moshe-editor .cm-divider-tag { color: var(--ed-divider); letter-spacing: 0.1em; }
+.moshe-editor .cm-codeblock { font-family: var(--font-mono); font-size: 0.88em; background: var(--ed-code-bg); }
+.moshe-editor .cm-fence-open { border-radius: 4px 4px 0 0; }
+.moshe-editor .cm-fence-close { border-radius: 0 0 4px 4px; }
+.moshe-editor .cm-mathblock { font-family: var(--font-mono); color: var(--ed-math); font-size: 0.92em; }
+.moshe-editor .cm-commentblock { background: var(--ed-comment-bg); }
+.moshe-editor .cm-commentblock .cm-comment { color: var(--ed-comment-block); }
+.moshe-editor .cm-toc-tag { color: var(--ed-link); font-weight: 600; }
+.moshe-editor .cm-table { font-family: var(--font-mono); font-size: 0.88em; white-space: pre; }
+.moshe-editor .cm-table-rule { color: var(--ed-tag); }
+.moshe-editor .cm-table-bar { color: var(--ed-tag); }
+.moshe-editor .cm-imgbox { display: block; margin: 6px 0 10px; position: relative; }
+.moshe-editor .cm-imgbox img { max-width: 100%; border-radius: 4px; display: block; object-fit: contain; }
+.moshe-editor .cm-imgbox.broken { color: var(--muted); font-size: 0.85em; padding: 8px; border: 1px dashed var(--sep-strong); border-radius: 4px; }
+.moshe-editor .cm-imgcap { position: absolute; left: 6px; bottom: 6px; font-size: 11px; background: rgba(0, 0, 0, 0.55); color: #fff; padding: 1px 6px; border-radius: 4px; }
+
+/* focus: the rest of the text fades while the current line, sentence or paragraph stays */
+.moshe-editor .cm-faded { opacity: var(--ed-dim); transition: opacity 0.15s; }
+
+/* the search panel, quietly */
+.moshe-editor .cm-panels { background: var(--sidebar-bg); color: var(--text); border-color: var(--sep); font-family: var(--font-ui); font-size: 12px; }
+.moshe-editor .cm-panels input, .moshe-editor .cm-panels button { font-size: 12px; }
+.moshe-editor .cm-searchMatch { background: color-mix(in srgb, var(--ed-mark-bg) 80%, transparent); outline: 1px solid var(--ed-annot-border); }
+.moshe-editor .cm-searchMatch-selected { background: var(--ed-annot-border); }
+
+/* the page background option: the text on a sheet of paper */
+.moshe-editor.page .cm-content { box-sizing: border-box; background: var(--editor-bg); box-shadow: 0 0 0 1px var(--sep), 0 4px 18px rgba(0, 0, 0, 0.06); padding: 60px 56px 45vh; max-width: calc(var(--ed-width) * 0.51em + 116px); margin-top: 24px; }
+.moshe-editor.page .cm-editor { background: var(--sidebar-bg); }
+
+/* a phone: margins at the sides, and the tags inline rather than hanging off the screen */
+@media (max-width: 760px) {
+  .moshe-editor .cm-content { padding: 52px 20px 45vh;   /* the counter and goal ring sit above the first line */ max-width: none; }
+  .moshe-editor .cm-heading, .moshe-editor .cm-quote { text-indent: 0 !important; }
+  .moshe-editor .cm-h1 { font-size: 2.2em; }
+  .moshe-editor .cm-h2 { font-size: 1.5em; }
+}
+
+/* revision mode: the text quiet, what is to be revised loud */
+.moshe-editor.revision .cm-content { color: color-mix(in srgb, var(--ed-text) 55%, var(--editor-bg)); }
+.moshe-editor.revision .cm-annot { box-shadow: inset 0 0 0 2px var(--ed-annot-border); color: var(--ed-annot-text); }
+.moshe-editor.revision .cm-comment, .moshe-editor.revision .cm-delete, .moshe-editor.revision .cm-insert { font-weight: 600; }
+.moshe-editor.revision .cm-mark { background: var(--ed-annot-border); color: #000; }
+/* Show Paragraph Numbers (editor/paranum.js): in the left margin, beyond a heading's or quote's hanging tag */
+.moshe-editor .cm-line[data-pn] { position: relative; }
+.moshe-editor .cm-line[data-pn]::before {
+  content: attr(data-pn); position: absolute; left: calc(-36px - var(--hang, 0px)); width: 28px; text-align: right; text-indent: 0;
+  font: 400 11px/inherit var(--font-ui); font-style: normal; letter-spacing: 0; color: var(--ed-tag); font-variant-numeric: tabular-nums; pointer-events: none;
+}
+.moshe-editor .cm-line[data-pn][dir="rtl"]::before { left: -36px; }   /* a right-to-left line's tag hangs on the other side */
+/* the grammar check's findings (editor/proof.js): a wavy line, a colour to a kind */
+.moshe-editor .cm-proof { text-decoration-line: underline; text-decoration-style: wavy; text-decoration-thickness: 1.3px; text-underline-offset: 3px; text-decoration-skip-ink: none; }
+.moshe-editor .cm-proof.sp { text-decoration-color: #e5484d; }
+.moshe-editor .cm-proof.gr { text-decoration-color: #f59e0b; }
+.moshe-editor .cm-proof.st { text-decoration-color: #3b82f6; }
+.moshe-editor .cm-proof.pu { text-decoration-color: #a855f7; }
+.moshe-editor.revision .cm-proof { text-decoration-thickness: 2px; }
+/* one kind picked in the dashboard: the others go quiet, it stands out */
+.moshe-editor.rev-one .cm-annot, .moshe-editor.rev-one .cm-mark, .moshe-editor.rev-one .cm-comment, .moshe-editor.rev-one .cm-delete, .moshe-editor.rev-one .cm-insert {
+  background: none; box-shadow: none; color: inherit; font-weight: inherit; text-decoration: none; }
+.moshe-editor.rev-one .cm-comment-bg, .moshe-editor.rev-one .cm-commentblock { background: none; }
+.moshe-editor.rev-annotation .cm-annot { background: var(--ed-annot-bg); box-shadow: inset 0 0 0 2px var(--ed-annot-border); color: var(--ed-annot-text); }
+.moshe-editor.rev-comment .cm-comment { color: var(--ed-comment); font-weight: 600; }
+.moshe-editor.rev-comment .cm-comment-bg, .moshe-editor.rev-comment .cm-commentblock { background: var(--ed-comment-bg); }
+.moshe-editor.rev-mark .cm-mark { background: var(--ed-annot-border); color: #000; }
+.moshe-editor.rev-delete .cm-delete { color: var(--ed-delete); font-weight: 600; text-decoration: line-through; }
+.moshe-editor.rev-insert .cm-insert { color: var(--ed-insert); font-weight: 600; text-decoration: underline; }
+
+/* the [[ link list, as a native menu */
+.cm-tooltip.cm-tooltip-autocomplete { background: var(--popover-bg); border: 0; border-radius: 8px; box-shadow: var(--popover-shadow); padding: 4px; font-family: var(--font-ui); font-size: 13px; }
+.cm-tooltip.cm-tooltip-autocomplete > ul { max-height: 260px; }
+.cm-tooltip.cm-tooltip-autocomplete > ul > li { padding: 4px 10px; border-radius: 5px; color: var(--text); }
+.cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] { background: var(--accent); color: var(--on-accent); }
+.cm-tooltip-autocomplete .cm-completionDetail { color: var(--muted); font-style: normal; margin-left: 10px; font-size: 11px; }
+.cm-tooltip-autocomplete li[aria-selected] .cm-completionDetail { color: rgba(255, 255, 255, 0.75); }
+.cm-completionMatchedText { text-decoration: none; font-weight: 700; }
+
+/* translation mode: the paragraph whose counterpart the cursor is in */
+.moshe-editor .cm-counterpart { background: color-mix(in srgb, var(--accent) 9%, transparent); border-radius: 3px; }

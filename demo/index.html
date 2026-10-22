@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Moshe</title>
+<meta name="description" content="My writing app, over a folder of plain Markdown files. Try the real thing here, on a made-up library that stays in your browser.">
+<meta name="theme-color" content="#f7f6f2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1b1b1c" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="taste.css">
+</head>
+<body>
+<main class="page">
+  <nav class="crumb"><a href="../">← stuffs</a></nav>
+
+  <header class="intro">
+    <div class="mark"><img src="icon.svg" alt="" width="56" height="56"><span><b>Moshe</b><span class="he" lang="he" dir="rtl">משה</span></span></div>
+    <h1>My writing app, over a folder of plain Markdown files</h1>
+    <p class="lede">Moshe is where I write: a library on the left, the sheets in the middle, and a quiet editor where the Markdown stays in the text but greys out of the way. Every sheet is a plain <code>.md</code> file in a folder that's YOURS, so Obsidian or any text editor can open the same writing. The real one runs on my own server behind a password, so there's nothing to sign up for here, but the whole app is right below, running in your browser on a made-up library.</p>
+  </header>
+
+  <section class="try" aria-label="Try Moshe">
+    <div class="trybar">
+      <p><b>Try the real app.</b> The library is made up, and whatever you write stays in this browser.</p>
+      <span class="tryacts">
+        <button type="button" class="btn ghost" id="resetDemo">Reset the demo</button>
+        <a class="btn ghost" href="app/" target="_blank" rel="noopener">Open it full size</a>
+      </span>
+    </div>
+    <div class="window" id="window">
+      <iframe id="demo" title="Moshe, running on a made-up library" data-src="app/"></iframe>
+    </div>
+
+    <div class="trycard">
+      <img src="{{shot:phone}}" width="{{w:phone}}" height="{{h:phone}}" loading="lazy" alt="Moshe on a phone: a chapter of the novel in the editor, with a highlight and a footnote">
+      <div class="trytext">
+        <p class="big">Try the real app, on a made-up library.</p>
+        <p>It opens full screen, one pane at a time, the way it works on a phone. Whatever you write stays in this browser.</p>
+        <p class="cardacts"><a class="btn" href="app/">Open the demo</a> <button type="button" class="btn ghost" id="resetDemo2">Reset it</button></p>
+      </div>
+    </div>
+
+    <ul class="tips">
+      <li>It opens on <b>Getting Started</b>, a few sheets I wrote for new people. Type in them, they're yours.</li>
+      <li>Open <b>Late Apples</b> under Projects for a novel in progress: keywords, a goal ring that fills as you write, a footnote, a comment and a note on a phrase.</li>
+      <li>In <b>Genesis</b>, the translate button at the top right puts the Hebrew and the King James side by side, paragraph by paragraph.</li>
+      <li>The export button makes a real PDF, Word file or ePub, right in the browser, and Settings has the themes.</li>
+    </ul>
+  </section>
+
+  <section class="what" aria-labelledby="whatTitle">
+    <h2 id="whatTitle">What it does</h2>
+    <div class="cols">
+      <p><b>A library for long texts.</b> Notes with an Inbox, and projects with their own groups, so a book can be chapters, a chapter can be scenes, and the research sits beside them in Extras. Sheets glue together to read as one text, and keywords, filters and goals keep the whole thing in order.</p>
+      <p><b>Plain files underneath.</b> A group is a folder and a sheet is a Markdown file, with a small <code>.moshe.json</code> for the order and the colours. Highlights, comments and footnotes are written the way Obsidian writes them, and if two devices change the same sheet, Moshe merges them paragraph by paragraph instead of leaving a conflict copy.</p>
+      <p><b>Translation, side by side.</b> The original and the translation, paragraph beside paragraph, kept level as you write, with Hebrew running right to left and the spelling checked in both languages, offline.</p>
+      <p><b>Out the door.</b> PDF, Word, ePub, HTML and Markdown in seven styles. A Word file is a real one, and in the Revision style your deletions and insertions arrive as tracked changes and your comments as Word comments.</p>
+      <p><b>On every device.</b> The web app, a Mac app and an Android app, all working on the same folder, with backups kept by the server and WebDAV sync for a phone without Syncthing.</p>
+    </div>
+  </section>
+
+  <section class="shots" aria-labelledby="shotsTitle">
+    <h2 id="shotsTitle">From the full app</h2>
+    <div class="strip">
+      <figure><img src="{{shot:translation}}" width="{{w:translation}}" height="{{h:translation}}" loading="lazy" alt="Translation mode: Genesis 1 in Hebrew beside the King James, with the paragraph in progress lit up on both sides"><figcaption>Translation mode: the Hebrew beside the English, kept level as you write</figcaption></figure>
+      <figure><img src="{{shot:dashboard}}" width="{{w:dashboard}}" height="{{h:dashboard}}" loading="lazy" alt="The dashboard beside a chapter: the goal ring, keywords, the outline, the footnotes and the notes on the sheet"><figcaption>The dashboard: the goal, the outline, footnotes and notes</figcaption></figure>
+      <figure><img src="{{shot:export}}" width="{{w:export}}" height="{{h:export}}" loading="lazy" alt="The export window with a PDF preview of the novel in the Essay style"><figcaption>Export, with the preview as it will print</figcaption></figure>
+      <figure><img src="{{shot:phones}}" width="{{w:phones}}" height="{{h:phones}}" loading="lazy" alt="Moshe on three phones: the library, the sheets of Part One, and a chapter in the editor"><figcaption>On a phone, one pane at a time</figcaption></figure>
+    </div>
+  </section>
+
+  <section class="own" aria-labelledby="ownTitle">
+    <h2 id="ownTitle">Running your own</h2>
+    <p>You'll need a computer that stays on and Docker. The server is one small Node program with no dependencies: point it at a folder, set a password, and that's about it. The Mac and Android apps are built from the same repository, and the docs walk through all of it the way I'd explain it sitting next to you.</p>
+    <p class="links">
+      <a class="btn" href="https://github.com/franz-rosenzweig/moshe">Run your own</a>
+      <a class="btn ghost" href="https://docs.tiresia.xyz/moshe/">Docs</a>
+      <a class="btn ghost" href="../">Back to stuffs</a>
+    </p>
+    <p class="foot">Moshe is free software under the GNU GPL, version 3 or later. Nothing you type on this page leaves your browser. The novel, the essays and the notes are made up, and Genesis is the Hebrew text beside the King James, both in the public domain.</p>
+  </section>
+</main>
+<script src="taste.js" type="module"></script>
+</body>
+</html>

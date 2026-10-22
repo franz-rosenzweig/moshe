@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Light: a WebView takes prefers-color-scheme from its activity's theme. -->
+    <style name="Theme.Moshe" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/background</item>
+        <item name="android:colorAccent">@color/accent</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+    <color name="background">#FFFFFF</color>
+    <color name="accent">#F5B31F</color>
+    <color name="icon_top">#FFD84D</color>
+    <color name="icon_bottom">#F49C19</color>
+</resources>
