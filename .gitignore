@@ -8,6 +8,7 @@ tools/__pycache__/
 mac/Moshe.xcodeproj/
 mac/Moshe/Info.plist
 mac/build/
+mac/local.env
 # Android: Gradle's output and caches, and the signing key and its passwords
 android/.gradle/
 android/build/

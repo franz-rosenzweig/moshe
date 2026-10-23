@@ -72,6 +72,7 @@ public class SettingsActivity extends Activity {
         address = new EditText(this);
         address.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
         address.setText(Place.server(this));
+        address.setHint("https://moshe.example.com/");
         address.setTextColor(text);
         address.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -86,6 +87,9 @@ public class SettingsActivity extends Activity {
         bp.topMargin = dp(20);
         col.addView(open, bp);
         open.setOnClickListener(v -> done());
+        TextView about = note("Moshe " + BuildConfig.VERSION_NAME + ". Free software under the GNU GPL, version 3 or later.", dim);
+        about.setPadding(0, dp(24), 0, 0);
+        col.addView(about);
 
         String kind = Place.kind(this);
         picked = Place.treeUsable(this) ? Place.tree(this) : null;
@@ -142,8 +146,10 @@ public class SettingsActivity extends Activity {
             Place.useTree(this, picked);
         } else if (app.isChecked()) {
             Place.useApp(this);
-        } else {
-            Place.useServer(this, address.getText().toString());
+        } else if (!Place.useServer(this, address.getText().toString())) {
+            address.setError("The server’s address, starting with https://");
+            address.requestFocus();
+            return;
         }
         startActivity(new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
         finish();

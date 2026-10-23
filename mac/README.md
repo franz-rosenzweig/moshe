@@ -10,7 +10,9 @@ few things a page cannot do well.
   reads and writes it through `FolderBridge.swift`, and FSEvents tells it within
   about 0.3 s when Obsidian, Syncthing or iCloud change something. Moshe → Library
   Folder… chooses another; Moshe → Use the Server… opens the library on the server
-  instead (https://moshe.tiresia.xyz by default), the page and all.
+  instead, the page and all: the address typed there, or the one the build was
+  given (`MOSHE_DEFAULT_SERVER`, from the environment or `mac/local.env`, which
+  git leaves out). Without either it asks.
 - **The window**: the page runs to the top edge under a transparent title
   bar; the traffic lights float in the middle of the library's bar; an empty part
   of any pane's bar moves the window, and a double-click zooms it. The frame is

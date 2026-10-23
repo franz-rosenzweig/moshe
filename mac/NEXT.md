@@ -110,23 +110,16 @@ A share extension ("Add to Moshe" from any app → a new sheet in the Inbox,
 via `moshe-app://app/?share=<text>` — the page handles `?share=`),
 Shortcuts actions (New Sheet, Append to Sheet), Spotlight.
 
-## Open work: other people's builds
+## Other people's builds (done 2026-10-23)
 
 Moshe is meant to be built by anyone from this repository (no Developer ID,
-no releases). Moshe is GPL-3.0-or-later (`LICENSE`). On the Mac side:
+no releases). Moshe is GPL-3.0-or-later (`LICENSE`).
 
-1. **No built-in server.** `Library.defaultServer` is
-   `https://moshe.tiresia.xyz/`, so a build falls back to that server. Make
-   it a build setting instead: `mac/build.sh` reads `MOSHE_DEFAULT_SERVER`
-   into the Info.plist (empty when unset), and with no default **Use the
-   Server…** asks for an address (no placeholder that is a real address).
-   Existing installs must keep working: either their builds set
-   `MOSHE_DEFAULT_SERVER`, or the first launch of the new build stores the
-   old default in `serverKey` when nothing is stored and the app was already
-   set up.
-2. **About Moshe:** `NSHumanReadableCopyright` in `project.yml` →
-   "© 2026 the Moshe authors. Free software under the GNU GPL, version 3 or
-   later."
-3. **Help › Getting Started:** `mosheCommand('gettingStarted')` adds the
-   Getting Started sheets to the Inbox again (docs/MENUS.md).
+1. **No built-in server.** `Library.defaultServer` comes from the Info.plist
+   key `MosheDefaultServer`, which `build.sh` fills from
+   `MOSHE_DEFAULT_SERVER` (the environment, or `mac/local.env`, gitignored);
+   empty, there is none, `Library.server` is nil, and **Use a Server…** asks.
+   A build for an existing install keeps its server by setting it there.
+2. **About Moshe:** the GPL line in `NSHumanReadableCopyright`.
+3. **Help › Getting Started** runs `gettingStarted`.
 4. **Help › Moshe Help** opens the repository's README.

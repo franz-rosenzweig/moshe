@@ -17,7 +17,9 @@ what a page cannot do.
     the sync itself over WebDAV, through the bridge's `http` op: in Moshe,
     Settings → Sync, with the server's address and a device token made in the
     server's own Settings → Sync;
-  - **the server's page** (https://moshe.tiresia.xyz), with no folder.
+  - **the server's page**, with no folder: the address typed there, which
+    `moshe.defaultServer` in `local.properties` (or `-PmosheDefaultServer`)
+    fills in at build time.
 - **The page is served** at `https://appassets.androidplatform.net/` from
   `assets/web/`, and pictures a sheet uses at `/_library/<path>` from the
   library. Nothing else ever loads in the window; any other address goes to

@@ -7,6 +7,13 @@ plugins {
 
 def web = file('../../frontend/dist')
 
+// The server "The server's page" starts with before an address is typed: none,
+// unless this build is given one, as moshe.defaultServer in android/local.properties
+// (never in git) or -PmosheDefaultServer=https://….
+def local = new Properties()
+if (rootProject.file('local.properties').exists()) rootProject.file('local.properties').withInputStream { local.load(it) }
+def defaultServer = (project.findProperty('mosheDefaultServer') ?: local.getProperty('moshe.defaultServer', '')).trim()
+
 android {
     namespace 'xyz.tiresia.moshe'
     compileSdk 36
@@ -19,6 +26,11 @@ android {
         versionName '0.1.0'
         resValue 'string', 'app_name', 'Moshe'
         manifestPlaceholders = [shareAuthority: 'xyz.tiresia.moshe.share']
+        buildConfigField 'String', 'DEFAULT_SERVER', '"' + defaultServer.replace('\\', '').replace('"', '') + '"'
+    }
+
+    buildFeatures {
+        buildConfig true
     }
 
     // The signing key's properties: android/keystore.properties (never in git), or the

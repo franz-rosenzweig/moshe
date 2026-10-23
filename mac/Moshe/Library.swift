@@ -2,13 +2,20 @@ import AppKit
 import Foundation
 
 /// Where the library lives. Moshe's is a folder on this Mac, read and written
-/// by the page through FolderBridge (docs/BRIDGE.md), which is the default; the
-/// server's own page (moshe.tiresia.xyz) is the fallback, with no bridge.
+/// by the page through FolderBridge (docs/BRIDGE.md), which is the default; a
+/// Moshe server's own page is the other way, with no bridge.
 enum Library {
     static let modeKey = "libraryMode"        // "folder" | "server"
     static let folderKey = "libraryFolder"    // a path; the app is not sandboxed
     static let serverKey = "serverURL"
-    static let defaultServer = "https://moshe.tiresia.xyz/"
+
+    /// The server this build was given (MOSHE_DEFAULT_SERVER, into the
+    /// Info.plist by build.sh), offered before an address is typed. Usually none.
+    static var defaultServer: String? {
+        let s = ((Bundle.main.object(forInfoDictionaryKey: "MosheDefaultServer") as? String) ?? "")
+            .trimmingCharacters(in: .whitespaces)
+        return s.isEmpty || s.hasPrefix("$(") ? nil : s
+    }
 
     /// The page, served from inside the app in folder mode (AppScheme).
     static let appOrigin = URL(string: "moshe-app://app/")!
@@ -30,9 +37,10 @@ enum Library {
 
     static var usesFolder: Bool { mode == "folder" && folder != nil && webBundle != nil }
 
-    static var server: URL {
-        let s = UserDefaults.standard.string(forKey: serverKey) ?? defaultServer
-        return URL(string: s.hasSuffix("/") ? s : s + "/") ?? URL(string: defaultServer)!
+    /// The server: the address typed in Use the Server…, or this build's. None before either.
+    static var server: URL? {
+        guard let s = UserDefaults.standard.string(forKey: serverKey) ?? defaultServer, !s.isEmpty else { return nil }
+        return URL(string: s.hasSuffix("/") ? s : s + "/")
     }
 
     /// The built web app inside Moshe.app (build.sh copies frontend/dist there).
@@ -42,13 +50,14 @@ enum Library {
         return url
     }
 
-    /// Where a window opens.
-    static var startURL: URL { usesFolder ? appOrigin : server }
+    /// Where a window opens. (Server mode without a server can't last: ensureChosen asks.)
+    static var startURL: URL { usesFolder ? appOrigin : (server ?? appOrigin) }
 
     /// A page the app treats as its own: from inside the app, or the server's.
     static func isOurs(_ url: URL) -> Bool {
-        url.scheme == AppScheme.scheme
-            || (url.scheme == server.scheme && url.host == server.host && url.port == server.port)
+        if url.scheme == AppScheme.scheme { return true }
+        guard let server else { return false }
+        return url.scheme == server.scheme && url.host == server.host && url.port == server.port
     }
 
     static func useFolder(_ url: URL) {
@@ -83,9 +92,12 @@ enum Library {
     /// server instead, or quitting.
     @MainActor
     static func ensureChosen() {
+        // the server's window with no server to open (an address never typed, a build without one)
+        if mode == "server" && server == nil { UserDefaults.standard.set("folder", forKey: modeKey) }
         guard mode == "folder", folder == nil else { return }
         if webBundle == nil {
-            // a build without the web app can only be the server's window
+            // a build without the web app can only be a server's window
+            if server == nil && !askServer(switching: false) { NSApp.terminate(nil) }
             return useServer()
         }
         while true {
@@ -95,14 +107,15 @@ enum Library {
             }
             let alert = NSAlert()
             alert.messageText = folderMissing ? "Moshe cannot find your library folder" : "Moshe keeps your writing in a folder"
-            alert.informativeText = "Choose the folder your sheets live in, or open the library on the server "
-                + "(\(server.host ?? server.absoluteString)) instead."
+            let there = server.map { " (\($0.host ?? $0.absoluteString))" } ?? ""
+            alert.informativeText = "Choose the folder your sheets live in, or open the library on a Moshe server\(there) instead."
             alert.addButton(withTitle: "Choose Folder…")
-            alert.addButton(withTitle: "Use the Server")
+            alert.addButton(withTitle: server == nil ? "Use a Server…" : "Use the Server")
             alert.addButton(withTitle: "Quit")
             switch alert.runModal() {
             case .alertFirstButtonReturn: continue
             case .alertSecondButtonReturn:
+                if server == nil && !askServer(switching: false) { continue }
                 UserDefaults.standard.set("server", forKey: modeKey)
                 return
             default: NSApp.terminate(nil)
@@ -110,28 +123,30 @@ enum Library {
         }
     }
 
-    /// The server's address, asked for in an alert. Switches to it.
-    @MainActor
-    static func askServer() {
+    /// The server's address, asked for in an alert, and kept. Switches to it
+    /// unless told not to. False if cancelled or not an address.
+    @MainActor @discardableResult
+    static func askServer(switching: Bool = true) -> Bool {
         let alert = NSAlert()
         alert.messageText = "The server's address"
         alert.informativeText = "Moshe opens the library on this server instead of a folder on this Mac."
         let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
-        field.stringValue = server.absoluteString
-        field.placeholderString = defaultServer
+        field.stringValue = server?.absoluteString ?? ""
+        field.placeholderString = defaultServer ?? "https://moshe.example.com/"
         alert.accessoryView = field
         alert.addButton(withTitle: "Use the Server")
         alert.addButton(withTitle: "Cancel")
         alert.window.initialFirstResponder = field
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        guard alert.runModal() == .alertFirstButtonReturn else { return false }
         let typed = field.stringValue.trimmingCharacters(in: .whitespaces)
-        guard let url = URL(string: typed.isEmpty ? defaultServer : typed), let scheme = url.scheme,
+        guard let url = URL(string: typed.isEmpty ? (defaultServer ?? "") : typed), let scheme = url.scheme,
               ["http", "https"].contains(scheme.lowercased()), url.host != nil else {
             NSSound.beep()
-            return
+            return false
         }
         UserDefaults.standard.set(url.absoluteString, forKey: serverKey)
-        useServer()
+        if switching { useServer() }
+        return true
     }
 }
 

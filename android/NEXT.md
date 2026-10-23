@@ -66,19 +66,15 @@ on the phone reaches the server's folder (through Syncthing or WebDAV) and
 Obsidian; the markup bar sits on the keyboard; Hebrew paragraphs run right to
 left.
 
-## Open work: other people's builds
+## Other people's builds (done 2026-10-23)
 
 Moshe is meant to be built by anyone from this repository, signed with
 their own key. Moshe is GPL-3.0-or-later (`LICENSE`).
 
-1. **No built-in server.** `Place.DEFAULT_SERVER` is
-   `https://moshe.tiresia.xyz/`, so a build falls back to that server. Make
-   it a `buildConfigField` read from `keystore.properties` or
-   `local.properties` (`moshe.defaultServer`, empty when unset), and with no
-   default ask for the address on the "server's page" and "synced with the
-   server" paths. Existing installs must keep working: their
-   `keystore.properties` sets it, or the first launch of the new build stores
-   the old default under `server` when nothing is stored and the app was
-   already set up.
-2. **About:** wherever the app shows its version, add "Free software under
-   the GNU GPL, version 3 or later."
+1. **No built-in server.** `BuildConfig.DEFAULT_SERVER` comes from
+   `moshe.defaultServer` in `local.properties` (gitignored) or
+   `-PmosheDefaultServer`; empty, the server choice in the settings screen
+   won't go on without an address, and "use the server instead" opens the
+   settings screen. A build for an existing install keeps its server by
+   setting it there.
+2. **About:** the settings screen ends with the version and the GPL line.

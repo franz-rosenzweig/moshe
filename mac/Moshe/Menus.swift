@@ -67,6 +67,7 @@ enum Menus {
         let helpItem = NSMenuItem(title: "Moshe Help", action: #selector(MenuTarget.help(_:)), keyEquivalent: "?")
         helpItem.target = MenuTarget.shared
         help.addItem(helpItem)
+        page(help, "Getting Started", "gettingStarted")   // the welcome sheets, into the Inbox again
         bar.addItem(submenu(help))
         NSApp.helpMenu = help
         return bar

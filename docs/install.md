@@ -38,7 +38,7 @@ open mac/build/Moshe.app     # or copy it to /Applications
 
 `mac/build.sh` signs the app with your own Apple Development identity if your keychain has one, and otherwise ad hoc, which is fine on the Mac you built it on. Nothing about it is notarized, so the simplest way onto another Mac is to build it there too.
 
-The first time it opens, Moshe asks for the folder to keep your library in. Pick the folder Syncthing, iCloud Drive or Dropbox already keeps in step, or a folder inside your Obsidian vault, and press **Use This Folder**. An empty folder starts an empty library, with an **Add “Getting Started”** button for a short tour: five sheets in my words, a welcome and then writing with tags, sheets and groups, checking and translating, and where your writing lives. **Settings › General** adds them to the Inbox again whenever you like. If you'd rather work on a server's copy, cancel and press **Use the Server**, then choose **Moshe › Use the Server…** and type your own server's address. The app is built with my server's address as its default, so until you type yours it opens mine, which won't let you in.
+The first time it opens, Moshe asks for the folder to keep your library in. Pick the folder Syncthing, iCloud Drive or Dropbox already keeps in step, or a folder inside your Obsidian vault, and press **Use This Folder**. An empty folder starts an empty library, with an **Add “Getting Started”** button for a short tour: five sheets in my words, a welcome and then writing with tags, sheets and groups, checking and translating, and where your writing lives. **Settings › General** adds them to the Inbox again whenever you like. If you'd rather work on a server's copy, cancel, press **Use a Server…** and type your own server's address. And if you build Moshe for yourself and always use the same server, put `MOSHE_DEFAULT_SERVER=https://your.server/` in `mac/local.env` before you build, which means the app offers your server from the start.
 
 [The Mac app](mac.md) has the rest: the window, the menus and switching folders. The build details are in [mac/README.md](../mac/README.md).
 
@@ -57,7 +57,7 @@ The first time it opens, Moshe asks **Where is your library?** and offers three 
 
 - **A folder on this phone**, for a phone with Syncthing: pick the synced folder that holds your library.
 - **Moshe's own folder, synced with the server**, for a phone without Syncthing. Then in Moshe, **Settings › Sync**, choose **A Moshe server** and type the server's address and a device token (see [WebDAV sync](webdav.md)).
-- **The server's page, with no folder**, which is the web app in the app's window. The address under it starts out as my server's, so replace it with yours.
+- **The server's page, with no folder**, which is the web app in the app's window. Type your server's address under it. If you build the app for yourself, `moshe.defaultServer=https://your.server/` in `android/local.properties` fills it in for you.
 
 You can change it later by long-pressing Moshe's icon and choosing **Library**. [The Android app](android.md) has the rest, and the build and signing details are in [android/README.md](../android/README.md).
 
