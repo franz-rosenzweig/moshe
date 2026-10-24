@@ -233,7 +233,7 @@ final class MosheWindowController: NSWindowController, NSWindowDelegate, WKNavig
         let e = error as NSError
         if e.domain == NSURLErrorDomain && e.code == NSURLErrorCancelled { return }
         NSLog("Moshe: could not open \(Library.startURL.absoluteString) — \(error.localizedDescription)")
-        let where_ = Library.usesFolder ? "the app's own page" : Library.server.absoluteString
+        let where_ = Library.usesFolder ? "the app's own page" : (Library.server?.absoluteString ?? "the server")
         webView.loadHTMLString(Self.unreachable(where_, error.localizedDescription), baseURL: nil)
     }
 

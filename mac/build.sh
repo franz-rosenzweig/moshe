@@ -15,6 +15,12 @@ VERSION=$(setting MARKETING_VERSION)
 BUILD=$(setting CURRENT_PROJECT_VERSION)
 MACOS=$(setting macOS)
 
+# The server Use the Server offers before an address is typed: none, unless
+# this build is given one, in MOSHE_DEFAULT_SERVER or in local.env beside this
+# script (MOSHE_DEFAULT_SERVER=https://…), which git leaves out.
+[[ -z ${MOSHE_DEFAULT_SERVER:-} && -f local.env ]] && source ./local.env
+DEFAULT_SERVER=${MOSHE_DEFAULT_SERVER:-}
+
 OUT=${MOSHE_OUT:-build}                # selftest.sh builds its variant into build/selftest
 APP=$OUT/Moshe.app
 
@@ -25,7 +31,8 @@ swiftc -O -wmo -sdk "$(xcrun --show-sdk-path)" -target "$(uname -m)-apple-macos$
     -o $APP/Contents/MacOS/Moshe
 sed -e "s/\$(DEVELOPMENT_LANGUAGE)/en/" -e "s/\$(EXECUTABLE_NAME)/Moshe/" \
     -e "s/\$(PRODUCT_BUNDLE_IDENTIFIER)/$BUNDLE_ID/" -e "s/\$(MARKETING_VERSION)/$VERSION/" \
-    -e "s/\$(CURRENT_PROJECT_VERSION)/$BUILD/" -e "s/\$(PRODUCT_NAME)/Moshe/" Moshe/Info.plist > $APP/Contents/Info.plist
+    -e "s/\$(CURRENT_PROJECT_VERSION)/$BUILD/" -e "s/\$(PRODUCT_NAME)/Moshe/" \
+    -e "s#\$(MOSHE_DEFAULT_SERVER)#$DEFAULT_SERVER#" Moshe/Info.plist > $APP/Contents/Info.plist
 plutil -lint -s $APP/Contents/Info.plist
 
 # The web app, served from inside the app (AppScheme.swift). Without it the app

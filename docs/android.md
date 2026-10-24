@@ -25,7 +25,7 @@ The first time it opens, Moshe asks **Where is your library?**, with three answe
 
 - **A folder on this phone.** For a phone with Syncthing: pick the synced folder that holds your library, once, through Android's folder picker, and Moshe reads and writes it directly, so Obsidian on the phone sees the same files. Moshe looks for changes every 15 seconds while it's open and whenever you come back to it.
 - **Moshe's own folder, synced with the server.** For a phone without Syncthing. The library is kept in Moshe's own storage on the phone, and Moshe keeps it in step with your server over WebDAV. After choosing this, open **Settings › Sync** in Moshe, choose **A Moshe server**, and type the server's address and a device token made in the server's own **Settings › Sync**. [WebDAV sync](webdav.md) explains it step by step.
-- **The server's page, with no folder.** The web app in Moshe's window, as in a browser. Nothing is kept on the phone, so it needs a connection. The address under it starts out as my own server's, so type yours there.
+- **The server's page, with no folder.** The web app in Moshe's window, as in a browser. Nothing is kept on the phone, so it needs a connection. Type your server's address under it. If you build the app for yourself, `moshe.defaultServer=https://your.server/` in `android/local.properties` fills it in for you.
 
 To change it later, long-press Moshe's icon on the home screen and choose **Library**.
 

@@ -28,6 +28,9 @@ targets:
         # Local-only app: signing to run on this Mac is enough.
         CODE_SIGN_STYLE: Automatic
         COMBINE_HIDPI_IMAGES: YES
+        # The server Use the Server offers before an address is typed: none, unless
+        # the build is given one (build.sh: MOSHE_DEFAULT_SERVER or local.env).
+        MOSHE_DEFAULT_SERVER: ""
     info:
       path: Moshe/Info.plist
       properties:
@@ -38,9 +41,10 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSMinimumSystemVersion: "14.0"
         LSApplicationCategoryType: public.app-category.productivity
-        NSHumanReadableCopyright: ""
+        NSHumanReadableCopyright: "© 2026 the Moshe authors. Free software under the GNU GPL, version 3 or later."
+        MosheDefaultServer: $(MOSHE_DEFAULT_SERVER)
         NSPrincipalClass: NSApplication
-        # The server fallback may be plain HTTP on the tailnet.
+        # A server may be plain HTTP on a private network.
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
     entitlements:

@@ -17,11 +17,10 @@ import java.io.File;
  *  - "app": Moshe's own folder (files/library), which the page keeps in step
  *    with the server over WebDAV (Settings → Sync in the page), for a phone
  *    without Syncthing;
- *  - "server": no folder at all, the server's own page.
+ *  - "server": no folder at all, a Moshe server's own page.
  */
 final class Place {
     static final String TREE = "tree", APP = "app", SERVER = "server";
-    static final String DEFAULT_SERVER = "https://moshe.tiresia.xyz/";
     private static final String PREFS = "moshe.place";
 
     private Place() {}
@@ -54,7 +53,8 @@ final class Place {
     static boolean ready(Context c) {
         switch (kind(c)) {
             case TREE: return treeUsable(c);
-            case APP: case SERVER: return true;
+            case APP: return true;
+            case SERVER: return !server(c).isEmpty();
             default: return false;
         }
     }
@@ -63,8 +63,9 @@ final class Place {
         return new File(c.getFilesDir(), "library");
     }
 
+    /** The server's address as typed, or the one this build was given (BuildConfig); "" before either. */
     static String server(Context c) {
-        return prefs(c).getString("server", DEFAULT_SERVER);
+        return prefs(c).getString("server", BuildConfig.DEFAULT_SERVER);
     }
 
     static void useTree(Context c, Uri uri) {
@@ -88,10 +89,14 @@ final class Place {
         prefs(c).edit().putString("kind", APP).apply();
     }
 
-    static void useServer(Context c, String address) {
-        String a = address == null || address.trim().isEmpty() ? DEFAULT_SERVER : address.trim();
+    /** The library on this server from now on. False, and nothing changed, if it isn't an address. */
+    static boolean useServer(Context c, String address) {
+        String a = address == null || address.trim().isEmpty() ? BuildConfig.DEFAULT_SERVER : address.trim();
+        Uri u = Uri.parse(a);
+        if (u.getHost() == null || !("http".equals(u.getScheme()) || "https".equals(u.getScheme()))) return false;
         if (!a.endsWith("/")) a += "/";
         prefs(c).edit().putString("server", a).putString("kind", SERVER).apply();
+        return true;
     }
 
     /** The picked folder's own name, for Settings. */

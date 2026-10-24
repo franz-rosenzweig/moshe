@@ -276,8 +276,9 @@ public class MainActivity extends Activity {
 
     /** "Use the server instead". */
     void useServer() {
-        Place.useServer(this, Place.server(this));
-        recreate();
+        if (Place.useServer(this, Place.server(this))) recreate();
+        // no address yet: the settings screen asks for one
+        else startActivity(new Intent(this, SettingsActivity.class));
     }
 
     /** A place for an export, from the system's create-document screen. */
