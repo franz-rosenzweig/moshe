@@ -5,24 +5,32 @@
 #
 #   tools/release.sh 0.2.0 "What's new, in a line or two"
 #
-# It runs where gh and git can push, and builds nothing here. The Mac it builds
-# on is in tools/release.env, which git leaves out:
-#   MOSHE_MAC=user@host  MOSHE_MAC_KEY=~/.ssh/key  MOSHE_MAC_REPO=path/to/moshe (from the Mac's home)
-# The Mac app is signed in the Mac's own session (an iTerm window runs it for
-# a minute), because codesign can't reach the keychain over ssh, and an app
-# whose signature changes from one version to the next asks for its folder
-# again. The APK is signed by android/release.sh, with the same key every time.
+# It runs where gh and git can push, and builds nothing here. The Mac builds
+# from a fresh clone of the tag, so nothing that only lives in someone's own
+# checkout (themes kept out of git, a default server in mac/local.env or
+# android/local.properties) goes into a release. The Mac, and how things are
+# signed, are in tools/release.env, which git leaves out:
+#   MOSHE_MAC=user@host  MOSHE_MAC_KEY=~/.ssh/key
+#   MOSHE_APK_SIGNING=<keystore.properties on the Mac, absolute>
+#   MOSHE_SIGN=<the Mac signing certificate's SHA-1>  MOSHE_SIGN_NAME=<its common name>
+#   MOSHE_KEYCHAIN=<the keychain it's in>  MOSHE_KEYCHAIN_PASS=<a file on the Mac holding that keychain's password>
+#   MOSHE_PRIVATE='words|that|must|not|be|in|a|release'   (looked for, case-blind, in both apps)
+# The APK is signed with the same key every time, or phones can't update. The
+# Mac app is signed with the same certificate every time, so macOS sees the
+# same app from one version to the next and keeps its permissions; and never
+# with a personal identity, whose name anyone could read off a public download.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 V=${1:?usage: tools/release.sh X.Y.Z "notes"}
 NOTES=${2:-"Moshe $V"}
 [[ $V =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "a version is X.Y.Z" >&2; exit 2; }
-[[ -f tools/release.env ]] || { echo "no tools/release.env (the Mac to build on)" >&2; exit 2; }
+[[ -f tools/release.env ]] || { echo "no tools/release.env (the Mac to build on, and the signing)" >&2; exit 2; }
 source tools/release.env
 REPO=franz-rosenzweig/moshe
 TAP=franz-rosenzweig/homebrew-tap
-mac() { ssh -o BatchMode=yes -o ConnectTimeout=15 -i "${MOSHE_MAC_KEY/#\~/$HOME}" "$MOSHE_MAC" "$@"; }
+KEY=${MOSHE_MAC_KEY/#\~/$HOME}
+mac() { ssh -o BatchMode=yes -o ConnectTimeout=15 -i "$KEY" "$MOSHE_MAC" "$@"; }
 say() { echo "== $*"; }
 
 # 1. the version, on master and tagged
@@ -37,42 +45,42 @@ perl -pi -e "s/MARKETING_VERSION: \"[^\"]*\"/MARKETING_VERSION: \"$V\"/; s/CURRE
 git commit -q -m "Moshe $V" android/app/build.gradle mac/project.yml
 git tag -a "v$V" -m "Moshe $V"
 git push -q origin HEAD:master "v$V"
-SHA=$(git rev-parse HEAD)
-say "v$V tagged at ${SHA:0:7} (Android $code, Mac build $build)"
+say "v$V tagged at $(git rev-parse --short HEAD) (Android $code, Mac build $build)"
 
-# 2. built on the Mac, from exactly that commit
-mac "export PATH=/opt/homebrew/bin:\$PATH; cd $MOSHE_MAC_REPO && git fetch -q https://github.com/$REPO.git master:refs/remotes/origin/master \
-  && git merge -q --ff-only origin/master && test \$(git rev-parse HEAD) = $SHA \
-  && (cd frontend && npm ci --silent >/dev/null 2>&1 && npx vite build >/dev/null) && cd android && ./release.sh"
+# 2. built on the Mac, from a fresh clone of the tag
+W=/tmp/moshe-release
+mac "export PATH=/opt/homebrew/bin:\$PATH; rm -rf $W && git clone -q --depth 1 -b v$V https://github.com/$REPO.git $W \
+  && cd $W/frontend && npm ci --silent >/dev/null 2>&1 && npx vite build >/dev/null \
+  && cd $W/android && ./release.sh $MOSHE_APK_SIGNING"
 say "APK built"
-cat <<EOF | mac "cat > /tmp/moshe-release.command && chmod +x /tmp/moshe-release.command && rm -f /tmp/moshe-release.log && open -a iTerm /tmp/moshe-release.command"
-#!/bin/zsh
-exec > /tmp/moshe-release.log 2>&1
-export PATH=/opt/homebrew/bin:\$PATH
-cd ~/$MOSHE_MAC_REPO/mac && ./build.sh || { echo FAILED; exit 1; }
-cd build && rm -f Moshe-$V-mac.zip && ditto -c -k --keepParent Moshe.app Moshe-$V-mac.zip && echo DONE || echo FAILED
-EOF
-for _ in $(seq 1 60); do
-  sleep 5
-  state=$(mac "grep -E '^(DONE|FAILED)' /tmp/moshe-release.log 2>/dev/null || true")
-  [[ -n $state ]] && break
-done
-[[ $state == DONE ]] || { mac "tail -20 /tmp/moshe-release.log"; echo "the Mac app didn't build" >&2; exit 1; }
-mac "codesign -dv $MOSHE_MAC_REPO/mac/build/Moshe.app 2>&1 | grep -q TeamIdentifier=[A-Z0-9]" \
-  || { echo "the Mac app isn't signed with a developer identity" >&2; exit 1; }
-say "Mac app built and signed"
+mac "export PATH=/opt/homebrew/bin:\$PATH; security unlock-keychain -p \"\$(cat $MOSHE_KEYCHAIN_PASS)\" $MOSHE_KEYCHAIN \
+  && cd $W/mac && MOSHE_SIGN=$MOSHE_SIGN ./build.sh >/tmp/moshe-release.log 2>&1 \
+  && cd build && ditto -c -k --keepParent Moshe.app Moshe-$V-mac.zip" \
+  || { mac "tail -20 /tmp/moshe-release.log"; echo "the Mac app didn't build" >&2; exit 1; }
+
+# nothing personal in either: the Mac signature names only the certificate,
+# no word on the list is anywhere in them, no home folder in the program
+APP="$W/mac/build/Moshe.app" APK="$W/android/Moshe-$V.apk"
+[[ $(mac "codesign -dvv $APP 2>&1 | grep '^Authority='") == "Authority=$MOSHE_SIGN_NAME" ]] || { echo "the Mac app isn't signed by $MOSHE_SIGN_NAME alone" >&2; exit 1; }
+mac "codesign --verify --strict $APP" || { echo "the Mac app's signature doesn't verify" >&2; exit 1; }
+[[ -z $(mac "grep -r -l -a -i -E '$MOSHE_PRIVATE' $APP; strings $APP/Contents/MacOS/Moshe | grep /Users/; /usr/libexec/PlistBuddy -c 'Print :MosheDefaultServer' $APP/Contents/Info.plist") ]] \
+  || { echo "something personal is in the Mac app" >&2; exit 1; }
+[[ -z $(mac "cd /tmp && rm -rf moshe-apk && mkdir moshe-apk && cd moshe-apk && unzip -q $APK && grep -r -l -a -i -E '$MOSHE_PRIVATE' .; cd /tmp && rm -rf moshe-apk") ]] \
+  || { echo "something personal is in the APK" >&2; exit 1; }
+say "both built and signed, with nothing personal in them"
 
 # 3. here, and out
 OUT=$(mktemp -d)
 trap 'rm -rf "$OUT"' EXIT
-scp -q -o BatchMode=yes -i "${MOSHE_MAC_KEY/#\~/$HOME}" "$MOSHE_MAC:$MOSHE_MAC_REPO/android/Moshe-$V.apk" "$MOSHE_MAC:$MOSHE_MAC_REPO/mac/build/Moshe-$V-mac.zip" "$OUT/"
+scp -q -o BatchMode=yes -i "$KEY" "$MOSHE_MAC:$APK" "$MOSHE_MAC:$W/mac/build/Moshe-$V-mac.zip" "$OUT/"
 ZIPSUM=$(sha256sum "$OUT/Moshe-$V-mac.zip" | cut -d' ' -f1)
 gh release create "v$V" "$OUT/Moshe-$V.apk" "$OUT/Moshe-$V-mac.zip" --repo "$REPO" --title "Moshe $V" --notes "$NOTES"
+mac "rm -rf $W"
 
-# 4. the cask: only Moshe's file in the shared tap
+# 4. the cask: only Moshe's file (and its row) in the shared tap
 git clone -q "git@github.com:$TAP.git" "$OUT/tap"
 mkdir -p "$OUT/tap/Casks"
-cat > "$OUT/tap/Casks/moshe.rb" <<EOF
+cat > "$OUT/tap/Casks/moshe.rb" <<CASK
 cask "moshe" do
   version "$V"
   sha256 "$ZIPSUM"
@@ -82,17 +90,19 @@ cask "moshe" do
   desc "Writing app over a folder of plain Markdown files"
   homepage "https://github.com/$REPO"
 
-  depends_on macos: ">= :sonoma"
+  depends_on macos: :sonoma
 
   app "Moshe.app"
 
-  postflight do
-    system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{appdir}/Moshe.app"]
+  postflight_steps do
+    run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{appdir}}/Moshe.app"]
   end
 end
-EOF
+CASK
 cd "$OUT/tap"
-git add Casks/moshe.rb
+ROW='| [moshe](Casks/moshe.rb) | [Moshe](https://github.com/franz-rosenzweig/moshe): writing over a folder of plain Markdown files |'
+grep -qF '[moshe](Casks/moshe.rb)' README.md || printf '%s\n' "$ROW" >> README.md
+git add Casks/moshe.rb README.md
 git commit -q -m "moshe $V"
 git pull -q --rebase
 git push -q
