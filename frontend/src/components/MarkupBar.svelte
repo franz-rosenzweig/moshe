@@ -1,5 +1,5 @@
 <script>
-  // On a phone, the bar above the keyboard with the tags: headings, strong, emphasis, mark, comment, link, footnote, lists,
+  // On a phone or a tablet, the bar above the on-screen keyboard with the tags: headings, strong, emphasis, mark, comment, link, footnote, lists,
   // quote; undo and redo; and the keyboard away. It sits on top of the
   // keyboard, wherever the keyboard leaves the page.
   import Icon from './Icon.svelte';
@@ -39,8 +39,7 @@
     e.preventDefault();
     const v = view();
     if (!v) return;
-    fn(v);
-    v.focus();
+    if (fn(v) !== false) v.focus();          // (false: the button has opened something of its own)
   };
   const insert = (text, back = 0) => (v) => {
     const s = v.state.selection.main;
@@ -57,6 +56,7 @@
     ['list', 'List', (v) => toggleBlock(v, '- ')],
     ['list-ordered', 'Numbered List', (v) => toggleBlock(v, '1. ')],
     ['quote', 'Quote', (v) => toggleBlock(v, '> ')],
+    ['palette', 'Sketch', () => { window.mosheCommand('insert', 'sketch'); return false; }],
     ['undo-2', 'Undo', (v) => undo(v)],
     ['redo-2', 'Redo', (v) => redo(v)],
   ];
@@ -82,4 +82,6 @@
   .scroll-x { flex: 1; display: flex; overflow-x: auto; scrollbar-width: none; }
   button { flex: none; width: 44px; height: 44px; border: 0; background: none; color: var(--icon); display: flex; align-items: center; justify-content: center; }
   .done { border-left: 1px solid var(--sep); }
+  /* a tablet's wide keyboard: the buttons in the middle of it */
+  @media (min-width: 761px) { .scroll-x { justify-content: safe center; } }
 </style>

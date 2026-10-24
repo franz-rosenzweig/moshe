@@ -566,6 +566,7 @@
       { label: 'Link', key: '⌘K', action: () => insertLinkCmd(v) },
       { label: 'Footnote', action: () => { const s = v.state.selection.main; v.dispatch({ changes: { from: s.to, insert: '^[]' }, selection: { anchor: s.to + 2 } }); v.focus(); } },
       { sep: true },
+      { label: 'Insert Sketch…', action: () => sketch(v) },
       { label: 'Split Here…', action: () => splitHere(v) },
     ]);
     return true;
@@ -733,6 +734,7 @@
       default: return false;
     }
     if (own) v.dispatch({ annotations: isolateHistory.of('full') });
+    if (name === 'insert' && arg === 'sketch') return true;     // the drawing has the screen (and no keyboard over it)
     if (name !== 'find' || (arg !== 'open' && arg !== 'replace' && arg)) v.focus();
     return true;
   }
@@ -807,6 +809,7 @@
       } catch (err) { toast(`Could not open the sketch: ${err.message}`); return; }
     }
     const at = v.state.selection.main.head, sheet = current;
+    v.contentDOM.blur();                          // a tablet's keyboard away while drawing
     const r = await openDialog('sketch', { strokes });
     if (!r || current !== sheet) return;
     const dir = sheet.slice(0, sheet.lastIndexOf('/'));

@@ -26,6 +26,7 @@
   const mac = /Mac|iPhone|iPad/u.test(navigator.platform) || /Macintosh/u.test(navigator.userAgent);
   const shell = /Moshe\/[^ ]* \(macOS/u.test(navigator.userAgent);
   const narrow = $state({ on: false });
+  const touchFirst = $state({ on: false });     // a phone or a tablet: touch is the main way in, so the on-screen keyboard gets the markup bar
 
   // what a native menu can ask for (docs/BRIDGE.md: the Mac's menus call
   // window.mosheCommand(name), so their shortcuts and the page's are one set)
@@ -172,11 +173,12 @@
     start();
     const onFocus = () => pane && pane.focus();
     window.addEventListener('moshe:focus-editor', onFocus);
-    const mq = matchMedia('(max-width: 760px)');
-    const set = () => { narrow.on = mq.matches; };
+    const mq = matchMedia('(max-width: 760px)'), coarse = matchMedia('(pointer: coarse)');
+    const set = () => { narrow.on = mq.matches; touchFirst.on = coarse.matches; };
     set();
     mq.addEventListener('change', set);
-    return () => { window.removeEventListener('moshe:focus-editor', onFocus); mq.removeEventListener('change', set); };
+    coarse.addEventListener('change', set);
+    return () => { window.removeEventListener('moshe:focus-editor', onFocus); mq.removeEventListener('change', set); coarse.removeEventListener('change', set); };
   });
 
   // the appearance setting: the system's, or always light or dark
@@ -405,7 +407,7 @@
       </div>
     {/if}
   </div>
-  {#if narrow.on}<MarkupBar view={() => pane && pane.activeView()} />{/if}
+  {#if narrow.on || touchFirst.on}<MarkupBar view={() => pane && pane.activeView()} />{/if}
   <QuickOpen />
   <Settings />
 {/if}
