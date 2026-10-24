@@ -39,7 +39,7 @@
     } else {
       anchor = path;
       if (matchMedia('(max-width: 760px)').matches) phoneOpen(path);
-      else openSheet(path, { fromList: true });
+      else { openSheet(path, { fromList: true }); window.dispatchEvent(new CustomEvent('moshe:picked')); }
     }
     if (e.altKey && !e.shiftKey && !e.metaKey) { app.second = path; }
   }

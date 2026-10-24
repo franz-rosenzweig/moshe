@@ -45,6 +45,7 @@
   let dirty = false;
   let pop = $state(null);      // {kind, from, to, x, y, value, extra}
   let writing = $state(null);  // the writing box: {kind: insert | comment | text, pos | from, to, x, y, text}
+  let winH = $state(typeof window === 'undefined' ? 800 : window.innerHeight);   // shorter while a keyboard is up: the box stays above it
   let counts = $state(null);
   let selectionCounts = $state(null);
 
@@ -112,7 +113,7 @@
       dynamic.of(dynExt()),
       proofC.of(proofExt()),
       checkField,
-      penMarks(() => ({ on: !!app.revision && prefs.penMarks !== false, write: (req) => { writing = { ...req, text: '' }; }, fail: (why) => toast(why), seen: () => { if (!app.penSeen) app.penSeen = true; } })),
+      penMarks(() => ({ on: !!app.revision && prefs.penMarks !== false, write: (req) => { writing = { ...req, text: '' }; }, fail: (why) => toast(why) })),
       keymap.of([
         { key: 'Enter', run: (v) => prefs.smartLists && smartEnter(v) },
         { key: 'Tab', run: (v) => tabKey(v, false) },
@@ -739,16 +740,6 @@
     return true;
   }
 
-  /** The pen button: words written at the cursor (in Revision Mode, as an insertion there). */
-  function writeHere() {
-    if (!view) return;
-    const s = view.state.selection.main, c = view.coordsAtPos(s.head) || { left: innerWidth / 2 - 170, bottom: 160 };
-    if (!app.revision) { writing = { kind: 'text', x: c.left, y: c.bottom, text: '' }; return; }
-    const doc = view.state.doc, line = doc.lineAt(s.head);
-    const req = { kind: 'insert', pos: snapBetweenWords(doc.toString(), line.from, line.to, s.head), x: c.left, y: c.bottom };
-    holdWriting(view, req);
-    writing = { ...req, text: '' };
-  }
   function closeWriting() { writing = null; if (view) dropWriting(view); }
   /** The box takes the keyboard (and the pen's handwriting) from the editor as it opens. */
   function takeFocus(el) {
@@ -930,9 +921,6 @@
     <button class="counter" class:sel={!!selectionCounts} class:ringed={!!goalNow} title="Click to count something else"
       onclick={() => { app.counter = COUNTERS[(COUNTERS.indexOf(app.counter) + 1) % COUNTERS.length]; }}>{counterText}</button>
   {/if}
-  {#if app.penSeen && !stacked}
-    <button class="penbtn" title={app.revision ? 'Write an insertion by hand' : 'Write by hand'} aria-label="Write by hand" onclick={writeHere}><Icon name="pen-tool" size={19} /></button>
-  {/if}
   {#if goalNow}
     <button class="goalring" class:done={goalNow.g.reached} class:over={goalNow.g.over} style="--p:{Math.min(1, goalNow.g.fraction)}" title="Goal"
       aria-label="Goal: {goalNow.g.value.toLocaleString()} of {goalNow.g.target.toLocaleString()}" onclick={(e) => { goalPop = e.currentTarget.getBoundingClientRect(); }}></button>
@@ -955,10 +943,12 @@
   </div>
 {/if}
 
+<svelte:window bind:innerHeight={winH} />
+
 {#if writing}
   <div class="scrim" onmousedown={closeWriting} role="presentation"></div>
   <div class="popover writebox" role="dialog" aria-label={writing.kind === 'insert' ? 'Insert' : writing.kind === 'comment' ? 'Comment' : 'Write'}
-    style="left:{Math.max(8, Math.min(writing.x - 40, innerWidth - 356))}px;top:{Math.max(8, Math.min(writing.y + 10, innerHeight - 200))}px">
+    style="left:{Math.max(8, Math.min(writing.x - 40, innerWidth - 356))}px;top:{Math.max(8, Math.min(writing.y + 10, winH - 250))}px">
     <div class="pop-title">{writing.kind === 'insert' ? 'Insert' : writing.kind === 'comment' ? 'Comment' : 'Write'}</div>
     <textarea class="field area" rows="3" dir="auto" use:takeFocus bind:value={writing.text} placeholder="Write here with the pen, or type"
       onkeydown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitWritingBox(); } if (e.key === 'Escape') closeWriting(); }}></textarea>
@@ -1058,8 +1048,6 @@
   .pop-title { font-size: 11px; font-weight: 600; color: var(--section); text-transform: uppercase; letter-spacing: 0.04em; }
   .pop-row { display: flex; gap: 6px; align-items: center; }
   .area { height: auto; padding: 6px 8px; resize: vertical; font-size: 13px; line-height: 1.4; width: 100%; }
-  .penbtn { position: absolute; right: 24px; bottom: 24px; z-index: 6; width: 46px; height: 46px; border-radius: 50%; border: 0; padding: 0;
-    display: flex; align-items: center; justify-content: center; background: var(--accent); color: var(--on-accent); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18); }
   .writebox { position: fixed; z-index: 50; width: 340px; padding: 12px; display: flex; flex-direction: column; gap: 8px; background: var(--hud-bg, var(--popover-bg)); }
   .writebox .area { font-size: 16px; min-height: 84px; }
 </style>

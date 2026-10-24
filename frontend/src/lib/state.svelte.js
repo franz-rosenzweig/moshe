@@ -39,7 +39,7 @@ export const app = $state({
   revision: false,
   interfaceHidden: false,     // Hide Interface (⌘.): only the text
   revisionKind: null,
-  penSeen: false,             // a pen has touched the page this session: the pen button shows
+  drawer: 0,                  // a tablet: the panes slid over the editor (0 none, 2 the sheets, 3 the library too)
   selectionStats: null,       // the statistics of the text selected in the editor, for the dashboard         // in revision mode, the one kind of markup emphasised: annotation | comment | mark | delete
   typewriter: saved.typewriter || { marker: false, highlight: 'off', fixed: 'off' },
   counter: saved.counter || 'words',
@@ -186,16 +186,7 @@ function shareFromUrl() {
 }
 
 /** Android's back gesture: back one pane on a phone. True if it went back. */
-window.mosheBack = () => {
-  if (!matchMedia('(max-width: 760px)').matches) return false;
-  if (app.settingsOpen && app.settingsPane) { app.settingsPane = false; return true; }
-  if (app.settingsOpen) { app.settingsOpen = null; return true; }
-  if (app.dashboard) { app.dashboard = false; return true; }
-  if (app.phone === 'editor') { app.phone = 'list'; return true; }
-  if (app.phone === 'list') { app.phone = 'library'; return true; }
-  if (app.project) { closeProject(); app.phone = 'library'; return true; }
-  return false;
-};
+// (window.mosheBack, the Android Back key, is App.svelte's: it closes what's open there first)
 
 // ---- what could not be saved, kept in this browser until it is -----------------
 const JOURNAL = 'moshe.unsaved';

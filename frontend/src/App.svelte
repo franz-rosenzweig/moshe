@@ -26,7 +26,15 @@
   const mac = /Mac|iPhone|iPad/u.test(navigator.platform) || /Macintosh/u.test(navigator.userAgent);
   const shell = /Moshe\/[^ ]* \(macOS/u.test(navigator.userAgent);
   const narrow = $state({ on: false });
-  const touchFirst = $state({ on: false });     // a phone or a tablet: touch is the main way in, so the on-screen keyboard gets the markup bar
+  const touchFirst = $state({ on: false });
+  // a tablet, upright or sideways: the editor has the whole screen, and the
+  // library and the sheets slide over it when they're wanted
+  const slide = $derived(!narrow.on && touchFirst.on);
+  /** ⌘1–3, and the pane buttons: side by side, or slid over the editor. */
+  function panes(n) {
+    if (!slide) return setPanes(n);
+    app.drawer = n === 1 || (app.drawer === n && n !== 3) ? 0 : n;
+  }     // a phone or a tablet: touch is the main way in, so the on-screen keyboard gets the markup bar
 
   // what a native menu can ask for (docs/BRIDGE.md: the Mac's menus call
   // window.mosheCommand(name), so their shortcuts and the page's are one set)
@@ -34,7 +42,7 @@
     import: () => import('./lib/importer.js').then((m) => m.chooseAndImport()),
     newSheet: () => newSheet(), newMaterialSheet: () => newSheet({ material: true }), newGroup: () => newGroup(), newProject: () => newProject(),
     export: () => exportCurrent(), openQuickly: () => { app.quickOpen = true; }, find: (arg) => editorRun('find', arg || 'open'), settings: () => { app.settingsOpen = 'general'; },
-    showLibrary: () => setPanes(3), showSheets: () => setPanes(2), showEditor: () => setPanes(1), dashboard: () => { app.dashboard = !app.dashboard; persist(); },
+    showLibrary: () => panes(3), showSheets: () => panes(2), showEditor: () => panes(1), dashboard: () => { app.dashboard = !app.dashboard; persist(); },
     translation: () => toggleTranslation(), back: () => back(), forward: () => forward(),
     zoomIn: () => { prefs.fontSize = Math.min(40, prefs.fontSize + 1); }, zoomOut: () => { prefs.fontSize = Math.max(10, prefs.fontSize - 1); }, zoomReset: () => { prefs.fontSize = 16; },
     revision: () => { app.revision = !app.revision; app.revisionKind = null; app.dashboard = true; app.dashboardView = 'annotations'; },
@@ -167,6 +175,22 @@
       selection: app.selection, notes, projects: (lib.projects || []).map((x) => ({ path: x.path, name: x.name })),
     };
   };
+  // the Android Back key: whatever is open closes first, at any width (a menu, a
+  // dialog, Settings, the slid-over panes, the dashboard); then, on a phone, a pane back
+  window.mosheBack = () => {
+    if (ui.menu) { ui.menu = null; return true; }
+    if (ui.dialog) { if (ui.dialog.kind !== 'sketch') ui.dialog.resolve(null); return true; }   // a sketch goes only by Cancel
+    if (app.quickOpen) { app.quickOpen = false; return true; }
+    if (app.settingsOpen && app.settingsPane) { app.settingsPane = false; return true; }
+    if (app.settingsOpen) { app.settingsOpen = null; return true; }
+    if (app.drawer) { app.drawer = 0; return true; }
+    if (app.dashboard) { app.dashboard = false; return true; }
+    if (!narrow.on) return false;
+    if (app.phone === 'editor') { app.phone = 'list'; return true; }
+    if (app.phone === 'list') { app.phone = 'library'; return true; }
+    if (app.project) { closeProject(); app.phone = 'library'; return true; }
+    return false;
+  };
   window.mosheCommand = (name, arg) => { const f = COMMANDS[name]; if (f && app.phase === 'ready') f(arg); return !!f; };
 
   onMount(() => {
@@ -174,11 +198,13 @@
     const onFocus = () => pane && pane.focus();
     window.addEventListener('moshe:focus-editor', onFocus);
     const mq = matchMedia('(max-width: 760px)'), coarse = matchMedia('(pointer: coarse)');
-    const set = () => { narrow.on = mq.matches; touchFirst.on = coarse.matches; };
+    const set = () => { narrow.on = mq.matches; touchFirst.on = coarse.matches; if (!slide) app.drawer = 0; };
     set();
-    mq.addEventListener('change', set);
-    coarse.addEventListener('change', set);
-    return () => { window.removeEventListener('moshe:focus-editor', onFocus); mq.removeEventListener('change', set); coarse.removeEventListener('change', set); };
+    for (const m of [mq, coarse]) m.addEventListener('change', set);
+    // a sheet picked from the slid-over list: the panes slide away, back to the text
+    const picked = () => { if (slide) app.drawer = 0; };
+    window.addEventListener('moshe:picked', picked);
+    return () => { window.removeEventListener('moshe:focus-editor', onFocus); window.removeEventListener('moshe:picked', picked); for (const m of [mq, coarse]) m.removeEventListener('change', set); };
   });
 
   // the appearance setting: the system's, or always light or dark
@@ -203,7 +229,7 @@
     const inEditor = document.activeElement && document.activeElement.closest && document.activeElement.closest('.cm-editor');
     // ⌃⌘ chords are a Mac's (⌃ is ⌘ elsewhere)
     const ctrlCmd = e.ctrlKey && e.metaKey;
-    if (!e.shiftKey && !e.altKey && !ctrlCmd && ['1', '2', '3'].includes(k)) { e.preventDefault(); setPanes(4 - Number(k)); return; }
+    if (!e.shiftKey && !e.altKey && !ctrlCmd && ['1', '2', '3'].includes(k)) { e.preventDefault(); panes(4 - Number(k)); return; }
     // the menus' keys (docs/MENUS.md): ⌃⌘N filter, ⌃⌘M material, ⇧⌘K keywords, ⇧⌘B split, ⌘L clear markup, ⌥⌘3 second editor,
     // ⌥⌘↑/↓ previous/next sheet, ⌘. hide interface, ⌘6–9 the panels (⌘9 in the text is the editor's own), ⌥⌘V paste from Markdown
     if (k === 'n' && ctrlCmd && !e.altKey) { e.preventDefault(); COMMANDS.newFilter(); return; }
@@ -317,8 +343,8 @@
 
   // on a phone, one pane at a time: the library,
   // then a group's sheets, then the editor, each with a way back
-  const showLib = $derived(narrow.on ? app.phone === 'library' : app.panes === 3);
-  const showList = $derived(narrow.on ? app.phone === 'list' : app.panes >= 2);
+  const showLib = $derived(narrow.on ? app.phone === 'library' : slide ? app.drawer === 3 : app.panes === 3);
+  const showList = $derived(narrow.on ? app.phone === 'list' : slide ? app.drawer >= 2 : app.panes >= 2);
   const showEditor = $derived(narrow.on ? app.phone === 'editor' : true);
   const listTitle = $derived.by(() => { app.version; return store ? store.sheetList(app.selection).title : ''; });
 </script>
@@ -332,10 +358,11 @@
 {:else if app.phase === 'starting'}
   <div class="fatal"><p class="dim">Opening the library…</p></div>
 {:else}
-  <div class="window" class:bare={app.interfaceHidden} class:shell class:narrow={narrow.on}>
+  <div class="window" class:bare={app.interfaceHidden} class:shell class:narrow={narrow.on} class:slide>
+    {#if slide && app.drawer}<div class="drawer-scrim" role="presentation" onclick={() => (app.drawer = 0)}></div>{/if}
     {#if showLib}
       <div class="col lib" style:width={narrow.on ? null : `${widthOf('lib')}px`}>
-        {#if !narrow.on}<div class="edge right" role="separator" aria-orientation="vertical" aria-label="Library width" title="Drag to resize; double-click for the usual width" onpointerdown={(e) => resize(e, 'lib', 1)} ondblclick={() => resetWidth('lib')}></div>{/if}
+        {#if !narrow.on && !slide}<div class="edge right" role="separator" aria-orientation="vertical" aria-label="Library width" title="Drag to resize; double-click for the usual width" onpointerdown={(e) => resize(e, 'lib', 1)} ondblclick={() => resetWidth('lib')}></div>{/if}
         <div class="bar" class:traffic={shell}>
           {#if narrow.on}<span class="phone-title">{app.project ? '' : 'Library'}</span>
             <button class="tb" title="Settings" onclick={() => (app.settingsOpen = 'general')}><Icon name="settings" size={18} /></button>{/if}
@@ -351,19 +378,19 @@
               { label: 'Import…', icon: 'download', key: '⇧⌘I', action: () => import('./lib/importer.js').then((m) => m.chooseAndImport()) },
             ])}><Icon name="folder-badge-plus" size={19} /></button>
           {/if}
-          {#if !narrow.on}<button class="tb" title="Hide Library (⌘2)" onclick={() => setPanes(2)}><Icon name="sidebar-left" size={19} /></button>{/if}
+          {#if !narrow.on}<button class="tb" title="Hide Library (⌘2)" onclick={() => panes(2)}><Icon name="sidebar-left" size={19} /></button>{/if}
         </div>
         <Library />
       </div>
     {/if}
     {#if showList}
-      <div class="col list" style:width={narrow.on ? null : `${widthOf('list')}px`}>
-        {#if !narrow.on}<div class="edge right" role="separator" aria-orientation="vertical" aria-label="Sheet list width" title="Drag to resize; double-click for the usual width" onpointerdown={(e) => resize(e, 'list', 1)} ondblclick={() => resetWidth('list')}></div>{/if}
+      <div class="col list" style:width={narrow.on ? null : `${widthOf('list')}px`} style:left={slide && showLib ? `${widthOf('lib')}px` : null}>
+        {#if !narrow.on && !slide}<div class="edge right" role="separator" aria-orientation="vertical" aria-label="Sheet list width" title="Drag to resize; double-click for the usual width" onpointerdown={(e) => resize(e, 'list', 1)} ondblclick={() => resetWidth('list')}></div>{/if}
         <div class="bar right">
           {#if narrow.on}
             <button class="back" onclick={() => (app.phone = 'library')}><Icon name="chevron-left" size={20} stroke={2} /> {app.project ? store.projectNode(app.project).name : 'Library'}</button>
           {:else if !showLib}
-            <button class="tb" title="Show Library (⌘1)" onclick={() => setPanes(3)} style="margin-right:auto"><Icon name="sidebar-left" size={19} /></button>
+            <button class="tb" title="Show Library (⌘1)" onclick={() => panes(3)} style="margin-right:auto"><Icon name="sidebar-left" size={19} /></button>
           {/if}
           <button class="tb" class:on={filtering} title="Filter" onclick={() => (filtering = !filtering)}><Icon name="list-filter" size={18} /></button>
           <button class="tb" title="New Sheet (⌘N)" onclick={() => newSheet()}><Icon name="square-pen" size={18} /></button>
@@ -376,8 +403,8 @@
         <div class="bar">
           {#if narrow.on}
             <button class="back" onclick={() => (app.phone = 'list')}><Icon name="chevron-left" size={20} stroke={2} /> {listTitle}</button>
-          {:else if app.panes === 1}
-            <button class="tb" title="Show Sheets (⌘2)" onclick={() => setPanes(2)}><Icon name="sidebar-left" size={19} /></button>
+          {:else if slide || app.panes === 1}
+            <button class="tb" title="Show Sheets (⌘2)" onclick={() => panes(2)}><Icon name="sidebar-left" size={19} /></button>
           {/if}
           <div class="capsule" class:hide-phone={narrow.on}>
             <button title="Back" disabled={!app.history.length} onclick={back}><Icon name="chevron-left" size={17} stroke={2} /></button>
@@ -448,6 +475,13 @@
   .narrow .list { width: 100%; border: 0; }
   .narrow .lib { width: 100%; }
   .narrow .bar { padding-top: env(safe-area-inset-top, 0px); height: calc(52px + env(safe-area-inset-top, 0px)); }
+  /* under a tablet's status bar (the Android app runs edge to edge): the bars start below it; elsewhere it's 0 */
+  .window:not(.narrow) .bar { padding-top: env(safe-area-inset-top, 0px); height: calc(56px + env(safe-area-inset-top, 0px)); }
+  .window:not(.narrow) .dash { padding-top: env(safe-area-inset-top, 0px); }
+  /* a tablet: the editor whole, the library and the sheets slid over it */
+  .window.slide { position: relative; }
+  .window.slide > .col.lib, .window.slide > .col.list { position: absolute; top: 0; bottom: 0; left: 0; z-index: 31; box-shadow: 6px 0 24px rgba(0, 0, 0, 0.16); }
+  .drawer-scrim { position: absolute; inset: 0; z-index: 30; background: rgba(0, 0, 0, 0.12); }
   .phone-title { font-size: 28px; font-weight: 700; margin-right: auto; padding-left: 6px; color: var(--text-strong); }
   .back { border: 0; background: none; color: var(--accent-fg); display: flex; align-items: center; gap: 2px; font-size: 16px; margin-right: auto; padding: 0; max-width: 60vw; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
   .hide-phone { display: none; }

@@ -22,9 +22,7 @@ Outside Revision Mode the pen works like a finger, so you can still select, scro
 
 ## Writing by hand
 
-Once you've used the pen, a round pen button shows up at the bottom right of the editor. Press it and a box opens at the cursor, so you can write a few words by hand there. On a Samsung tablet the keyboard's handwriting turns what you write with the S Pen into text, in Hebrew too. In Revision Mode it goes in as an insertion, and otherwise as plain text.
-
-Samsung's "S Pen to text" may also work right in the sheet itself, without the box. I'll know once I've tried it on the tablet, and I'll update this page then.
+For turning handwriting into text, Moshe leaves it to the tablet, which does it well already. On a Samsung tablet, the keyboard's handwriting mode writes into a sheet like any other text field, in Hebrew too, and so does the box a caret opens in Revision Mode.
 
 ## Sketches
 

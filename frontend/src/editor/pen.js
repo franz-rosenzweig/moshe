@@ -111,8 +111,8 @@ export function holdWriting(view, req) {
 export function dropWriting(view) { if (view.state.field(penPending, false)) view.dispatch({ effects: setPending.of(null) }); }
 
 /**
- * @param {() => {on: boolean, write: (req: object) => void, fail: (why: string) => void, seen: () => void}} get
- *   on: marks are read (Revision Mode); write: open the writing box; fail: say a stroke meant nothing; seen: a pen is here
+ * @param {() => {on: boolean, write: (req: object) => void, fail: (why: string) => void}} get
+ *   on: marks are read (Revision Mode); write: open the writing box; fail: say a stroke meant nothing
  */
 export function penMarks(get) {
   return [penPending, ViewPlugin.fromClass(class {
@@ -153,7 +153,6 @@ export function penMarks(get) {
     onDown(e) {
       if (e.pointerType === 'pen') {
         this.penAt = performance.now();
-        get().seen();
         if (!get().on || (e.buttons & ~1)) return;        // with the pen's button held, the pen selects as a finger would
         e.preventDefault();
         e.stopPropagation();

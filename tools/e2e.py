@@ -329,7 +329,6 @@ async def run(b, url, root: Path, mode: str, sim_url: str | None):
     await pen(b, seg((r["l"] - 2, (r["t"] + r["b"]) / 2), (r["r"] + 2, (r["t"] + r["b"]) / 2)))
     await asyncio.sleep(1.2)
     check("outside Revision Mode the pen marks nothing", "{--" not in pf.read_text(), pf.read_text())
-    check("and the pen button shows once a pen has been used", bool(await b.wait_for("!!document.querySelector('.penbtn')", 3)))
     await b.js("window.mosheCommand('revision'); return true;")
     await asyncio.sleep(0.8)
     line1 = lambda: pf.read_text().split("\n")[1]
