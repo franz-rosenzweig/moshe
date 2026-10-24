@@ -134,11 +134,11 @@ Moshe is a web app first: open your server's address in any browser and sign in 
 
 ### Mac
 
-The Mac app is built from this repository, since there are no releases to download: build the web app, then `mac/build.sh` makes `Moshe.app` in about ten seconds. It needs macOS 14, the Command Line Tools, XcodeGen and Node. See [The Mac app](docs/mac.md) and [mac/README.md](mac/README.md).
+`brew install --cask franz-rosenzweig/tap/moshe` installs it, and `brew upgrade` keeps it up to date. Each release is also a zip on the [Releases page](https://github.com/franz-rosenzweig/moshe/releases). To build it yourself instead, build the web app, then `mac/build.sh` makes `Moshe.app` in about ten seconds. It needs macOS 14, the Command Line Tools, XcodeGen and Node. See [The Mac app](docs/mac.md) and [mac/README.md](mac/README.md).
 
 ### Android
 
-The Android app is built from this repository too: build the web app, then `android/release.sh` makes a signed APK with your own key (or `./gradlew assembleDebug` a test build), which you install with `adb install`. It needs JDK 17, the Android SDK and Node. Out of the box both apps point at my own server when you choose the server, so type your own server's address there. See [The Android app](docs/android.md) and [android/README.md](android/README.md).
+Each release has a signed APK on the [Releases page](https://github.com/franz-rosenzweig/moshe/releases), and [Obtainium](https://obtainium.imranr.dev) pointed at this repository installs it and keeps it up to date. To build it yourself instead, build the web app, then `android/release.sh` makes a signed APK with your own key (or `./gradlew assembleDebug` a test build), which you install with `adb install`. It needs JDK 17, the Android SDK and Node. Out of the box both apps point at my own server when you choose the server, so type your own server's address there. See [The Android app](docs/android.md) and [android/README.md](android/README.md).
 
 ### Your own server
 

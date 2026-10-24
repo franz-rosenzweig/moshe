@@ -28,7 +28,15 @@ The web app can sit in the Dock or on the home screen like any other app, in its
 
 ## The Mac app
 
-There are no releases to download, so you build the Mac app yourself, from the repository, on a Mac. You need macOS 14 or newer, the Command Line Tools (`xcode-select --install`), XcodeGen (`brew install xcodegen`) and Node, for the web app inside it:
+The easiest way is Homebrew, which also keeps Moshe up to date:
+
+```sh
+brew install --cask franz-rosenzweig/tap/moshe
+```
+
+After that, `brew upgrade` brings in each new version. Moshe isn't notarized by Apple, so the cask clears the quarantine flag when it installs, the way you'd otherwise do by right-clicking the app and choosing **Open**. Each release is also on the [Releases page](https://github.com/franz-rosenzweig/moshe/releases), as a zip you can unpack into Applications yourself.
+
+You can also build the Mac app yourself, from the repository, on a Mac. You need macOS 14 or newer, the Command Line Tools (`xcode-select --install`), XcodeGen (`brew install xcodegen`) and Node, for the web app inside it:
 
 ```sh
 cd frontend && npm ci && npm run build && cd ..
@@ -44,7 +52,9 @@ The first time it opens, Moshe asks for the folder to keep your library in. Pick
 
 ## The Android app
 
-The Android app is built from the repository too. You need JDK 17, the Android SDK (platform 36), and the web app built first:
+Each release has a signed APK on the [Releases page](https://github.com/franz-rosenzweig/moshe/releases). The best way to get it is [Obtainium](https://obtainium.imranr.dev), which installs it and then updates it whenever there's a new one. In Obtainium, press **Add App**, paste `https://github.com/franz-rosenzweig/moshe` and press **Add**. If you'd rather not, download the APK from the Releases page and open it on the phone.
+
+You can also build the Android app yourself, from the repository. You need JDK 17, the Android SDK (platform 36), and the web app built first:
 
 ```sh
 cd frontend && npm ci && npm run build && cd ../android
