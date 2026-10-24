@@ -4,7 +4,7 @@
 import * as frontmatter from './frontmatter.js';
 import { parseLines, plainLine } from './markup.js';
 
-frontmatter.ORDER.splice(0, frontmatter.ORDER.length, 'keywords', 'material', 'goal', 'notes');
+frontmatter.ORDER.splice(0, frontmatter.ORDER.length, 'keywords', 'material', 'goal', 'notes', 'ink');
 
 /**
  * A sheet file's text as its front matter and its body.
@@ -54,6 +54,8 @@ export function readMeta(values) {
     material: values.material === true,
     goal: typeof values.goal === 'string' ? parseGoal(values.goal) : null,
     notes: list(values.notes),
+    // a handwritten sheet's page of ink: its drawing file, beside the sheet (engine/ink.js)
+    ink: typeof values.ink === 'string' && values.ink.trim() ? values.ink.trim() : null,
   };
 }
 

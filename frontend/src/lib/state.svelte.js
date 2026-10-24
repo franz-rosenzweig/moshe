@@ -39,6 +39,7 @@ export const app = $state({
   revision: false,
   interfaceHidden: false,     // Hide Interface (⌘.): only the text
   revisionKind: null,
+  inkTyping: false,           // a handwritten sheet with its text beside it, to type it up
   drawer: 0,                  // a tablet: the panes slid over the editor (0 none, 2 the sheets, 3 the library too)
   selectionStats: null,       // the statistics of the text selected in the editor, for the dashboard         // in revision mode, the one kind of markup emphasised: annotation | comment | mark | delete
   typewriter: saved.typewriter || { marker: false, highlight: 'off', fixed: 'off' },
@@ -54,7 +55,7 @@ export const app = $state({
 export const prefs = $state({
   font: 'System Font', fontSize: 16, lineHeight: 1.6, paragraphSpacing: 0, firstLineIndent: 0, lineWidth: 64,
   imagePreviews: true, imageLines: 4, imageColor: false, caret: 'accent', theme: 'Moshe', appearance: 'system',
-  smartLists: true, smartTags: true, penMarks: true, showCounter: true, pageBackground: false, alwaysLightEditor: false,
+  smartLists: true, smartTags: true, penMarks: true, inkPaper: 'lined', showCounter: true, pageBackground: false, alwaysLightEditor: false,
   paragraphNumbers: false, sheetListDates: false, previewLines: 4, spellcheck: true, grammar: true, dialect: 0, hebrewSpelling: true, dashSections: null, dashFolded: null,
   ...(saved.prefs || {}),
 });

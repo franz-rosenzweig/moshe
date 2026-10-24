@@ -15,7 +15,7 @@
   import MarkupBar from './components/MarkupBar.svelte';
   import { app, prefs, store, start, back, forward, setPanes, persist, openSheet, openProject, closeProject, toast, select } from './lib/state.svelte.js';
   import { ui, menuUnder, openDialog, confirm } from './lib/ui.svelte.js';
-  import { newSheet, newGroup, trashSheets, newProject, newFilter, targetGroup, goalFor, glue } from './lib/actions.js';
+  import { newSheet, newHandwrittenSheet, newGroup, trashSheets, newProject, newFilter, targetGroup, goalFor, glue } from './lib/actions.js';
   import { THEMES, THEME_ORDER, customThemes } from './lib/themes.js';
   import { startTranslation, translationPair } from './lib/translation.js';
   import { undoDepth, redoDepth } from '@codemirror/commands';
@@ -40,7 +40,7 @@
   // window.mosheCommand(name), so their shortcuts and the page's are one set)
   const COMMANDS = {
     import: () => import('./lib/importer.js').then((m) => m.chooseAndImport()),
-    newSheet: () => newSheet(), newMaterialSheet: () => newSheet({ material: true }), newGroup: () => newGroup(), newProject: () => newProject(),
+    newSheet: () => newSheet(), newMaterialSheet: () => newSheet({ material: true }), newHandwrittenSheet: () => newHandwrittenSheet(), newGroup: () => newGroup(), newProject: () => newProject(),
     export: () => exportCurrent(), openQuickly: () => { app.quickOpen = true; }, find: (arg) => editorRun('find', arg || 'open'), settings: () => { app.settingsOpen = 'general'; },
     showLibrary: () => panes(3), showSheets: () => panes(2), showEditor: () => panes(1), dashboard: () => { app.dashboard = !app.dashboard; persist(); },
     translation: () => toggleTranslation(), back: () => back(), forward: () => forward(),
@@ -374,6 +374,7 @@
               { label: 'New Project…', icon: 'book', action: () => newProject() },
               { label: 'New Sheet', icon: 'square-pen', key: '⌘N', action: () => newSheet() },
               { label: 'New Material Sheet', icon: 'paperclip', key: '⌥⌘N', action: () => newSheet({ material: true }) },
+              { label: 'New Handwritten Sheet', icon: 'pen-tool', action: () => newHandwrittenSheet() },
               { sep: true },
               { label: 'Import…', icon: 'download', key: '⇧⌘I', action: () => import('./lib/importer.js').then((m) => m.chooseAndImport()) },
             ])}><Icon name="folder-badge-plus" size={19} /></button>
@@ -393,6 +394,7 @@
             <button class="tb" title="Show Library (⌘1)" onclick={() => panes(3)} style="margin-right:auto"><Icon name="sidebar-left" size={19} /></button>
           {/if}
           <button class="tb" class:on={filtering} title="Filter" onclick={() => (filtering = !filtering)}><Icon name="list-filter" size={18} /></button>
+          <button class="tb" title="New Handwritten Sheet" onclick={() => newHandwrittenSheet()}><Icon name="pen-tool" size={18} /></button>
           <button class="tb" title="New Sheet (⌘N)" onclick={() => newSheet()}><Icon name="square-pen" size={18} /></button>
         </div>
         <SheetList bind:filtering />

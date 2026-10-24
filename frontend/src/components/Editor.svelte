@@ -630,10 +630,13 @@
   onMount(() => {
     load(path);
     off = store.on(external);
+    // a handwritten page saved (InkPage): its picture in this sheet loads again
+    const drawn = (e) => { redrawn.set(e.detail, Date.now()); if (view) view.dispatch({ effects: dynamicC.reconfigure(dynExt()) }); };
+    window.addEventListener('moshe:redrawn', drawn);
     const beforeUnload = () => flush(false);
     window.addEventListener('beforeunload', beforeUnload);
     window.addEventListener('pagehide', beforeUnload);
-    return () => { window.removeEventListener('beforeunload', beforeUnload); window.removeEventListener('pagehide', beforeUnload); };
+    return () => { window.removeEventListener('beforeunload', beforeUnload); window.removeEventListener('pagehide', beforeUnload); window.removeEventListener('moshe:redrawn', drawn); };
   });
   onDestroy(() => {
     flush(true);

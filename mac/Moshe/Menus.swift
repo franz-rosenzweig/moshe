@@ -164,6 +164,7 @@ enum Menus {
         let m = NSMenu(title: "File")
         page(m, "New Sheet", "newSheet", "n")
         page(m, "New Material Sheet", "newMaterialSheet", "n", [.command, .option, .control])
+        page(m, "New Handwritten Sheet", "newHandwrittenSheet")
         page(m, "New Group…", "newGroup", "n", [.command, .shift])
         page(m, "New Filter…", "newFilter", "n", [.command, .control])
         page(m, "New Project…", "newProject")

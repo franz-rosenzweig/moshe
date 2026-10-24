@@ -406,6 +406,52 @@ async def run(b, url, root: Path, mode: str, sim_url: str | None):
         got = await until(lambda: svg and strokes() == 2, 5)
         check("and what's drawn then goes into the same picture", bool(got) and len(list(media.glob("Sketch *.svg"))) == 1)
 
+    print("\nHandwritten sheets: a page to write on, kept as an Excalidraw drawing and a picture")
+    await b.js("[...document.querySelectorAll('.library .row')].find(r => r.textContent.trim() === 'Inbox').click(); return true;")
+    await asyncio.sleep(0.4)
+    await b.js("window.mosheCommand('newHandwrittenSheet'); return true;")
+    check("New Handwritten Sheet opens a page", bool(await b.wait_for("!!document.querySelector('.ink .page svg')", 6)))
+    media = root / "Notes" / "_media"
+    drawings = lambda: sorted(media.glob("Handwritten *.excalidraw.md")) if media.exists() else []
+    hw = await until(lambda: drawings() and sorted((root / "Notes").glob("Handwritten *.md")), 4)
+    hw = hw[0] if hw else None
+    dr = drawings()[0] if drawings() else None
+    check("the sheet names its drawing, and shows its picture", bool(hw) and "ink: _media/" in hw.read_text() and "![Handwriting](_media/" in hw.read_text(), hw.read_text() if hw else "no sheet")
+    els = lambda: json.loads(re.search(r"```json\n([\s\S]*?)```", dr.read_text()).group(1))["elements"]
+    pg = await b.js("const r = document.querySelector('.ink .page').getBoundingClientRect(); return {l: r.left, t: r.top};")
+    scrawl = lambda x0, y0: [(x0 + i * 4, y0 + math.sin(i / 2) * 12) for i in range(40)]
+    await pen(b, scrawl(pg["l"] + 80, pg["t"] + 150))
+    await pen(b, scrawl(pg["l"] + 280, pg["t"] + 150))
+    await b.send("Input.dispatchTouchEvent", {"type": "touchStart", "touchPoints": [{"x": pg["l"] + 300, "y": pg["t"] + 400}]})
+    for k in range(10):
+        await b.send("Input.dispatchTouchEvent", {"type": "touchMove", "touchPoints": [{"x": pg["l"] + 300 + k * 10, "y": pg["t"] + 400 - k * 5}]})
+    await b.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
+    got = await until(lambda: dr and len(els()) == 2, 5)
+    check("the pen's strokes go into the drawing, pressure and all; a finger writes nothing", bool(got) and all(e["type"] == "freedraw" and len(e["pressures"]) == len(e["points"]) for e in els()))
+    pic = dr.with_name(dr.name.replace(".excalidraw.md", ".svg")) if dr else None
+    check("and into its picture", bool(pic) and pic.read_text().count("<g fill=") == 2)
+    await b.js("document.querySelector('.ink .type').click(); return true;")
+    await b.wait_for("!!document.querySelector('.textside .cm-content')", 4)
+    await b.js("document.querySelector('.textside .cm-content').focus(); return true;")
+    await press(b, "End", "End", 35, 2)
+    await b.send("Input.insertText", {"text": "Typed from the page."})
+    got = await until(lambda: hw and hw.read_text().endswith("Typed from the page."), 4)
+    check("Type It Up puts the text beside the page, in the same sheet", bool(got) and "![Handwriting]" in hw.read_text())
+    # Obsidian's Excalidraw plugin draws on it too: Moshe takes what it saved
+    t = dr.read_text()
+    scene = json.loads(re.search(r"```json\n([\s\S]*?)```", t).group(1))
+    scene["elements"].append({"id": "t1", "type": "text", "x": 120, "y": 400, "width": 200, "height": 25, "text": "From Excalidraw", "fontSize": 24, "strokeColor": "#e03131", "opacity": 100})
+    dr.write_text(re.sub(r"```json\n[\s\S]*?```", lambda m: "```json\n" + json.dumps(scene) + "\n```", t))
+    if sim_url:
+        await b.js("window.__mosheFilesChanged && window.__mosheFilesChanged(); return true;")
+    await b.js("document.querySelector('.ink .type').click(); return true;")
+    await b.js("[...document.querySelectorAll('.card')].find(c => c.textContent.includes('Typed from the page') === false && c.textContent.includes('Buy') ) ?.click(); return true;")
+    await asyncio.sleep(0.5)
+    await b.js("[...document.querySelectorAll('.card')].find(c => c.textContent.includes('Handwritten')).click(); return true;")
+    shown = await b.wait_for("!!document.querySelector('.ink .page svg') && document.querySelector('.ink .page svg').innerHTML.includes('From Excalidraw')", 6)
+    redone = await until(lambda: "From Excalidraw" in pic.read_text(), 4)
+    check("what the plugin added is on the page when it opens again, and in its picture", bool(shown) and bool(redone))
+
     print("\nGroups are folders")
     await b.js("[...document.querySelectorAll('.library .row')].find(r => r.textContent.trim() === 'Inbox').click(); return true;")
     await asyncio.sleep(0.3)

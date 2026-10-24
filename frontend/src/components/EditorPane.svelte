@@ -4,6 +4,7 @@
   // second editor beside it on request (translation mode puts a sheet's
   // counterpart there, paragraph beside paragraph).
   import Editor from './Editor.svelte';
+  import InkPage from './InkPage.svelte';
   import Icon from './Icon.svelte';
   import { app, store, openSheet } from '../lib/state.svelte.js';
   import { menuUnder } from '../lib/ui.svelte.js';
@@ -20,6 +21,16 @@
     if (app.selected.length > 1) return flat.filter((p) => app.selected.includes(p)).slice(0, 50);
     const run = store.gluedRun(app.sheet);
     return run.length > 1 ? run : [app.sheet];
+  });
+  // a handwritten sheet (front matter "ink"): its page, and its text beside it when it's being typed up
+  const ink = $derived.by(() => {
+    app.version;
+    if (sheets.length !== 1) return null;
+    const rel = store.sheetInfo(sheets[0]).ink;
+    if (!rel) return null;
+    const dir = sheets[0].slice(0, sheets[0].lastIndexOf('/'));
+    const drawing = `${dir}/${rel}`.replace(/\/\.\//gu, '/');
+    return { sheet: sheets[0], drawing, picture: drawing.replace(/\.excalidraw\.md$/u, '.svg') };
   });
   const second = $derived.by(() => { app.version; return app.second && store && store.exists(app.second) ? app.second : null; });
   const pair = $derived.by(() => { app.version; return app.translation && app.sheet ? translationPair(store, app.sheet) : null; });
@@ -60,6 +71,13 @@
   <div class="ed first">
     {#if !sheets.length}
       <div class="none">No Sheet Selected</div>
+    {:else if ink}
+      <div class="inkpane" class:typing={app.inkTyping}>
+        <div class="inkside">
+          {#key ink.drawing}<InkPage inkPath={ink.drawing} svgPath={ink.picture} typing={app.inkTyping} ontype={() => (app.inkTyping = !app.inkTyping)} />{/key}
+        </div>
+        {#if app.inkTyping}<div class="textside"><Editor bind:this={first} path={ink.sheet} {register} /></div>{/if}
+      </div>
     {:else if sheets.length === 1}
       <Editor bind:this={first} path={sheets[0]} {register} />
     {:else}
@@ -106,6 +124,11 @@
   .second-title { font-size: 11px; font-weight: 600; color: var(--section); text-transform: uppercase; letter-spacing: 0.05em; }
   .rings { margin-left: auto; border: 0; background: none; color: var(--icon-dim); pointer-events: auto; display: flex; padding: 2px; border-radius: 4px; }
   .rings:hover { color: var(--icon); background: var(--hint-bg); }
+  .inkpane { height: 100%; display: flex; }
+  .inkside { flex: 1; min-width: 0; min-height: 0; }
+  .textside { flex: 1; min-width: 0; min-height: 0; border-left: 1px solid var(--sep); position: relative; }
+  /* upright, or a narrow window: the page above, the text below */
+  @media (max-aspect-ratio: 1/1) { .inkpane.typing { flex-direction: column; } .inkpane.typing .textside { border-left: 0; border-top: 1px solid var(--sep); } }
   .none { height: 100%; display: flex; align-items: center; justify-content: center; font-size: 27px; color: #b8b8b8; font-weight: 400; }
   .stack { height: 100%; padding: 40px 0 40vh; }
   .stack-sep { max-width: calc(var(--ed-width, 64) * 0.51em); margin: 18px auto; border-top: 1px dashed var(--sep-strong); font-size: 16px; }

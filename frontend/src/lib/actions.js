@@ -1,6 +1,8 @@
 // What the menus, buttons and shortcuts do: each a change to the library
 // through the store, and whatever the window should show after it.
-import { app, store, select, openSheet, openProject, closeProject, persist, toast } from './state.svelte.js';
+import { app, store, select, openSheet, openProject, closeProject, persist, toast, prefs, theStorage } from './state.svelte.js';
+import { writeInkFile, inkSvg, emptyScene } from '@engine/ink.js';
+import { setMeta } from '@engine/sheet.js';
 import { openDialog, confirm } from './ui.svelte.js';
 
 const dirOf = (p) => p.slice(0, p.lastIndexOf('/'));
@@ -25,6 +27,27 @@ export function newSheet({ material = false, text = '' } = {}) {
   app.focus = 'editor';
   setTimeout(() => window.dispatchEvent(new CustomEvent('moshe:focus-editor')), 30);
   return p;
+}
+
+/** File › New Handwritten Sheet: a sheet that is a page to write on (engine/ink.js), its
+ *  drawing and its picture beside it in _media, and the sheet showing the picture. */
+export async function newHandwrittenSheet() {
+  const dir = targetGroup();
+  if (store.isArchived(dir)) { toast('This project is archived.'); return null; }
+  const s = theStorage();
+  if (!s || !s.write) { toast('Handwriting can’t be saved here yet.'); return null; }
+  const d = new Date(), two = (n) => String(n).padStart(2, '0');
+  const stamp = `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}.${two(d.getMinutes())}`;
+  let name = `Handwritten ${stamp}`;
+  for (let n = 2; store.exists(`${dir}/_media/${name}.excalidraw.md`); n++) name = `Handwritten ${stamp} ${n}`;
+  const paper = prefs.inkPaper || 'lined';
+  try {
+    await s.write(`${dir}/_media/${name}.excalidraw.md`, writeInkFile(null, emptyScene(), { paper }));
+    await s.write(`${dir}/_media/${name}.svg`, inkSvg([], { paper }));
+    store.makeDirs(`${dir}/_media`);
+  } catch (err) { toast(`Could not make the page: ${err.message}`); return null; }
+  const text = setMeta(`# ${name}\n![Handwriting](_media/${encodeURI(name)}.svg)\n`, { ink: `_media/${name}.excalidraw.md` });
+  return newSheet({ text });
 }
 
 export async function newGroup(parent = null) {

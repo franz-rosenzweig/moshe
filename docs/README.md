@@ -12,7 +12,7 @@ These pages explain Moshe the way I'd explain it to a friend sitting next to me:
 ### Writing in Moshe
 - [The library](library.md) — Notes and the Inbox, projects, groups, the sheet list, favorites and the Trash
 - [Sheets and the editor](editor.md) — markup, comments, highlights, footnotes, links, images, glue and split
-- [The pen](pen.md) — proofreading marks with a pen, writing by hand, and sketches
+- [The pen](pen.md) — proofreading marks with a pen, handwritten sheets, and sketches
 - [Goals and the dashboard](goals-and-dashboard.md) — goals, the ring, statistics, history and the dashboard's views
 - [Keywords and filters](keywords.md) — keywords on sheets, their colours, the Keyword Manager, and filters
 - [Translation mode](translation.md) — the original and the translation, paragraph beside paragraph

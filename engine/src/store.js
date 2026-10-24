@@ -427,7 +427,7 @@ export class Store {
     const modified = r && r.mtime ? r.mtime : 0;
     return {
       path, name: baseName(path), dir: dirOf(path), title: c.title, preview: c.preview,
-      keywords: c.meta.keywords, material: c.meta.material, goal: c.meta.goal, notes: c.meta.notes,
+      keywords: c.meta.keywords, material: c.meta.material, goal: c.meta.goal, notes: c.meta.notes, ink: c.meta.ink,
       favorite: !!sm.favorite, glued: !!sm.glued, created: sm.created ? Date.parse(sm.created) || modified : modified,
       modified, stats: c.stats, empty: !c.title,
     };

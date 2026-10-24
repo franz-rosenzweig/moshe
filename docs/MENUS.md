@@ -19,6 +19,7 @@ same keys, so the web app and Android behave alike, with no menu bar.
 | --- | --- | --- | --- |
 | New Sheet | ⌘N | `newSheet` | |
 | New Material Sheet | ⌃⌥⌘N | `newMaterialSheet` | |
+| New Handwritten Sheet | | `newHandwrittenSheet` | |
 | New Group… | ⇧⌘N | `newGroup` | |
 | New Filter… | ⌃⌘N | `newFilter` | |
 | New Project… | | `newProject` | |

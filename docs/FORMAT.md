@@ -75,6 +75,7 @@ notes:
 | `material` | a material sheet: left out of export, statistics and goals |
 | `goal` | the sheet's writing goal: `type` (`about`, `at-least`, `at-most`), `count`, `metric` (`words`, `characters`, `characters-no-spaces`, `sentences`, `paragraphs`, `lines`, `pages`, `reading-time`), optional `deadline` (`YYYY-MM-DD`) |
 | `notes` | notes attached to the sheet, each a block of Markdown |
+| `ink` | a handwritten sheet: its page of ink, a drawing beside it (`_media/NAME.excalidraw.md`, Obsidian's Excalidraw plugin's own format, with the strokes as `freedraw` elements and the paper in `moshe-paper`), whose picture (`_media/NAME.svg`) the sheet shows |
 
 Any other key is someone else's (Obsidian's `aliases`, say) and is kept exactly
 as written. The editor never shows the front matter; the dashboard does.
