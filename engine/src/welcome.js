@@ -31,7 +31,7 @@ Some tags are just for you while you work. %%Two percent signs make a comment li
 
 Footnotes^[Like this one. It gets its number when you export.], equations like $E = mc^2$, and tables are tags too. For a table, use Insert › Table, and Tab takes you from cell to cell.
 
-You don't have to remember any of this. Press ⌘9 for the list of tags, and on a phone they're on the bar above the keyboard. And if your fingers are used to typing :: for a highlight, that works too.
+You don't have to remember any of this. Press ⌘9 for the list of tags, and on a phone or a tablet they're on the bar above the keyboard. And if your fingers are used to typing :: for a highlight, that works too.
 `,
   `## Sheets and groups
 

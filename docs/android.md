@@ -15,7 +15,7 @@ On a phone Moshe shows one pane at a time. The first is the **Library**, with th
 
 The editor's bar has the export, search and dashboard buttons, and the translation button when the sheet has a translation. The dashboard slides up from the bottom, and the handle at its top closes it.
 
-When the keyboard is up, a bar of markup sits on top of it: a heading, **Strong**, **Emphasis**, **Mark**, **Comment**, **Link**, **Footnote**, a list, a numbered list and a quote, with **Undo** and **Redo**, and a button to put the keyboard away. It scrolls sideways when there's more than fits.
+When the on-screen keyboard is up, on a phone or a tablet, a bar of markup sits on top of it: a heading, **Strong**, **Emphasis**, **Mark**, **Comment**, **Link**, **Footnote**, a list, a numbered list, a quote and **Sketch**, with **Undo** and **Redo**, and a button to put the keyboard away. It scrolls sideways on a phone when there's more than fits, and on a tablet the buttons sit in the middle. With a keyboard case there's no on-screen keyboard, so there's no bar either, and the keys do it all.
 
 **Settings** on the phone is a list of its panes, **General**, **Sidebar**, **Markup**, **Backup**, **Sync** and **Styles**, each opening over the list with a way back.
 

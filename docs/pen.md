@@ -28,7 +28,7 @@ Samsung's "S Pen to text" may also work right in the sheet itself, without the b
 
 ## Sketches
 
-**Insert › Sketch** (also in the markup list, **⌘9**) opens a sheet of paper to draw on: a diagram, a map of the plot, a family tree. There are four inks (black, blue, red and a see-through yellow marker), three sizes, an eraser, and Undo, Redo and Clear. The lines get thicker the harder you press, and holding the pen's button erases while you hold it. Once the pen has touched the paper, fingers don't draw, so you can rest your hand on it.
+**Insert › Sketch** (also in the markup list, **⌘9**, on the bar above a phone's or tablet's keyboard, and in the menu you get by long-pressing the text) opens a sheet of paper to draw on: a diagram, a map of the plot, a family tree. There are four inks (black, blue, red and a see-through yellow marker), three sizes, an eraser, and Undo, Redo and Clear. The lines get thicker the harder you press, and holding the pen's button erases while you hold it. Once the pen has touched the paper, fingers don't draw, so you can rest your hand on it.
 
 **Done** saves the sketch as an SVG picture in the sheet's `_media` folder and puts it in the sheet like any other picture, which means Obsidian and any browser show it too. To draw on it again, double-click (or double-tap) the picture in the sheet, or right-click it and choose **Edit Sketch…**. Moshe keeps the strokes inside the picture, so you pick up right where you left off. Basically, a sketch is a picture that Moshe can still draw on.
 
