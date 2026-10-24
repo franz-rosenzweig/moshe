@@ -76,6 +76,17 @@ every push to master and every pull request (`.github/workflows/test.yml`).
 The browser tests need Docker and a headless Chrome, so they run where Moshe
 is deployed.
 
+## Release it
+
+`tools/release.sh X.Y.Z "notes"` raises the version (Android's versionCode, and the
+Mac's build number, always go up; versionName and the Mac's version are X.Y.Z),
+tags it, builds the signed APK and the zipped Mac app on a Mac (named in
+`tools/release.env`, which git leaves out), makes the GitHub Release with both,
+and updates `Casks/moshe.rb` in franz-rosenzweig/homebrew-tap. Obtainium on a
+phone and `brew upgrade` on a Mac take it from there. The APK is always signed
+with the same key (android/release.sh), or phones can't update; the Mac app with
+the same Apple Development identity, or macOS asks for the library folder again.
+
 Moshe is under the GNU GPL, version 3 or later ([LICENSE](../LICENSE)), and
 so is anything contributed to it.
 

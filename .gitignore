@@ -22,3 +22,4 @@ android/*.apk
 frontend/src/lib/private-themes/
 # the taste's build (tools/build_demo.py)
 frontend/dist-demo/
+tools/release.env
