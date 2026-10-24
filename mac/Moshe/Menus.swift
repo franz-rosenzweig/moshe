@@ -325,6 +325,7 @@ enum Menus {
         }
         m.addItem(.separator())
         page(m, "Table of Contents", "insert", arg: "toc")
+        page(m, "Sketch…", "insert", arg: "sketch")
         return m
     }
 

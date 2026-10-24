@@ -9,7 +9,7 @@ gauge target chart-line circle-ellipsis ellipsis x check plus trash-2 star paper
 list list-ordered heading bold italic strikethrough eye file-text files file clock calendar tag tags settings download upload printer mail
 split merge copy scissors undo-2 redo-2 rotate-ccw history save lock lock-open columns-2 rows-2 maximize-2 minimize-2 focus pilcrow type
 external-link grip-vertical arrow-up-down info circle-check circle square-check keyboard languages log-out send message-circle hard-drive-download
-sliders-vertical circle-plus`;
+sliders-vertical circle-plus eraser`;
 // what a group, a filter or a project may wear
 const GROUP = `file-text files folder folder-open book book-open book-marked book-text library notebook notebook-pen scroll sticky-note clipboard
 newspaper graduation-cap languages mic briefcase wrench feather pen-tool pencil palette rabbit popcorn heart music globe house coffee camera film

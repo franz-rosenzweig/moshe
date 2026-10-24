@@ -5,6 +5,7 @@
   import Icon from './Icon.svelte';
   import ExportDialog from './ExportDialog.svelte';
   import BackupsDialog from './BackupsDialog.svelte';
+  import SketchDialog from './SketchDialog.svelte';
   import KeywordManager from './KeywordManager.svelte';
   import { ui, COLORS, COLOR_ORDER, colorOf, openDialog } from '../lib/ui.svelte.js';
   import { GROUP_ICONS } from '../lib/icons.js';
@@ -34,6 +35,14 @@
   }
 
   const close = (v = null) => d && d.resolve(v);
+  // Escape closes the dialog wherever the keyboard is, before the editor (which may still have it) takes the key
+  function escape(e) {
+    if (e.key !== 'Escape' || !d || d.kind === 'sketch') return;               // the sketch has its own
+    if (d.kind === 'keywordManager' && e.target instanceof HTMLInputElement) return;   // a name being edited: its own Escape
+    e.preventDefault();
+    e.stopPropagation();
+    close(null);
+  }
 
   function done() {
     if (!d) return;
@@ -89,11 +98,15 @@
   const RULE_FIELDS = [['keyword', 'Keyword'], ['text', 'Text'], ['title', 'Title'], ['created', 'Created'], ['modified', 'Modified'], ['material', 'Material sheet'], ['favorite', 'Favorite'], ['goal', 'Has a goal'], ['notes', 'Has notes']];
 </script>
 
+<svelte:window onkeydowncapture={escape} />
+
 {#if d}
   {#if d.kind === 'export'}
     <ExportDialog dialog={d} />
   {:else if d.kind === 'backups'}
     <BackupsDialog dialog={d} />
+  {:else if d.kind === 'sketch'}
+    <SketchDialog dialog={d} />
   {:else if d.kind === 'keywordManager'}
     <KeywordManager dialog={d} />
   {:else if d.kind === 'stats'}

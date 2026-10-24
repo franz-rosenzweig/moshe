@@ -87,6 +87,7 @@ not read it itself from a menu).
 | Divider | | `insert` `divider` |
 | Image · Video · Footnote · Equation · Table | | `insert` `image` · `video` · `footnote` · `equation` · `table` |
 | Table of Contents | | `insert` `toc` |
+| Sketch… | | `insert` `sketch`: a drawing (pen, finger or mouse) saved as an SVG beside the sheet |
 
 ## View
 

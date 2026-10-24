@@ -158,6 +158,7 @@
               <label><input type="checkbox" bind:checked={prefs.grammar} /> Check Grammar and Spelling While Typing (English)
                 <select class="field" bind:value={prefs.dialect} disabled={!prefs.grammar}>{#each [[0, 'American'], [1, 'British'], [2, 'Australian'], [3, 'Canadian'], [4, 'Indian']] as [v, l]}<option value={v}>{l}</option>{/each}</select></label>
               <label><input type="checkbox" bind:checked={prefs.hebrewSpelling} /> Check Hebrew Spelling While Typing</label>
+              <label><input type="checkbox" bind:checked={prefs.penMarks} /> Pen Marks in Revision Mode (strike, scribble, caret, circle)</label>
               <label><input type="checkbox" bind:checked={prefs.spellcheck} /> Check Spelling While Typing{#if prefs.grammar || prefs.hebrewSpelling}{' (other languages)'}{/if}</label>
               <label><input type="checkbox" bind:checked={prefs.showCounter} /> Show Counter</label>
               <label><input type="checkbox" bind:checked={prefs.pageBackground} /> Show Page Background</label>

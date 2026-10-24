@@ -22,7 +22,7 @@
   import { focusMode } from '../editor/focus.js';
   import { sheetLinks } from '../editor/links.js';
   import { app, prefs, store, toast, theStorage, openSheet, revealSheet } from '../lib/state.svelte.js';
-  import { openMenu } from '../lib/ui.svelte.js';
+  import { openMenu, openDialog } from '../lib/ui.svelte.js';
   import { goalFor } from '../lib/actions.js';
   import { stats } from '@engine/sheet.js';
   import '../editor/editor.css';
@@ -30,6 +30,10 @@
   import { check, dropFinding } from '../lib/check.svelte.js';
   import { hebrew, configureHebrew, hebrewAt, hebrewSuggestions } from '../editor/hebrew.js';
   import { paragraphNumbers } from '../editor/paranum.js';
+  import { penMarks, commitWriting, holdWriting, dropWriting } from '../editor/pen.js';
+  import { snapBetweenWords } from '@engine/pen.js';
+  import { readSketch } from '@engine/sketch.js';
+  import Icon from './Icon.svelte';
 
   let { path, stacked = false, onactive = null, register = null } = $props();
 
@@ -40,6 +44,7 @@
   let saveTimer = null;
   let dirty = false;
   let pop = $state(null);      // {kind, from, to, x, y, value, extra}
+  let writing = $state(null);  // the writing box: {kind: insert | comment | text, pos | from, to, x, y, text}
   let counts = $state(null);
   let selectionCounts = $state(null);
 
@@ -56,15 +61,24 @@
     return `500 ${prefs.fontSize}px ${fam}`;
   };
 
+  /** A picture's place in the library, from its address in the sheet (relative to the sheet). */
+  function libraryPath(url) {
+    if (!url || /^(https?:|data:|blob:)/u.test(url) || !current) return null;
+    const dir = current.slice(0, current.lastIndexOf('/'));
+    const parts = (dir ? dir.split('/') : []);
+    for (const seg of decodeURI(url).split('/')) { if (seg === '..') parts.pop(); else if (seg !== '.') parts.push(seg); }
+    return parts.join('/');
+  }
+
+  // pictures drawn again (a sketch edited): their address changes, so the preview loads anew
+  const redrawn = new Map();
   function imageUrl(url) {
     if (!url) return null;
     if (/^(https?:|data:|blob:)/u.test(url)) return url;
     const s = theStorage();
     if (!s || !s.rawUrl || !current) return null;
-    const dir = current.slice(0, current.lastIndexOf('/'));
-    const parts = (dir ? dir.split('/') : []);
-    for (const seg of decodeURI(url).split('/')) { if (seg === '..') parts.pop(); else if (seg !== '.') parts.push(seg); }
-    return s.rawUrl(parts.join('/'));
+    const p = libraryPath(url), raw = s.rawUrl(p), v = redrawn.get(p);
+    return v ? `${raw}${raw.includes('?') ? '&' : '?'}v=${v}` : raw;
   }
 
   // CodeMirror's own keys, less those the menus use (⇧⌘K keywords, ⌘[ ⌘] back and forward,
@@ -98,6 +112,7 @@
       dynamic.of(dynExt()),
       proofC.of(proofExt()),
       checkField,
+      penMarks(() => ({ on: !!app.revision && prefs.penMarks !== false, write: (req) => { writing = { ...req, text: '' }; }, fail: (why) => toast(why), seen: () => { if (!app.penSeen) app.penSeen = true; } })),
       keymap.of([
         { key: 'Enter', run: (v) => prefs.smartLists && smartEnter(v) },
         { key: 'Tab', run: (v) => tabKey(v, false) },
@@ -396,6 +411,12 @@
   function clickMark(e, v, dbl = false) {
     const t = e.target;
     if (!(t instanceof HTMLElement)) return false;
+    // a sketch's picture, double-clicked (or double-tapped with the pen): drawn on again
+    const img = dbl && t.closest('.cm-imgbox');
+    if (img) {
+      const sk = sketchOnLine(v, v.posAtDOM(img));
+      if (sk) { e.preventDefault(); sketch(v, sk); return true; }
+    }
     const pr = !dbl && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && e.button === 0 && (t.closest('[data-heb]') || t.closest('[data-check]') || t.closest('[data-proof]'));
     if (pr) {
       const f = pr.dataset.heb !== undefined ? hebrewAt(v, pr) : findingAt(v, pr);
@@ -529,7 +550,9 @@
     const sel = v.state.selection.main;
     if (pos !== null && (sel.empty || pos < sel.from || pos > sel.to)) v.dispatch({ selection: { anchor: pos } });
     const wrap = (a, b) => () => { toggleWrap(v, a, b); v.focus(); };
+    const sk = pos !== null ? sketchOnLine(v, pos) : null;
     openMenu(e, [
+      ...(sk ? [{ label: 'Edit Sketch…', action: () => sketch(v, sk) }, { sep: true }] : []),
       { label: 'Cut', key: '⌘X', action: () => { document.execCommand('cut'); } },
       { label: 'Copy', key: '⌘C', action: () => { document.execCommand('copy'); } },
       { label: 'Paste', key: '⌘V', action: () => { navigator.clipboard.readText().then((t) => { const s = v.state.selection.main; v.dispatch({ changes: { from: s.from, to: s.to, insert: t } }); }).catch(() => toast('Use ⌘V to paste')); } },
@@ -574,7 +597,7 @@
       { heading: 'Inline' },
       { label: '**Strong**', action: wrap('**') }, { label: '_Emphasis_', action: wrap('_') }, { label: '==Mark==', action: wrap('==') }, { label: '%%Comment%%', action: wrap('%%') },
       { label: '{--Delete--}', action: wrap('{--', '--}') }, { label: '{++Insert++}', action: wrap('{++', '++}') }, { label: '`Code`', action: wrap('`') }, { label: '$Equation$', action: wrap('$') },
-      { label: '[Link](…)', action: () => insertLinkCmd(v) }, { label: '^[Footnote]', action: ins('^[]', 1) }, { label: '![Image](…)', action: ins('![]()', 3) },
+      { label: '[Link](…)', action: () => insertLinkCmd(v) }, { label: '^[Footnote]', action: ins('^[]', 1) }, { label: '![Image](…)', action: ins('![]()', 3) }, { label: 'Sketch…', action: () => sketch(v) },
     ]);
   }
 
@@ -689,6 +712,7 @@
           case 'table': ownBlock('|  |  |\n| --- | --- |\n|  |  |', 2); break;     // the caret in the first cell
           case 'toc': ownLine('(toc)'); break;
           case 'image': case 'video': pickImages(v); break;
+          case 'sketch': sketch(v); break;
           default: return false;
         }
         break;
@@ -711,6 +735,29 @@
     if (own) v.dispatch({ annotations: isolateHistory.of('full') });
     if (name !== 'find' || (arg !== 'open' && arg !== 'replace' && arg)) v.focus();
     return true;
+  }
+
+  /** The pen button: words written at the cursor (in Revision Mode, as an insertion there). */
+  function writeHere() {
+    if (!view) return;
+    const s = view.state.selection.main, c = view.coordsAtPos(s.head) || { left: innerWidth / 2 - 170, bottom: 160 };
+    if (!app.revision) { writing = { kind: 'text', x: c.left, y: c.bottom, text: '' }; return; }
+    const doc = view.state.doc, line = doc.lineAt(s.head);
+    const req = { kind: 'insert', pos: snapBetweenWords(doc.toString(), line.from, line.to, s.head), x: c.left, y: c.bottom };
+    holdWriting(view, req);
+    writing = { ...req, text: '' };
+  }
+  function closeWriting() { writing = null; if (view) dropWriting(view); }
+  /** The box takes the keyboard (and the pen's handwriting) from the editor as it opens. */
+  function takeFocus(el) {
+    if (view) view.contentDOM.blur();
+    el.focus();
+    requestAnimationFrame(() => { if (document.activeElement !== el) el.focus(); });
+  }
+  function commitWritingBox() {
+    const w = writing && $state.snapshot(writing);
+    writing = null;
+    if (w && view) { commitWriting(view, w, w.text); view.focus(); }
   }
 
   /** Clear Markup: the selected text (or the line) as a reader sees it, the tags gone. */
@@ -737,6 +784,57 @@
     const at = v.state.selection.main.head;
     save();
     Promise.resolve(saving).then(() => { const created = store.splitSheet(current, at); toast('Split into two glued sheets'); openSheet(created); });
+  }
+
+  /** The sketch whose picture is on this line, if it's one of Moshe's (an SVG beside the sheet): {path, url}. */
+  function sketchOnLine(v, pos) {
+    const line = v.state.doc.lineAt(pos);
+    const m = /^\s*!\[[^\]\n]*\]\(<?([^)\s>]+\.svg)>?\)\s*$/iu.exec(line.text);
+    const path = m && libraryPath(m[1]);
+    return path ? { path, url: imageUrl(m[1]) } : null;
+  }
+
+  /** Insert › Sketch, or a sketch drawn on again: the drawing window, and the picture saved beside the sheet. */
+  async function sketch(v, existing = null) {
+    const s = theStorage();
+    if (!s || !s.writeRaw || !current) { toast('Sketches can’t be saved here yet.'); return; }
+    let strokes = [];
+    if (existing) {
+      try {
+        const back = readSketch(await (await fetch(existing.url)).text());
+        if (!back) { toast('That picture wasn’t drawn in Moshe, so it can’t be drawn on here.'); return; }
+        strokes = back.strokes;
+      } catch (err) { toast(`Could not open the sketch: ${err.message}`); return; }
+    }
+    const at = v.state.selection.main.head, sheet = current;
+    const r = await openDialog('sketch', { strokes });
+    if (!r || current !== sheet) return;
+    const dir = sheet.slice(0, sheet.lastIndexOf('/'));
+    let path = existing && existing.path, name = null;
+    if (!path) {
+      const d = new Date(), two = (n) => String(n).padStart(2, '0');
+      const base = `Sketch ${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}.${two(d.getMinutes())}`;
+      name = `${base}.svg`;
+      for (let n = 2; store.exists(`${dir}/_media/${name}`); n++) name = `${base} ${n}.svg`;
+      path = `${dir}/_media/${name}`;
+    }
+    try {
+      await s.writeRaw(path, new Blob([r.svg], { type: 'image/svg+xml' }));
+      store.makeDirs(`${dir}/_media`);
+    } catch (err) { toast(`Could not save the sketch: ${err.message}`); return; }
+    if (existing) {
+      redrawn.set(path, Date.now());
+      v.dispatch({ effects: dynamicC.reconfigure(dynExt()) });     // the previews built again, with the new address
+    } else {
+      const link = `![Sketch](_media/${encodeURI(name)})`;
+      const line = v.state.doc.lineAt(Math.min(at, v.state.doc.length));
+      const own = line.text.trim() === '';
+      const insert = own ? link : `\n${link}`;
+      const pos = own ? line.from : line.to;
+      v.dispatch({ changes: { from: pos, to: own ? line.to : pos, insert }, selection: { anchor: pos + insert.length }, userEvent: 'input' });
+    }
+    await store.scanChanges();
+    v.focus();
   }
 
   /** Insert › Image: pictures chosen from the device, saved beside the sheet. */
@@ -829,6 +927,9 @@
     <button class="counter" class:sel={!!selectionCounts} class:ringed={!!goalNow} title="Click to count something else"
       onclick={() => { app.counter = COUNTERS[(COUNTERS.indexOf(app.counter) + 1) % COUNTERS.length]; }}>{counterText}</button>
   {/if}
+  {#if app.penSeen && !stacked}
+    <button class="penbtn" title={app.revision ? 'Write an insertion by hand' : 'Write by hand'} aria-label="Write by hand" onclick={writeHere}><Icon name="pen-tool" size={19} /></button>
+  {/if}
   {#if goalNow}
     <button class="goalring" class:done={goalNow.g.reached} class:over={goalNow.g.over} style="--p:{Math.min(1, goalNow.g.fraction)}" title="Goal"
       aria-label="Goal: {goalNow.g.value.toLocaleString()} of {goalNow.g.target.toLocaleString()}" onclick={(e) => { goalPop = e.currentTarget.getBoundingClientRect(); }}></button>
@@ -848,6 +949,18 @@
     </div>
     <p>of {GOAL_TYPE[goalNow.goal.type] || ''}<br /><b>{g.target.toLocaleString()}</b> {GOAL_UNIT[goalNow.goal.metric] || 'words'}{#if goalNow.goal.deadline}<br /><span class="dim">by {goalNow.goal.deadline}{#if g.perDay !== undefined} · {g.perDay.toLocaleString()} a day{/if}</span>{/if}</p>
     <button class="link" onclick={() => { goalPop = null; goalFor({ sheet: true, path, goal: goalNow.goal }); }}>Edit Goal…</button>
+  </div>
+{/if}
+
+{#if writing}
+  <div class="scrim" onmousedown={closeWriting} role="presentation"></div>
+  <div class="popover writebox" role="dialog" aria-label={writing.kind === 'insert' ? 'Insert' : writing.kind === 'comment' ? 'Comment' : 'Write'}
+    style="left:{Math.max(8, Math.min(writing.x - 40, innerWidth - 356))}px;top:{Math.max(8, Math.min(writing.y + 10, innerHeight - 200))}px">
+    <div class="pop-title">{writing.kind === 'insert' ? 'Insert' : writing.kind === 'comment' ? 'Comment' : 'Write'}</div>
+    <textarea class="field area" rows="3" dir="auto" use:takeFocus bind:value={writing.text} placeholder="Write here with the pen, or type"
+      onkeydown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitWritingBox(); } if (e.key === 'Escape') closeWriting(); }}></textarea>
+    <div class="pop-row"><span style="flex:1"></span><button class="btn" onclick={closeWriting}>Cancel</button>
+      <button class="btn primary" onclick={commitWritingBox}>{writing.kind === 'comment' ? (writing.text.trim() ? 'Add Comment' : 'Highlight') : 'Insert'}</button></div>
   </div>
 {/if}
 
@@ -942,4 +1055,8 @@
   .pop-title { font-size: 11px; font-weight: 600; color: var(--section); text-transform: uppercase; letter-spacing: 0.04em; }
   .pop-row { display: flex; gap: 6px; align-items: center; }
   .area { height: auto; padding: 6px 8px; resize: vertical; font-size: 13px; line-height: 1.4; width: 100%; }
+  .penbtn { position: absolute; right: 24px; bottom: 24px; z-index: 6; width: 46px; height: 46px; border-radius: 50%; border: 0; padding: 0;
+    display: flex; align-items: center; justify-content: center; background: var(--accent); color: var(--on-accent); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18); }
+  .writebox { position: fixed; z-index: 50; width: 340px; padding: 12px; display: flex; flex-direction: column; gap: 8px; background: var(--hud-bg, var(--popover-bg)); }
+  .writebox .area { font-size: 16px; min-height: 84px; }
 </style>

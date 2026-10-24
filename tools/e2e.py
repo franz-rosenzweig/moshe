@@ -10,7 +10,7 @@ run starts from a fresh sample library in /tmp, never a real one.
 
 It starts its own server container (moshe-e2e) and simulator, and removes them.
 """
-import argparse, asyncio, json, shutil, subprocess, sys, time, urllib.request
+import argparse, asyncio, json, math, re, shutil, subprocess, sys, time, urllib.request
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -97,6 +97,29 @@ async def press(b, key, code, vk, modifiers=0):
 
 async def tab(b, shift=False):
     await press(b, "Tab", "Tab", 9, 8 if shift else 0)
+
+
+WORD_RECT = """const word = %s, nth = %d; const host = document.querySelector('.cm-content'); const tw = document.createTreeWalker(host, NodeFilter.SHOW_TEXT);
+  let n = 0, node; while ((node = tw.nextNode())) { let i = -1; while ((i = node.data.indexOf(word, i + 1)) >= 0) { if (n++ === nth) {
+    const r = document.createRange(); r.setStart(node, i); r.setEnd(node, i + word.length); const b = r.getBoundingClientRect(); return {l: b.left, r: b.right, t: b.top, b: b.bottom}; } } }
+  return null;"""
+
+
+async def word_rect(b, word, nth=0):
+    """Where a word is drawn in the editor, on screen."""
+    return await b.js(WORD_RECT % (json.dumps(word), nth))
+
+
+async def pen(b, pts):
+    """A stroke of a pen (with pressure) through the points, as a tablet's pen sends it."""
+    await b.send("Input.dispatchMouseEvent", {"type": "mousePressed", "x": pts[0][0], "y": pts[0][1], "button": "left", "buttons": 1, "clickCount": 1, "pointerType": "pen", "force": 0.5})
+    for x, y in pts[1:]:
+        await b.send("Input.dispatchMouseEvent", {"type": "mouseMoved", "x": x, "y": y, "button": "left", "buttons": 1, "pointerType": "pen", "force": 0.5})
+    await b.send("Input.dispatchMouseEvent", {"type": "mouseReleased", "x": pts[-1][0], "y": pts[-1][1], "button": "left", "buttons": 0, "clickCount": 1, "pointerType": "pen", "force": 0})
+
+
+def seg(a, b, n=16):
+    return [(a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n) for k in range(n + 1)]
 
 
 async def type_in_editor(b, text):
@@ -229,6 +252,7 @@ async def run(b, url, root: Path, mode: str, sim_url: str | None):
     kw = await b.wait_for("[...document.querySelectorAll('.dialog h3')].some(h => h.textContent === 'Keywords')", 4)
     check("⇧⌘K opens Keywords (which opens at all)", bool(kw))
     await press(b, "Escape", "Escape", 27)
+    check("and Escape closes it, though the editor kept the keyboard", bool(await b.wait_for("!document.querySelector('.dialog')", 2)))
     await b.js("document.querySelector('.cm-content').focus(); return true;")
     await press(b, "]", "BracketRight", 221, 2)
     await press(b, "/", "Slash", 191, 2)
@@ -291,6 +315,97 @@ async def run(b, url, root: Path, mode: str, sim_url: str | None):
         said = await b.wait_for("(document.querySelector('[aria-label=Backups]') || {}).textContent?.includes('folder on this device')", 4)
         check("says where the backups are, not that the server will make one", bool(said))
         await b.js("document.querySelector('[aria-label=Backups] .x').click(); return true;")
+
+    print("\nPen marks in Revision Mode: strike, scribble, caret, circle")
+    pf = root / "Notes" / "Pen marks.md"
+    await b.js("window.__mosheStore.createSheet('Notes', {text: '# Pen marks\\nThe quick brown fox jumps over the lazy dog.\\nשלום עולם יפה מאוד.'}); return true;")
+    await asyncio.sleep(0.4)
+    await b.js("[...document.querySelectorAll('.library .row')].find(r => r.textContent.trim() === 'Inbox').click(); return true;")
+    await asyncio.sleep(0.4)
+    await b.js("[...document.querySelectorAll('.card')].find(c => c.textContent.includes('Pen marks')).click(); return true;")
+    await b.wait_for("document.querySelector('.cm-content').textContent.includes('lazy dog')", 5)
+    await asyncio.sleep(0.3)
+    r = await word_rect(b, "quick")
+    await pen(b, seg((r["l"] - 2, (r["t"] + r["b"]) / 2), (r["r"] + 2, (r["t"] + r["b"]) / 2)))
+    await asyncio.sleep(1.2)
+    check("outside Revision Mode the pen marks nothing", "{--" not in pf.read_text(), pf.read_text())
+    check("and the pen button shows once a pen has been used", bool(await b.wait_for("!!document.querySelector('.penbtn')", 3)))
+    await b.js("window.mosheCommand('revision'); return true;")
+    await asyncio.sleep(0.8)
+    line1 = lambda: pf.read_text().split("\n")[1]
+    r = await word_rect(b, "quick"); y = (r["t"] + r["b"]) / 2
+    await pen(b, seg((r["l"] - 2, y), (r["r"] + 2, y + 1)))
+    got = await until(lambda: "{--quick--}" in line1(), 4)
+    check("a strike through a word deletes it, as a revision", bool(got), line1())
+    r = await word_rect(b, "quick"); y = (r["t"] + r["b"]) / 2; w = r["r"] - r["l"]
+    zig = [(r["l"] + (w if k % 2 else 0), y + (k % 3) - 1) for k in range(7)]
+    await pen(b, [p for i in range(1, len(zig)) for p in seg(zig[i - 1], zig[i], 8)])
+    got = await until(lambda: line1() == "The quick brown fox jumps over the lazy dog.", 4)
+    check("a scribble over it takes the deletion back", bool(got), line1())
+    a_, f_ = await word_rect(b, "brown"), await word_rect(b, "fox")
+    x = (a_["r"] + f_["l"]) / 2; top = a_["t"] + 3; foot = a_["b"] + 6
+    await pen(b, seg((x - 6, foot), (x, top), 10) + seg((x, top), (x + 6, foot), 10)[1:])
+    box = await b.wait_for("!!document.querySelector('.writebox')", 3)
+    check("a caret between two words opens the writing box", bool(box))
+    await b.send("Input.insertText", {"text": "red"})
+    await enter(b)
+    got = await until(lambda: re.search(r"brown ?\{\+\+ ?red ?\+\+\} ?fox", line1()), 4)
+    check("and what's written there is an insertion", bool(got), line1())
+    l_, d_ = await word_rect(b, "lazy"), await word_rect(b, "dog")
+    cx = (l_["l"] + d_["r"]) / 2; cy = (l_["t"] + l_["b"]) / 2; rx = (d_["r"] - l_["l"]) / 2 + 10; ry = (l_["b"] - l_["t"]) / 2 + 6
+    await pen(b, [(cx + rx * math.cos(t / 40 * 2.15 * math.pi), cy + ry * math.sin(t / 40 * 2.15 * math.pi)) for t in range(41)])
+    await b.wait_for("!!document.querySelector('.writebox')", 3)
+    await b.send("Input.insertText", {"text": "too cute"})
+    await b.js("document.querySelector('.writebox .btn.primary').click(); return true;")
+    got = await until(lambda: "{==lazy dog==}{>>too cute<<}." in line1(), 4)
+    check("a circle round words highlights them, with the comment written for it", bool(got), line1())
+    await b.js("window.mosheCommand('undo'); return true;")
+    got = await until(lambda: "{==" not in line1() and "{++" in line1(), 4)
+    check("and Undo takes back one mark at a time", bool(got), line1())
+    h = await word_rect(b, "עולם"); y = (h["t"] + h["b"]) / 2
+    await pen(b, seg((h["r"] + 2, y), (h["l"] - 2, y + 1)))
+    got = await until(lambda: "{--עולם--}" in pf.read_text(), 4)
+    check("a strike through a Hebrew word, right to left", bool(got), pf.read_text().split("\n")[2])
+    await pen(b, seg((700, 260), (701, 560)))
+    toast = await b.wait_for("[...document.querySelectorAll('.toast, [class*=toast]')].some(t => t.textContent.includes('caret'))", 3)
+    check("a stroke that isn't a mark says what the marks are, and changes nothing", bool(toast) and "{--עולם--}" in pf.read_text())
+    await b.js("window.mosheCommand('revision'); return true;")
+
+    print("\nSketches: drawn with the pen, saved beside the sheet, drawn on again")
+    await b.js("[...document.querySelectorAll('.card')].find(c => c.textContent.includes('Pen marks')).click(); return true;")
+    await b.wait_for("document.querySelector('.cm-content').textContent.includes('lazy')", 5)
+    await b.js("document.querySelector('.cm-content').focus(); return true;")
+    await press(b, "End", "End", 35, 2)
+    await b.js("window.mosheCommand('insert', 'sketch'); return true;")
+    check("Insert › Sketch opens a sheet of paper", bool(await b.wait_for("!!document.querySelector('[aria-label=Sketch] canvas')", 4)))
+    c = await b.js("const r = document.querySelector('[aria-label=Sketch] canvas').getBoundingClientRect(); return {l: r.left, t: r.top};")
+    wave = lambda x0, y0: [(x0 + i * 6, y0 + math.sin(i / 3) * 30) for i in range(40)]
+    await pen(b, wave(c["l"] + 100, c["t"] + 150))
+    await b.send("Input.dispatchTouchEvent", {"type": "touchStart", "touchPoints": [{"x": c["l"] + 300, "y": c["t"] + 400}]})
+    for x, y in wave(c["l"] + 300, c["t"] + 400)[1:]:
+        await b.send("Input.dispatchTouchEvent", {"type": "touchMove", "touchPoints": [{"x": x, "y": y}]})
+    await b.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
+    await b.js("document.querySelector('[aria-label=Sketch] .btn.primary').click(); return true;")
+    media = root / "Notes" / "_media"
+    got = await until(lambda: media.exists() and any(media.glob("Sketch *.svg")), 5)
+    check("Done saves it as an SVG beside the sheet", bool(got), str(sorted(p.name for p in media.glob("*"))) if media.exists() else "no _media")
+    svg = sorted(media.glob("Sketch *.svg"))[0] if got else None
+    strokes = lambda: len(json.loads(re.search(r'<metadata id="moshe-sketch">(.*?)</metadata>', svg.read_text()).group(1))["strokes"])
+    check("with the pen's stroke in it, and nothing from the hand resting on the paper", bool(svg) and strokes() == 1)
+    linked = await until(lambda: bool(svg) and f"![Sketch](_media/{svg.name.replace(' ', '%20')})" in pf.read_text(), 5)
+    check("and the sheet shows it", bool(linked), pf.read_text())
+    # (the Mac and Android apps serve the library's pictures at /_library/, which the simulator doesn't: so the server only)
+    if not sim_url:
+        await b.wait_for("!!document.querySelector('.cm-imgbox img') && document.querySelector('.cm-imgbox img').naturalWidth > 0", 5)
+        box = await b.js("const r = document.querySelector('.cm-imgbox img').getBoundingClientRect(); return {x: r.left + r.width / 2, y: r.top + r.height / 2};")
+        for n in (1, 2):
+            await b.send("Input.dispatchMouseEvent", {"type": "mousePressed", "x": box["x"], "y": box["y"], "button": "left", "clickCount": n})
+            await b.send("Input.dispatchMouseEvent", {"type": "mouseReleased", "x": box["x"], "y": box["y"], "button": "left", "clickCount": n})
+        check("a double-click on it opens it again", bool(await b.wait_for("!!document.querySelector('[aria-label=Sketch] canvas')", 4)))
+        await pen(b, wave(c["l"] + 400, c["t"] + 250))
+        await b.js("document.querySelector('[aria-label=Sketch] .btn.primary').click(); return true;")
+        got = await until(lambda: svg and strokes() == 2, 5)
+        check("and what's drawn then goes into the same picture", bool(got) and len(list(media.glob("Sketch *.svg"))) == 1)
 
     print("\nGroups are folders")
     await b.js("[...document.querySelectorAll('.library .row')].find(r => r.textContent.trim() === 'Inbox').click(); return true;")

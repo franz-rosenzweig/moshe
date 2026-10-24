@@ -58,6 +58,8 @@ class ImageWidget extends WidgetType {
     if (this.alt) { const c = document.createElement('span'); c.className = 'cm-imgcap'; c.textContent = this.alt; box.appendChild(c); }
     return box;
   }
+  // a double-click or a right-click on the picture reaches the editor (a sketch opens again); the rest pass it by
+  ignoreEvent(e) { return e.type !== 'dblclick' && e.type !== 'contextmenu'; }
 }
 
 // ---- building the decorations ----------------------------------------------------------

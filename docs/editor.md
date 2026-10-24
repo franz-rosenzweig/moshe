@@ -70,4 +70,4 @@ A long text works best as many small sheets. Select a few sheets in a group that
 
 **⌘F** finds in the sheet, **⌥⌘F** finds and replaces, **⌘G** and **⇧⌘G** go to the next and previous match, and **⌘E** uses the selection to find. **⇧⌘F** searches the whole library.
 
-<sub>Next: [Goals and the dashboard](goals-and-dashboard.md) →</sub>
+<sub>Next: [The pen](pen.md) →</sub>
