@@ -17,7 +17,7 @@ These pages explain Moshe the way I'd explain it to a friend sitting next to me:
 - [Keywords and filters](keywords.md) — keywords on sheets, their colours, the Keyword Manager, and filters
 - [Translation mode](translation.md) — the original and the translation, paragraph beside paragraph
 - [Writing checks](writing-checks.md) — Harper, Hebrew spelling and Check Text
-- [Focus and the typewriter](focus.md) — Hide Interface, the line marker, highlighting and fixed scrolling
+- [Focus and the typewriter](focus.md) — focus mode, the line marker, highlighting and fixed scrolling
 - [Themes and typography](themes.md) — fonts, line width, Moshe's themes and your own
 - [Export and import](export.md) — PDF, DOCX, ePub, HTML and Markdown out; Word and Markdown in
 - [Keyboard shortcuts](shortcuts.md) — every key, in one table

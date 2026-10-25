@@ -37,7 +37,8 @@ export const app = $state({
   quickOpen: false,
   search: null,
   revision: false,
-  interfaceHidden: false,     // Hide Interface (⌘.): only the text
+  interfaceHidden: false,     // Focus mode (⌘.): only the page, the bars hidden until they're wanted
+  chrome: false,              // in focus mode, the bars shown for now (the pointer up at them, a tap)
   revisionKind: null,
   inkTyping: false,           // a handwritten sheet with its text beside it, to type it up
   drawer: 0,                  // a tablet: the panes slid over the editor (0 none, 2 the sheets, 3 the library too)

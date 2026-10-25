@@ -6,6 +6,7 @@
   // opacity and colours, or the eraser's ways of erasing.
   import Icon from './Icon.svelte';
   import InkSample from './InkSample.svelte';
+  import { app } from '../lib/state.svelte.js';
   import { tools, brush, setColor, choose, addFavorite, useFavorite, dropFavorite, keep, WRITING } from '../lib/ink-tools.svelte.js';
   import { PEN_TYPES, COLORS, HIGHLIGHTS, PAPERS, PAPER_COLORS, VIEWS, across, paperSvg, isDark } from '@engine/ink.js';
 
@@ -13,6 +14,8 @@
     typing = false, ontype = null, canPaste = false, onpaste, zoom = 1, onfit, panel = $bindable(null) } = $props();
 
   let barH = $state(44);
+  // in focus mode the sheet's own bar comes back over the top of the page: the pens go just below it
+  const top = $derived(app.interfaceHidden ? 66 : 10);
   const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
   const b = $derived(brush());
   const hl = $derived(tools.pens.highlighter);
@@ -29,7 +32,7 @@
   const mini = (p) => paperSvg(p, 1000, 1414, { color: page.color, weight: 14 });
 </script>
 
-<div class="bar popover" role="toolbar" aria-label="Pens" bind:clientHeight={barH}>
+<div class="bar popover chrome" role="toolbar" aria-label="Pens" style="top:{top}px" bind:clientHeight={barH}>
   {#if reading}
     <button class="tool on" title="Reading mode: the pen scrolls the page. Tap to write again" aria-label="Reading mode" aria-pressed="true" onclick={onreading}><Icon name="book-open-text" size={19} /></button>
     {#if ontype}<button class="type" class:on={typing} onclick={ontype}>{typing ? 'Done Typing' : 'Type It Up'}</button>{/if}
@@ -67,7 +70,7 @@
 
 {#if panel}
   <div class="scrim" onpointerdown={() => (panel = null)} aria-hidden="true"></div>
-  <div class="panel popover" style="top:{barH + 18}px" role="dialog" aria-label="Settings for the {panel}">
+  <div class="panel popover" style="top:{top + barH + 8}px" role="dialog" aria-label="Settings for the {panel}">
     {#if panel === 'pen' || panel === 'highlighter'}
       {@const pen = panel === 'highlighter' ? 'highlighter' : tools.pen}
       {@const p = tools.pens[pen]}
@@ -140,6 +143,7 @@
       <label class="check"><input type="checkbox" checked={tools.roundButton} onchange={(e) => { tools.roundButton = e.currentTarget.checked; keep(); }} /> The round pen menu's button, in the corner</label>
       {#if canPaste}<button class="btn" onclick={() => { onpaste(); panel = null; }}><Icon name="clipboard" size={15} /> Paste</button>{/if}
       {#if zoom !== 1}<button class="btn" onclick={() => { onfit(); panel = null; }}>Zoom to Fit ({Math.round(zoom * 100)}%)</button>{/if}
+      <button class="btn" onclick={() => { panel = null; window.mosheCommand && window.mosheCommand('hideInterface'); }}><Icon name="focus" size={15} /> {app.interfaceHidden ? 'Leave Focus Mode' : 'Focus Mode: only the page'}</button>
     {/if}
   </div>
 {/if}

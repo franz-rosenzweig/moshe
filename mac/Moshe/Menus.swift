@@ -358,7 +358,7 @@ enum Menus {
         choices(m, "Appearance", command: "appearance", key: "appearance", [("system", "Match System"), ("light", "Light"), ("dark", "Dark")])
         dynamic(m, "Theme", list: "themes", command: "theme", current: "theme")
         m.addItem(.separator())
-        page(m, "Hide Interface", "hideInterface", ".", toggle: ("interfaceHidden", "Show Interface"))
+        page(m, "Focus Mode", "hideInterface", ".", toggle: ("interfaceHidden", "Leave Focus Mode"))
         // ⌃⌘F, the usual Mac key. A Mac with a globe key shows it as fn-F, and takes both.
         standard(m, "Enter Full Screen", "toggleFullScreen:", "f", [.command, .control])
         return m

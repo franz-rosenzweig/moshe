@@ -63,7 +63,7 @@
 </script>
 
 {#if shown}
-  <div class="bar" style="bottom:{bottom}px" role="toolbar" aria-label="Markup">
+  <div class="bar chrome" style="bottom:{bottom}px" role="toolbar" aria-label="Markup">
     <div class="scroll-x">
       {#each BUTTONS as [icon, label, fn]}
         <!-- the press keeps the editor's focus (and the keyboard); the click, once per tap

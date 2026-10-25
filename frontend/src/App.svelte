@@ -138,14 +138,55 @@
     if (proj && app.project !== proj) openProject(proj);
     select(path);
   }
-  /** Hide Interface (⌘.): only the text; again, and all is back as it was. */
+  /** Focus mode (⌘.): only the page, typed or handwritten; again, and all is back as it was. */
   let panesBefore = null;
   function toggleInterface() {
     app.interfaceHidden = !app.interfaceHidden;
-    if (app.interfaceHidden) { panesBefore = app.panes; app.panes = 1; app.dashboard = false; }
+    app.chrome = false;
+    if (app.interfaceHidden) { panesBefore = app.panes; app.panes = 1; app.dashboard = false; app.drawer = 0; if (narrow.on) app.phone = 'editor'; }
     else if (panesBefore) { app.panes = panesBefore; panesBefore = null; }
     persist();
   }
+  // In focus mode the bars (anything marked .chrome) are hidden. They come back while the pointer or
+  // the pen is up at the top or over them, and for a few seconds after a finger's tap; typing, or
+  // writing on the page, sends them away again.
+  const CHROME = '.chrome, .popover, .menu';
+  let chromeTimer = null, overChrome = false, tapped = null;
+  const onChrome = (e) => !!(e.target && e.target.closest && e.target.closest(CHROME));
+  function reveal(ms) {
+    app.chrome = true;
+    clearTimeout(chromeTimer);
+    chromeTimer = setTimeout(function hide() {
+      // not while the pointer is on them, or one of their menus or panels is open
+      if (overChrome || document.querySelector('.menu, .ink .panel, .radial')) chromeTimer = setTimeout(hide, 1200);
+      else app.chrome = false;
+    }, ms);
+  }
+  function conceal() { clearTimeout(chromeTimer); overChrome = false; app.chrome = false; }
+  function focusMove(e) {
+    if (!app.interfaceHidden) return;
+    const hovering = e.pointerType === 'mouse' || (e.pointerType === 'pen' && !(e.buttons & 1));
+    overChrome = hovering && (onChrome(e) || e.clientY < 72);
+    if (overChrome) reveal(1500);
+  }
+  function focusDown(e) {
+    if (!app.interfaceHidden) return;
+    if (onChrome(e)) { reveal(5000); return; }
+    if (e.pointerType === 'touch') tapped = { x: e.clientX, y: e.clientY, t: performance.now() };
+    else if (app.chrome && !(e.pointerType === 'mouse' && e.clientY < 72)) conceal();
+  }
+  function focusUp(e) {
+    if (!app.interfaceHidden || !tapped || e.pointerType !== 'touch') return;
+    if (Math.hypot(e.clientX - tapped.x, e.clientY - tapped.y) < 12 && performance.now() - tapped.t < 350) reveal(4000);
+    tapped = null;
+  }
+  function focusKey(e) {
+    if (app.interfaceHidden && app.chrome && !e.metaKey && !e.ctrlKey && !e.altKey && (e.key.length === 1 || e.key === 'Enter' || e.key === 'Backspace') && !onChrome(e)) conceal();
+  }
+  $effect(() => {
+    document.documentElement.classList.toggle('moshe-focus', !!app.interfaceHidden);
+    document.documentElement.classList.toggle('moshe-chrome', !!app.chrome);
+  });
 
   // what a native menu shows when it opens: ticks, titles, the submenus built from the library (docs/MENUS.md)
   window.mosheMenuState = () => {
@@ -349,7 +390,7 @@
   const listTitle = $derived.by(() => { app.version; return store ? store.sheetList(app.selection).title : ''; });
 </script>
 
-<svelte:window onkeydown={keydown} />
+<svelte:window onkeydown={keydown} onkeydowncapture={focusKey} onpointermovecapture={focusMove} onpointerdowncapture={focusDown} onpointerupcapture={focusUp} />
 
 {#if app.phase === 'login'}
   <Login />
@@ -363,7 +404,7 @@
     {#if showLib}
       <div class="col lib" style:width={narrow.on ? null : `${widthOf('lib')}px`}>
         {#if !narrow.on && !slide}<div class="edge right" role="separator" aria-orientation="vertical" aria-label="Library width" title="Drag to resize; double-click for the usual width" onpointerdown={(e) => resize(e, 'lib', 1)} ondblclick={() => resetWidth('lib')}></div>{/if}
-        <div class="bar" class:traffic={shell}>
+        <div class="bar chrome" class:traffic={shell}>
           {#if narrow.on}<span class="phone-title">{app.project ? '' : 'Library'}</span>
             <button class="tb" title="Settings" onclick={() => (app.settingsOpen = 'general')}><Icon name="settings" size={18} /></button>{/if}
           {#if app.project}
@@ -387,7 +428,7 @@
     {#if showList}
       <div class="col list" style:width={narrow.on ? null : `${widthOf('list')}px`} style:left={slide && showLib ? `${widthOf('lib')}px` : null}>
         {#if !narrow.on && !slide}<div class="edge right" role="separator" aria-orientation="vertical" aria-label="Sheet list width" title="Drag to resize; double-click for the usual width" onpointerdown={(e) => resize(e, 'list', 1)} ondblclick={() => resetWidth('list')}></div>{/if}
-        <div class="bar right">
+        <div class="bar right chrome">
           {#if narrow.on}
             <button class="back" onclick={() => (app.phone = 'library')}><Icon name="chevron-left" size={20} stroke={2} /> {app.project ? store.projectNode(app.project).name : 'Library'}</button>
           {:else if !showLib}
@@ -402,7 +443,7 @@
     {/if}
     {#if showEditor}
       <div class="col editor">
-        <div class="bar">
+        <div class="bar chrome">
           {#if narrow.on}
             <button class="back" onclick={() => (app.phone = 'list')}><Icon name="chevron-left" size={20} stroke={2} /> {listTitle}</button>
           {:else if slide || app.panes === 1}
@@ -415,6 +456,7 @@
           </div>
           <span class="grow"></span>
           {#if app.unsaved}<span class="unsaved" title="The server could not be reached. The text is kept in this browser and sent as soon as it can be.">Not saved yet — retrying</span>{/if}
+          <button class="tb" class:on={app.interfaceHidden} title={app.interfaceHidden ? 'Leave Focus Mode (⌘.)' : 'Focus Mode (⌘.): only the page'} onclick={toggleInterface}><Icon name="focus" size={18} /></button>
           <button class="tb" title="Export (⇧⌘P)" onclick={exportCurrent}><Icon name="share" size={19} /></button>
           {#if app.translation || hasPair}<button class="tb" class:on={app.translation} title="Translation Mode (⇧⌘T)" onclick={toggleTranslation}><Icon name="languages" size={17} /></button>{/if}
           <button class="tb" title="Find (⌘F), Open Quickly (⌘O)" onclick={(e) => menuUnder(e.currentTarget, [
@@ -447,9 +489,11 @@
 {/if}
 
 <style>
-  /* Hide Interface (⌘.): the bars fade away, back when the pointer comes up to them */
-  .window.bare :global(.bar) { opacity: 0; transition: opacity 0.25s; }
-  .window.bare :global(.bar:hover) { opacity: 1; }
+  /* Focus mode (⌘.): the bars fade away, back when they're wanted (focusMove and the rest); the editor's
+     bar floats over the page so the page has the whole height */
+  :global(html.moshe-focus .chrome) { opacity: 0; pointer-events: none; transition: opacity 0.25s; }
+  :global(html.moshe-focus.moshe-chrome .chrome) { opacity: 1; pointer-events: auto; }
+  :global(html.moshe-focus) .editor > .bar { position: absolute; top: 0; left: 0; right: 0; z-index: 6; background: var(--editor-bg); }
   .window.bare :global(.counter), .window.bare :global(.goalring) { display: none; }
 
   .window { display: flex; height: 100%; min-height: 0; }

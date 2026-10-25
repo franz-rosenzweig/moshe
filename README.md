@@ -43,7 +43,7 @@ I also wanted translation in the same place. Moshe has a translation mode: the o
 - **Goals and the dashboard.** A goal for a sheet, a group or a project (words, characters, pages, reading time and more, with a deadline if I want one), the ring that fills as I write, and a history of what I wrote each day.
 - **Keywords and filters.** Coloured keywords on sheets, and filters that gather sheets by keyword, text, date, goal or notes.
 - **The pen.** On a tablet with a pen, proofreading by hand in Revision Mode: a strike through words deletes them, a caret and a few written words insert, a circle highlights with a comment, all as the same revision marks the menus write. Plus handwritten sheets, a page you just write on like a notebook, with nothing turned into text unless you type it up beside it. It works a lot like Samsung Notes, with seven pens, a highlighter, the lasso, an eraser, the S Pen's button and its round pen menu, shapes that snap clean, and dark or lined or Cornell paper, and it's kept as an Excalidraw drawing that Obsidian's Excalidraw plugin opens too. And sketches saved as SVG pictures beside the sheet. See [The pen](docs/pen.md).
-- **Focus.** **Hide Interface** with **⌘.**, and the typewriter options: a line marker, fading everything but the current sentence or paragraph, and fixed scrolling.
+- **Focus.** Focus mode (**⌘.**), which hides every menu and bar until you go up to them or tap, for typing and handwriting alike, and the typewriter options: a line marker, fading everything but the current sentence or paragraph, and fixed scrolling.
 - **Themes.** Nine of Moshe's own, each in light and dark, and a copy of any of them to change colour by colour, shared between devices as small files.
 
 ### Translation
@@ -104,8 +104,8 @@ I also wanted translation in the same place. Moshe has a translation mode: the o
 ![A new filter](docs/images/filter.png)
 *A filter that gathers every sheet with the keyword Draft.*
 
-![Hide Interface with the typewriter options](docs/images/focus.png)
-*Hide Interface, with the current paragraph bright and the rest faded.*
+![Focus mode with the typewriter options](docs/images/focus.png)
+*Focus mode, with the current paragraph bright and the rest faded.*
 
 ![Harper's suggestion in the editor](docs/images/checks.png)
 *Grammar as you type: a click on the underline shows what's wrong and the fix.*

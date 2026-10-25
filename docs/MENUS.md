@@ -107,7 +107,7 @@ not read it itself from a menu).
 | Fixed Scrolling ▸ Off · Top · Middle · Bottom · Variable | | `fixedScrolling`, arg | `fixedScrolling` |
 | Appearance ▸ Match System · Light · Dark | | `appearance`, arg | `appearance` |
 | Theme ▸ (the themes) | | `theme`, arg id | `theme`, `themes` |
-| Hide Interface | ⌘. | `hideInterface` | `interfaceHidden` |
+| Focus Mode | ⌘. | `hideInterface` | `interfaceHidden` |
 | Enter Full Screen | ⌃⌘F (🌐F) | native | |
 
 ## Go

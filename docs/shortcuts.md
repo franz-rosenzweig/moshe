@@ -12,7 +12,7 @@ This page lists every key Moshe knows. They're the usual keys of a Mac writing a
 | **⌘2** | Show the sheet list and the editor (again: all three) |
 | **⌘3** | Show only the editor (again: all three) |
 | **⌘4** | Show or hide the dashboard |
-| **⌘.** | Hide Interface: only the text (again: everything back) |
+| **⌘.** | Focus mode: only the page, the bars back when you go up to them (again: everything back) |
 | **⌃⌘F** | Full screen |
 | **⌥⌘3** | Open or close the second editor |
 | **⌥⌘←** / **⌥⌘→** | Move between the two editors |

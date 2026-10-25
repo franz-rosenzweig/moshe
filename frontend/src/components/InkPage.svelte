@@ -17,7 +17,7 @@
   import InkTools from './InkTools.svelte';
   import InkSample from './InkSample.svelte';
   import InkRadial from './InkRadial.svelte';
-  import { theStorage, prefs, toast, persist } from '../lib/state.svelte.js';
+  import { app, theStorage, prefs, toast, persist } from '../lib/state.svelte.js';
   import { tools, brush, used, clipboard, suitPens, WRITING } from '../lib/ink-tools.svelte.js';
   import { readInkFile, writeInkFile, inkFromScene, sceneFromInk, inkSvg, pageHeight, pageSize, paperSvg, strokePath, paintOf, othersSvg, layersOf,
     boundsOf, lassoed, transformed, touches, eraseArea, copies, snapShape, isDark, across, emptyScene, GRAIN, COLORS, PEN_TYPES, PAGE_WIDTH, PAGE_HEIGHT, PAGE_GAP, PAPER_COLOR } from '@engine/ink.js';
@@ -85,6 +85,9 @@
       flush();
     };
   });
+
+  // focus mode, and the bars gone again: so are their panels
+  $effect(() => { if (app.interfaceHidden && !app.chrome) untrack(() => { panel = null; }); });
 
   // another tool in hand: the lasso lets go
   $effect(() => { tools.tool; untrack(() => { if (chosen.size) chosen = new Set(); pasteAt = null; }); });
@@ -565,9 +568,9 @@
   </div>
   <canvas bind:this={canvas} aria-hidden="true"></canvas>
   {#if ring}<div class="ring" class:erase={ring.erase} style="left:{ring.x}px; top:{ring.y}px; width:{ring.r * 2}px; height:{ring.r * 2}px"></div>{/if}
-  {#if zoom !== 1}<button class="zoom popover" title="Zoom to fit" onclick={zoomFit}>{Math.round(zoom * 100)}%</button>{/if}
+  {#if zoom !== 1}<button class="zoom popover chrome" title="Zoom to fit" onclick={zoomFit}>{Math.round(zoom * 100)}%</button>{/if}
   {#if tools.roundButton && coarse && !reading && status === 'ready'}
-    <button class="round popover" title="The pens (or press the S Pen's button with the pen over the page)" aria-label="The pens"
+    <button class="round popover chrome" title="The pens (or press the S Pen's button with the pen over the page)" aria-label="The pens"
       onclick={(e) => { const r = e.currentTarget.getBoundingClientRect(); openRadial(r.left + r.width / 2, r.top + r.height / 2); }}>
       {#if brush()}<InkSample pen={brush().pen} color={brush().color} width={Math.min(6, brush().width)} opacity={brush().opacity} w={30} h={20} />{:else}<Icon name={tools.tool === 'eraser' ? 'eraser' : 'lasso'} size={20} />{/if}
     </button>
@@ -580,6 +583,7 @@
   .ink { position: relative; height: 100%; overflow: hidden; background: var(--sidebar-bg); }
   .scroll { position: absolute; inset: 0; overflow: auto; overscroll-behavior: contain; touch-action: pan-x pan-y; padding: 108px 12px 40vh; cursor: crosshair; }
   .scroll.fingers { touch-action: none; }
+  :global(html.moshe-focus) .scroll { padding-top: 28px; }
   .scroll.pinching { overflow: hidden; }
   .scroll.reading { cursor: grab; }
   .scroll.eraser { cursor: none; }
