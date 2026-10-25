@@ -65,7 +65,9 @@ APP="$W/mac/build/Moshe.app" APK="$W/android/Moshe-$V.apk"
 mac "codesign --verify --strict $APP" || { echo "the Mac app's signature doesn't verify" >&2; exit 1; }
 [[ -z $(mac "grep -r -l -a -i -E '$MOSHE_PRIVATE' $APP; strings $APP/Contents/MacOS/Moshe | grep /Users/; /usr/libexec/PlistBuddy -c 'Print :MosheDefaultServer' $APP/Contents/Info.plist") ]] \
   || { echo "something personal is in the Mac app" >&2; exit 1; }
-[[ -z $(mac "cd /tmp && rm -rf moshe-apk && mkdir moshe-apk && cd moshe-apk && unzip -q $APK && grep -r -l -a -i -E '$MOSHE_PRIVATE' .; cd /tmp && rm -rf moshe-apk") ]] \
+# every file in the APK read straight out of it (unpacked, two whose names differ only in case,
+# as a library's shrunk resources can, don't both land on a Mac's disk, and one went unread)
+[[ $(mac "unzip -p $APK | grep -a -i -c -E '$MOSHE_PRIVATE' || true") == 0 ]] \
   || { echo "something personal is in the APK" >&2; exit 1; }
 say "both built and signed, with nothing personal in them"
 
