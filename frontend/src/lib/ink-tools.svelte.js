@@ -29,6 +29,7 @@ export const tools = $state({
   text: { size: 24, font: 'sans', color: '#1e1e1e', ...(saved.text || {}) },   // a new text box's: font size (page units), sans | hand
   favorites: saved.favorites || [],           // [{pen, size, color, opacity}]
   recent: saved.recent || ['#1e1e1e', '#1971c2', '#e03131'],
+  readLang: saved.readLang || 'en',            // the handwriting read as text in: en | he
   fingers: !!saved.fingers,                   // fingers write (on a device with no pen)
   roundButton: saved.roundButton ?? true,     // the round menu's button in the corner
 });

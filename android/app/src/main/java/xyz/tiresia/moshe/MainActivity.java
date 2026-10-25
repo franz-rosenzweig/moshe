@@ -109,6 +109,7 @@ public class MainActivity extends Activity {
             web.addJavascriptInterface(services, "MosheShellNative");
         }
         stylus = new StylusButton(web);
+        web.addJavascriptInterface(new InkReader(web), "MosheInk");       // Hebrew handwriting read as text (InkReader)
         setContentView(web);
         edgeToEdge();
         if (Build.VERSION.SDK_INT >= 33) {

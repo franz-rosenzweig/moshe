@@ -175,7 +175,7 @@ export function inkFromScene(scene) {
     const opacity = el.opacity ?? 100;
     return {
       kind: 'stroke', id: el.id, el,
-      pen: mine && PEN_TYPES[mine.pen] ? mine.pen : opacity < 70 ? 'highlighter' : 'fountain',
+      pen: mine && PEN_TYPES[mine.pen] ? mine.pen : opacity < 70 ? 'highlighter' : 'fountain', ...(mine && mine.shape ? { shape: true } : {}),
       color: el.strokeColor || COLORS[0], opacity,
       width: (el.strokeWidth || 1) * ACROSS,
       points: el.points.map(([x, y], i) => [r2(el.x + x), r2(el.y + y), pr ? pr[i] : 0.5]),
@@ -195,7 +195,7 @@ function elementOf(s) {
     roughness: 0, opacity: Math.round(s.opacity ?? 100), groupIds: [], frameId: null, roundness: null, seed: rnd(), version: (s.version || 0) + 1, versionNonce: rnd(),
     isDeleted: false, boundElements: null, updated: Date.now(), link: null, locked: false,
     points, pressures: s.points.map((p) => r2(p[2] ?? 0.5)), simulatePressure: false, lastCommittedPoint: points[points.length - 1] || null,
-    customData: { moshe: { pen: s.pen || 'fountain' } },
+    customData: { moshe: { pen: s.pen || 'fountain', ...(s.shape ? { shape: true } : {}) } },
   };
 }
 

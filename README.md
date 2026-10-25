@@ -176,6 +176,8 @@ Start with [Getting started](docs/what-is-moshe.md).
 - [LanguageTool](https://languagetool.org), LGPL-2.1 or later, run from its own release for **Check Text** (not bundled).
 - [fflate](https://github.com/101arrowz/fflate), MIT, which Harper uses.
 - [perfect-freehand](https://github.com/steveruizok/perfect-freehand), MIT, which draws the handwriting, and [lz-string](https://github.com/pieroxy/lz-string), MIT, which reads the drawings Excalidraw compressed.
+- [Grape](https://github.com/Joost-8/Grape), Apache-2.0 (its NOTICE is beside it in `frontend/public/hwr`), which reads English handwriting, with the reader for it from [FineNotes](https://github.com/joost-8/FineNotes), GPL-3.0-or-later.
+- Google's [ML Kit Digital Ink Recognition](https://developers.google.com/ml-kit/vision/digital-ink-recognition), in the Android app only, for Hebrew handwriting. It's under Google's own terms and isn't free software, so it has an exception of its own (below).
 - [OkHttp](https://square.github.io/okhttp/), Apache-2.0, in the Android app, and [XcodeGen](https://github.com/yonaskolb/XcodeGen), MIT, for building the Mac app.
 
 ## License
@@ -185,3 +187,5 @@ Copyright © 2026 the Moshe authors.
 Moshe is free software: you can redistribute it and/or modify it under the terms of the [GNU General Public License](LICENSE) as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version (`GPL-3.0-or-later`). It comes with no warranty of any kind, as sections 15 and 16 of the [LICENSE](LICENSE) say.
 
 Basically, you can use it, change it, and pass it on, as long as what you pass on stays under the same license and comes with its source. The Hebrew dictionary inside it is under the AGPL-3.0, which section 13 of the GPL allows alongside it, and everything else it's built on is listed under Credits, each under its own license.
+
+**One exception, for the Android app.** The Android app reads Hebrew handwriting with Google's ML Kit, which isn't free software. So, as an additional permission under section 7 of the GNU GPL version 3, the copyright holders of Moshe give you permission to combine Moshe's Android app with Google's ML Kit Digital Ink Recognition library (`com.google.mlkit:digital-ink-recognition`) and to convey the result. The GPL still applies to all of Moshe's own code, and the permission covers nothing else. If you change Moshe, you may keep this permission for your version or drop it; to leave the library out, remove it from `android/app/build.gradle` along with `InkReader.java`.

@@ -17,13 +17,15 @@
   import InkTools from './InkTools.svelte';
   import InkSample from './InkSample.svelte';
   import InkRadial from './InkRadial.svelte';
-  import { app, theStorage, prefs, toast, persist } from '../lib/state.svelte.js';
-  import { tools, brush, used, clipboard, suitPens, WRITING } from '../lib/ink-tools.svelte.js';
+  import { app, store, theStorage, prefs, toast, persist } from '../lib/state.svelte.js';
+  import { tools, brush, used, keep, clipboard, suitPens, WRITING } from '../lib/ink-tools.svelte.js';
+  import { readInk, languages } from '../lib/hwr/read.js';
+  import { splitSheet } from '@engine/sheet.js';
   import { readInkFile, writeInkFile, inkFromScene, sceneFromInk, inkSvg, pageHeight, pageSize, paperSvg, strokePath, paintOf, othersSvg, layersOf,
     boundsOf, lassoed, transformed, touches, eraseArea, copies, snapShape, isDark, across, emptyScene, textSvg, measureText, GRAIN, COLORS, PEN_TYPES, FONTS, LINE_HEIGHT,
     PAGE_WIDTH, PAGE_HEIGHT, PAGE_GAP, PAPER_COLOR } from '@engine/ink.js';
 
-  let { inkPath, svgPath, typing = false, ontype = null } = $props();
+  let { inkPath, svgPath, sheet = null, typing = false, ontype = null } = $props();
 
   const PALM_MS = 600;
   const ZOOM = [0.5, 4];
@@ -41,6 +43,8 @@
   let pasteAt = $state(null);                     // a tap with the lasso: Paste here, at [x, y]
   let editing = $state.raw(null);                 // a text box being typed in: {item (null: a new one), x, y, text, size, font, color}
   let textEl = $state(null), tap = null;          // its textarea; a tap with the text tool, until the pointer lifts
+  let readout = $state.raw(null);                 // handwriting read as text: {status: reading | done | failed, from: held | page, lang, strokes, text, note}
+  const langs = languages();
   let wrap, scroller, pageEl, canvas, ctx;
   let base = emptyScene(), prevText = null;
   let live = null, liveId = null, liveType = null, erased = false, penAt = 0, penDownAt = 0, penButton = false, buttonAt = null, pinch = null;
@@ -211,7 +215,7 @@
       if (!live || live.kind !== 'stroke' || live.snapped) return;
       const shape = snapShape(live.points);
       if (!shape) return;
-      live.points = shape; live.snapped = true;
+      live.points = shape; live.snapped = true; live.shape = true;
       if (navigator.vibrate) navigator.vibrate(8);
       drawLive();
     }, 600);
@@ -230,7 +234,7 @@
     clearTimeout(holdTimer); holdAt = null;
     if (l.kind === 'stroke') {
       record();
-      items = [...items, { kind: 'stroke', pen: l.pen, color: l.color, width: l.width, opacity: l.opacity, points: l.points }];
+      items = [...items, { kind: 'stroke', pen: l.pen, color: l.color, width: l.width, opacity: l.opacity, points: l.points, ...(l.shape ? { shape: true } : {}) }];
       if (l.pen !== 'highlighter') used(l.color);
       soon();
     } else if (l.kind === 'lasso') {
@@ -359,6 +363,56 @@
     commitText();
   }
   const editBox = $derived(editing ? measure(editing.text || ' ', editing.size, editing.font) : null);
+
+  // ---- handwriting read as text (lib/hwr/read.js)
+  function toText(from = 'held') {
+    const strokes = (from === 'held' ? held : items).filter((it) => it.kind === 'stroke' && it.pen !== 'highlighter');
+    if (!strokes.length) { toast('There\'s no handwriting there to read.'); return; }
+    readout = { status: 'reading', from, lang: langs.includes(tools.readLang) ? tools.readLang : 'en', strokes, text: '', note: '' };
+    read();
+  }
+  async function read() {
+    const r = readout;
+    const still = () => readout && readout.strokes === r.strokes && readout.lang === r.lang;
+    try {
+      const lines = await readInk(r.strokes, r.lang, (note) => { if (still()) readout = { ...readout, note }; });
+      if (still()) readout = { ...readout, status: 'done', text: lines.join('\n'), note: '' };
+    } catch (e) { if (still()) readout = { ...readout, status: 'failed', note: `It could not be read: ${e.message}` }; }
+  }
+  function readIn(lang) {
+    tools.readLang = lang;
+    keep();
+    readout = { ...readout, lang, status: 'reading', text: '', note: '' };
+    read();
+  }
+  /** What was read, at the end of the sheet's text (under the picture of the page), and the text shown beside the page. */
+  function putInSheet() {
+    const text = readout.text.trim();
+    const whole = text && sheet && store ? store.text(sheet) : null;
+    if (whole == null) return;
+    const { body } = splitSheet(whole);
+    store.saveSheet(sheet, `${body.replace(/\s*$/u, '')}\n\n${text}\n`, body);
+    readout = null;
+    app.inkTyping = true;
+    toast('It\'s in the sheet, under the picture of the page.');
+  }
+  /** The handwriting the lasso holds, swapped for a text box saying what it says. */
+  function asTextBox() {
+    const text = readout.text.trim();
+    if (!text) return;
+    const gone = new Set(readout.strokes), b = boundsOf(readout.strokes), lines = text.split('\n').length;
+    const size = Math.round(Math.max(14, Math.min(72, ((b.y1 - b.y0) / lines) * 0.62)));
+    const { w, h } = measure(text, size, tools.text.font);
+    const box = { kind: 'text', x: b.x0, y: b.y0, w, h, text, size, font: tools.text.font, color: readout.strokes[0].color, opacity: 100 };
+    record();
+    items = [...items.filter((it) => !gone.has(it)), box];
+    chosen = new Set([box]);
+    readout = null;
+    soon();
+  }
+  async function copyText() {
+    try { await navigator.clipboard.writeText(readout.text.trim()); toast('Copied'); } catch { toast('It couldn\'t be copied here.'); }
+  }
 
   // ---- the lasso: what it holds moved, resized, copied, restyled
   const grab = (what) => (e) => {
@@ -574,6 +628,7 @@
     else if (mod && ch === 'x' && chosen.size) cutHeld();
     else if (mod && ch === 'd' && chosen.size) duplicateHeld();
     else if (mod && ch === 'v' && clipboard.items) paste();
+    else if (e.key === 'Escape' && readout) readout = null;
     else if (e.key === 'Escape' && (chosen.size || pasteAt)) { chosen = new Set(); pasteAt = null; }
     else return;
     e.preventDefault();
@@ -585,7 +640,7 @@
 <div class="ink" class:dark bind:this={wrap}>
   <InkTools canUndo={past.length > 0} canRedo={future.length > 0} onundo={undo} onredo={redo} {page} onpage={setPage} oneraseall={eraseAll}
     {reading} onreading={() => { reading = !reading; panel = null; chosen = new Set(); }} {typing} {ontype}
-    canPaste={!!clipboard.items} onpaste={() => paste()} {zoom} onfit={zoomFit} bind:panel />
+    canPaste={!!clipboard.items} onpaste={() => paste()} onread={() => toText('page')} {zoom} onfit={zoomFit} bind:panel />
   <div class="scroll {tools.tool}" class:reading class:pinching class:fingers={tools.fingers && !reading} bind:this={scroller}
     onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up} onpointerleave={() => (ring = null)}
     oncontextmenu={(e) => e.preventDefault()} role="application" aria-label="The page">
@@ -619,11 +674,12 @@
         </div>
         {#if !drag}
           <div class="heldbar popover" role="toolbar" tabindex="-1" aria-label="What the lasso holds" onpointerdown={(e) => e.stopPropagation()}
-            style="left:{Math.max(4, Math.min(heldBox.x0 * k, PAGE_WIDTH * k - 330))}px; top:{heldBox.y0 * k > 60 ? heldBox.y0 * k - 50 : heldBox.y1 * k + 10}px">
+            style="left:{Math.max(4, Math.min(heldBox.x0 * k, PAGE_WIDTH * k - 440))}px; top:{heldBox.y0 * k > 96 ? heldBox.y0 * k - (PAGE_WIDTH * k < 448 ? 88 : 50) : heldBox.y1 * k + 10}px; max-width:{PAGE_WIDTH * k - 8}px">
             <button onclick={cutHeld}><Icon name="scissors" size={15} /> Cut</button>
             <button onclick={copyHeld}><Icon name="copy" size={15} /> Copy</button>
             <button onclick={duplicateHeld}><Icon name="files" size={15} /> Duplicate</button>
             <button onclick={deleteHeld}><Icon name="trash-2" size={15} /> Delete</button>
+            <button onclick={() => toText('held')}><Icon name="type" size={15} /> To Text</button>
             <button class:on={styling} onclick={() => (styling = !styling)}><Icon name="palette" size={15} /> Style</button>
             {#if styling}
               <div class="restyle popover">
@@ -661,6 +717,33 @@
       {#if brush()}<InkSample pen={brush().pen} color={brush().color} width={Math.min(6, brush().width)} opacity={brush().opacity} w={30} h={20} />{:else}<Icon name={tools.tool === 'eraser' ? 'eraser' : 'lasso'} size={20} />{/if}
     </button>
   {/if}
+  {#if readout}
+    <div class="readout popover" role="dialog" aria-label="The handwriting as text" tabindex="-1" onpointerdown={(e) => e.stopPropagation()}>
+      <div class="rhead">
+        <b>{readout.from === 'page' ? 'The page as text' : 'The handwriting as text'}</b>
+        {#if langs.length > 1}
+          <div class="seg" role="radiogroup" aria-label="Written in">
+            {#each langs as l}<button class:on={readout.lang === l} onclick={() => readIn(l)}>{l === 'he' ? 'עברית' : 'English'}</button>{/each}
+          </div>
+        {/if}
+        <button class="close" aria-label="Close" onclick={() => (readout = null)}><Icon name="x" size={15} /></button>
+      </div>
+      {#if readout.status === 'reading'}
+        <p class="dim">{readout.note || 'Reading…'}</p>
+      {:else if readout.status === 'failed'}
+        <p class="dim">{readout.note}</p>
+      {:else}
+        <textarea id="ink-readout" dir="auto" rows={Math.min(10, readout.text.split('\n').length + 1)} value={readout.text}
+          oninput={(e) => (readout = { ...readout, text: e.currentTarget.value })}></textarea>
+        {#if !readout.text.trim()}<p class="dim">Nothing there read as writing.</p>{/if}
+        <div class="row">
+          <button class="btn primary" disabled={!readout.text.trim() || !sheet} onclick={putInSheet}>Put in the Sheet</button>
+          {#if readout.from === 'held'}<button class="btn" disabled={!readout.text.trim()} onclick={asTextBox}>As a Text Box</button>{/if}
+          <button class="btn" disabled={!readout.text.trim()} onclick={copyText}>Copy</button>
+        </div>
+      {/if}
+    </div>
+  {/if}
   {#if radial}<InkRadial x={radial.x} y={radial.y} onclose={() => (radial = null)} onundo={undo} onredo={redo} />{/if}
   {#if status === 'loading'}<p class="hint">Opening the page…</p>{/if}
 </div>
@@ -690,6 +773,7 @@
   .handle::after { content: ''; position: absolute; inset: -10px; }
   .nw { left: 0; top: 0; cursor: nwse-resize; } .ne { right: 0; top: 0; cursor: nesw-resize; margin-right: -9px; }
   .sw { left: 0; bottom: 0; cursor: nesw-resize; margin-bottom: -9px; } .se { right: 0; bottom: 0; cursor: nwse-resize; margin: 0 -9px -9px 0; }
+  .heldbar { flex-wrap: wrap; }
   .heldbar, .pastehere { position: absolute; z-index: 3; display: flex; gap: 2px; padding: 4px; border-radius: 11px; background: var(--hud-bg, var(--popover-bg)); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16); }
   .heldbar button, .pastehere { display: flex; align-items: center; gap: 5px; height: 32px; padding: 0 9px; border: 0; border-radius: 8px; background: none; color: var(--text); font-size: 13px; white-space: nowrap; }
   .heldbar button.on { background: var(--sel-grey); }
@@ -699,6 +783,20 @@
   .restyle .kinds button { height: 32px; padding: 0 2px; }
   .restyle .swatch { width: 26px; height: 26px; padding: 0; border-radius: 50%; background: var(--c); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18); }
   .restyle .sizes button { border: 1px solid var(--sep); }
+  .readout { position: absolute; z-index: 5; top: 70px; left: 50%; transform: translateX(-50%); width: min(440px, calc(100% - 24px)); display: flex; flex-direction: column; gap: 10px;
+    padding: 12px 14px; border-radius: 14px; background: var(--popover-bg); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2); color: var(--text); font-size: 13px; }
+  .rhead { display: flex; align-items: center; gap: 8px; }
+  .rhead b { flex: 1; font-weight: 600; }
+  .readout .seg { display: flex; border: 1px solid var(--sep); border-radius: 8px; overflow: hidden; }
+  .readout .seg button { border: 0; background: none; color: var(--text); font-size: 12px; padding: 4px 9px; }
+  .readout .seg button.on { background: var(--sel-grey); }
+  .readout .close { border: 0; background: none; color: var(--muted); padding: 4px; display: flex; }
+  .readout textarea { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; font-size: 15px; line-height: 1.45; padding: 8px 10px; border: 1px solid var(--sep); border-radius: 8px; background: var(--editor-bg); color: var(--text); }
+  .readout .dim { margin: 0; color: var(--muted); }
+  .readout .row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .readout .btn { height: 32px; padding: 0 12px; border: 1px solid var(--sep); border-radius: 8px; background: none; color: var(--text); font-size: 13px; }
+  .readout .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+  .readout .btn:disabled { opacity: 0.45; }
   .addpage { display: flex; align-items: center; gap: 6px; margin: 24px auto 0; height: 36px; padding: 0 16px; border: 1px dashed var(--sep); border-radius: 10px; background: none; color: var(--muted); font-size: 13px; }
   .zoom { position: absolute; z-index: 3; left: 12px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); height: 30px; padding: 0 10px; border: 0; border-radius: 15px; background: var(--hud-bg, var(--popover-bg)); color: var(--text); font-size: 12px; font-variant-numeric: tabular-nums; }
   .round { position: absolute; z-index: 3; right: 16px; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); width: 52px; height: 52px; border-radius: 50%; border: 0; display: flex; align-items: center; justify-content: center;

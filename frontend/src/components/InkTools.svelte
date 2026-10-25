@@ -11,7 +11,7 @@
   import { PEN_TYPES, COLORS, HIGHLIGHTS, PAPERS, PAPER_COLORS, VIEWS, FONTS, across, paperSvg, isDark } from '@engine/ink.js';
 
   let { canUndo = false, canRedo = false, onundo, onredo, page, onpage, oneraseall, reading = false, onreading,
-    typing = false, ontype = null, canPaste = false, onpaste, zoom = 1, onfit, panel = $bindable(null) } = $props();
+    typing = false, ontype = null, canPaste = false, onpaste, onread, zoom = 1, onfit, panel = $bindable(null) } = $props();
 
   let barH = $state(44);
   // in focus mode the sheet's own bar comes back over the top of the page: the pens go just below it
@@ -154,6 +154,7 @@
     {:else if panel === 'more'}
       <label class="check"><input type="checkbox" checked={tools.fingers} onchange={(e) => { tools.fingers = e.currentTarget.checked; keep(); }} /> Fingers write (off: fingers scroll){#if !coarse}<small>A mouse or trackpad always writes</small>{/if}</label>
       <label class="check"><input type="checkbox" checked={tools.roundButton} onchange={(e) => { tools.roundButton = e.currentTarget.checked; keep(); }} /> The round pen menu's button, in the corner</label>
+      <button class="btn" onclick={() => { onread(); panel = null; }}><Icon name="type" size={15} /> Read the Whole Page as Text</button>
       {#if canPaste}<button class="btn" onclick={() => { onpaste(); panel = null; }}><Icon name="clipboard" size={15} /> Paste</button>{/if}
       {#if zoom !== 1}<button class="btn" onclick={() => { onfit(); panel = null; }}>Zoom to Fit ({Math.round(zoom * 100)}%)</button>{/if}
       <button class="btn" onclick={() => { panel = null; window.mosheCommand && window.mosheCommand('hideInterface'); }}><Icon name="focus" size={15} /> {app.interfaceHidden ? 'Leave Focus Mode' : 'Focus Mode: only the page'}</button>

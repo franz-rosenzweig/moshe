@@ -50,6 +50,12 @@ Draw round some writing with the lasso and it's held in a box. Drag the box to m
 
 The **T** on the bar puts typed text on the page, next to your handwriting. Tap where it should go and type, with the keyboard or the tablet's own handwriting keyboard. Tap somewhere else (or press Escape) and it's on the page. Tap a text box with **T** again to change it, and empty it to take it away. Tap **T** once more for the size, the font (plain or handwritten) and the colour. Hebrew goes from the right, as it should. The lasso picks up text boxes along with the ink, to move them, resize them, copy them or change their colour, and the eraser leaves them alone. In Excalidraw they're ordinary text you can edit there too.
 
+### Handwriting into text
+
+When I want my handwriting typed, I don't always want to type it myself. Draw round some writing with the lasso and press **To Text** on its bar, or ⋮ › **Read the Whole Page as Text**, and Moshe reads it. Fix anything it got wrong right there in the box, and then **Put in the Sheet** adds it to the sheet's text under the picture of the page (and opens the text beside the page), **As a Text Box** swaps the handwriting for a text box saying the same, and **Copy** copies it.
+
+English is read by Grape, an open handwriting reader from the FineNotes plugin for Obsidian, right on the device, in the browser, the Mac app and the Android app alike. It's fetched once (5.7 MB), and after that it works without the internet. It's still learning, so it does best with clear writing. Hebrew is read by Google's handwriting reader, in the Android app only: switch the box to **עברית**. The first time, the tablet fetches the Hebrew reader from Google (about 20 MB), and after that it reads on the tablet too. Your writing isn't sent anywhere, though Google's library does tell Google how often it's used. Shapes that snapped clean and the highlighter aren't read as writing.
+
 ### Shapes
 
 Draw a line, a circle, a rectangle or a triangle, keep the pen still at the end for a moment, and it snaps into a clean shape. A line that's nearly level comes out level. Handwriting is left alone.

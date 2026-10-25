@@ -74,7 +74,7 @@
     {:else if ink}
       <div class="inkpane" class:typing={app.inkTyping}>
         <div class="inkside">
-          {#key ink.drawing}<InkPage inkPath={ink.drawing} svgPath={ink.picture} typing={app.inkTyping} ontype={() => (app.inkTyping = !app.inkTyping)} />{/key}
+          {#key ink.drawing}<InkPage inkPath={ink.drawing} svgPath={ink.picture} sheet={ink.sheet} typing={app.inkTyping} ontype={() => (app.inkTyping = !app.inkTyping)} />{/key}
         </div>
         {#if app.inkTyping}<div class="textside"><Editor bind:this={first} path={ink.sheet} {register} /></div>{/if}
       </div>

@@ -27,6 +27,9 @@ android {
         resValue 'string', 'app_name', 'Moshe'
         manifestPlaceholders = [shareAuthority: 'xyz.tiresia.moshe.share']
         buildConfigField 'String', 'DEFAULT_SERVER', '"' + defaultServer.replace('\\', '').replace('"', '') + '"'
+        // 64-bit ARM only (every phone and tablet on Android 11 and up): the handwriting reader's
+        // native library (InkReader) is 10 MB for each kind of processor
+        ndk { abiFilters 'arm64-v8a' }
     }
 
     buildFeatures {
@@ -85,6 +88,9 @@ android {
 dependencies {
     // the bridge's http op sends WebDAV's PROPFIND and MKCOL, which HttpURLConnection refuses
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    // Hebrew handwriting read as text, on the device (InkReader). Not free software: the licence's
+    // additional permission for it is in README.md
+    implementation 'com.google.mlkit:digital-ink-recognition:18.1.0'
 }
 
 // The web app, into assets/web/.
