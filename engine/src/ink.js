@@ -13,8 +13,10 @@
 // pens drew it (fountain pen, calligraphy pen, pen, pencil, calligraphy brush,
 // highlighter, marker) is in its customData, and each is drawn its own way.
 // The fountain pen is drawn just as Excalidraw draws a freedraw element, so a
-// page looks the same in the plugin. Anything else drawn in the plugin
-// (shapes, arrows, text) is kept as it is, and drawn plainly in the picture.
+// page looks the same in the plugin. A text box is the plugin's "text"
+// element, listed under "## Text Elements" too, as the plugin keeps it.
+// Anything else drawn in the plugin (shapes, arrows, text inside a shape) is
+// kept as it is, and drawn plainly in the picture.
 
 import { compressToBase64, decompressFromBase64 } from './lzstring.js';
 import { getStroke, getStrokePoints } from './freehand.js';
@@ -48,6 +50,22 @@ export const PEN_TYPES = {
 /** The colours to pick from (Excalidraw's own, and white for a dark page). */
 export const COLORS = ['#1e1e1e', '#868e96', '#ffffff', '#e03131', '#f76707', '#f59f00', '#fcc419', '#2f9e44', '#12b886', '#1971c2', '#4dabf7', '#5f3dc4', '#ae3ec9', '#e64980', '#8d5524'];
 export const HIGHLIGHTS = ['#ffd43b', '#8ce99a', '#74c0fc', '#faa2c1', '#ffc078', '#b197fc'];
+
+/** A text box's fonts, as Excalidraw numbers them (2 Helvetica, 5 Excalifont), and as the page draws them. */
+export const FONTS = {
+  sans: { family: 2, css: '-apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' },
+  hand: { family: 5, css: 'Excalifont, Virgil, "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive' },
+};
+export const LINE_HEIGHT = 1.25;
+const RTL = /^[^\p{L}]*[\u0590-\u08ff\ufb1d-\ufdff\ufe70-\ufefc]/u;
+/** Does a text read right to left (its first letter Hebrew or Arabic)? */
+export const rtl = (text) => RTL.test(String(text || ''));
+
+/** How big a text is, near enough (the page measures it exactly, with its fonts). */
+export function measureText(text, size) {
+  const lines = String(text || '').split('\n');
+  return { w: r2(Math.max(size * 0.6, ...lines.map((l) => l.length * size * 0.55))), h: r2(lines.length * size * LINE_HEIGHT) };
+}
 
 /** How wide a pen draws for a size from 1 to 100 (Samsung's scale), in page units. */
 export function across(pen, size) {
@@ -104,8 +122,11 @@ export function readInkFile(text) {
 export function writeInkFile(prev, scene, { paper = 'lined', color = null, view = null, pages = null } = {}) {
   const keys = { 'moshe-paper': paper, 'moshe-color': color, 'moshe-view': view, 'moshe-pages': pages && pages > 1 ? pages : null };
   const block = `\n## Drawing\n\`\`\`json\n${JSON.stringify(scene, null, '\t')}\n\`\`\`\n`;
+  // the plugin lists every text with its element's id, and reads the text from here
+  const texts = (scene.elements || []).filter((el) => el.type === 'text' && !el.isDeleted).map((el) => `${el.text ?? ''} ^${el.id}\n\n`).join('');
   if (prev && DRAWING.test(prev)) {
     let out = prev.replace(DRAWING, () => block);
+    out = out.replace(/(^## Text Elements\n)([\s\S]*?)(?=^## |^%%)/mu, (m, head) => head + texts);
     for (const [k, v] of Object.entries(keys)) {
       const re = new RegExp(`^${k}:.*\\n?`, 'mu');
       if (v == null) out = out.replace(re, '');
@@ -116,7 +137,7 @@ export function writeInkFile(prev, scene, { paper = 'lined', color = null, view 
   }
   const extra = Object.entries(keys).filter(([, v]) => v != null).map(([k, v]) => `${k}: ${v}`);
   return ['---', '', 'excalidraw-plugin: parsed', 'tags: [excalidraw]', ...extra, '', '---', BANNER, '', '',
-    '# Excalidraw Data', '', '## Text Elements', '%%', block.slice(1) + '%%', ''].join('\n');
+    '# Excalidraw Data', '', '## Text Elements', texts + '%%', block.slice(1) + '%%', ''].join('\n');
 }
 
 /** What the plugin writes when it compresses (for tests, and for files Moshe reads). */
@@ -137,10 +158,17 @@ const r2 = (n) => Math.round(n * 100) / 100;
  * The page's ink: strokes, from the plugin's freedraw elements, and the
  * plugin's other elements, kept as they are.
  * @returns {({kind: 'stroke', id: string, pen: string, color: string, width: number, opacity: number, points: [number, number, number][], el?: object}
- *   | {kind: 'other', el: object})[]}  width: across, in page units; opacity: 0–100
+ *   | {kind: 'text', id: string, x: number, y: number, w: number, h: number, text: string, size: number, color: string, opacity: number, font: 'sans'|'hand', el?: object}
+ *   | {kind: 'other', el: object})[]}  width: across, in page units; opacity: 0–100; size: the font's, in page units
  */
 export function inkFromScene(scene) {
   return (scene.elements || []).map((el) => {
+    if (el.type === 'text' && !el.isDeleted && !el.containerId) {
+      return {
+        kind: 'text', id: el.id, el, x: el.x, y: el.y, w: el.width, h: el.height, text: String(el.text ?? el.originalText ?? ''),
+        size: el.fontSize || 20, color: el.strokeColor || COLORS[0], opacity: el.opacity ?? 100, font: el.fontFamily === 2 || el.fontFamily === 6 || el.fontFamily === 9 ? 'sans' : 'hand',
+      };
+    }
     if (el.type !== 'freedraw' || el.isDeleted || !Array.isArray(el.points)) return { kind: 'other', el };
     const pr = Array.isArray(el.pressures) && el.pressures.length === el.points.length && !el.simulatePressure ? el.pressures : null;
     const mine = el.customData && el.customData.moshe;
@@ -171,10 +199,24 @@ function elementOf(s) {
   };
 }
 
+/** A text box as the plugin's text element (the one it came from, if it's unchanged). */
+function textElementOf(t) {
+  if (t.el) return t.el;
+  const { w, h } = t.w && t.h ? t : measureText(t.text, t.size);
+  return {
+    id: t.id || newId(), type: 'text', x: r2(t.x), y: r2(t.y), width: r2(w), height: r2(h), angle: 0,
+    strokeColor: t.color, backgroundColor: 'transparent', fillStyle: 'solid', strokeWidth: 1, strokeStyle: 'solid', roughness: 0,
+    opacity: Math.round(t.opacity ?? 100), groupIds: [], frameId: null, roundness: null, seed: rnd(), version: (t.version || 0) + 1, versionNonce: rnd(),
+    isDeleted: false, boundElements: null, updated: Date.now(), link: null, locked: false,
+    text: t.text, originalText: t.text, fontSize: r2(t.size), fontFamily: (FONTS[t.font] || FONTS.sans).family, textAlign: rtl(t.text) ? 'right' : 'left',
+    verticalAlign: 'top', containerId: null, autoResize: true, lineHeight: LINE_HEIGHT,
+  };
+}
+
 /** The scene with this ink in it (and the page's colour), the rest of `base` (the plugin's settings, files) as it was. */
 export function sceneFromInk(items, base = emptyScene(), { color = null } = {}) {
   const appState = color ? { ...(base.appState || {}), viewBackgroundColor: color } : base.appState;
-  return { ...base, appState, elements: items.map((it) => (it.kind === 'stroke' ? elementOf(it) : it.el)) };
+  return { ...base, appState, elements: items.map((it) => (it.kind === 'stroke' ? elementOf(it) : it.kind === 'text' ? textElementOf(it) : it.el)) };
 }
 
 // ---- drawing a stroke ---------------------------------------------------------------------
@@ -250,10 +292,11 @@ export function paintOf(s) {
 
 // ---- choosing and changing strokes ---------------------------------------------------------
 
-/** A stroke's bounds, its width included. */
+/** Strokes' and text boxes' bounds, the strokes' width included. */
 export function boundsOf(items) {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const it of items) {
+    if (it.kind === 'text') { x0 = Math.min(x0, it.x); y0 = Math.min(y0, it.y); x1 = Math.max(x1, it.x + it.w); y1 = Math.max(y1, it.y + it.h); continue; }
     if (it.kind !== 'stroke') continue;
     const r = it.width / 2;
     for (const [x, y] of it.points) { x0 = Math.min(x0, x - r); y0 = Math.min(y0, y - r); x1 = Math.max(x1, x + r); y1 = Math.max(y1, y + r); }
@@ -261,17 +304,21 @@ export function boundsOf(items) {
   return x0 === Infinity ? null : { x0, y0, x1, y1 };
 }
 
-/** The strokes a lasso goes round: most of their points inside it. */
+/** The strokes a lasso goes round (most of their points inside it), and the text boxes (their middle inside it). */
 export function lassoed(items, loop) {
   if (!loop || loop.length < 3) return [];
   const poly = loop.map(([x, y]) => ({ x, y }));
-  return items.filter((it) => it.kind === 'stroke' && it.points.filter(([x, y]) => inside(poly, x, y)).length >= it.points.length * 0.6);
+  return items.filter((it) => (it.kind === 'text' ? inside(poly, it.x + it.w / 2, it.y + it.h / 2)
+    : it.kind === 'stroke' && it.points.filter(([x, y]) => inside(poly, x, y)).length >= it.points.length * 0.6));
 }
 
-/** Strokes moved and resized: x' = a·x + c, y' = d·y + f (the width scales with them). */
+/** Strokes and text boxes moved and resized: x' = a·x + c, y' = d·y + f (a line's width and a text's size scale with them). */
 export function transformed(items, { a = 1, d = 1, c = 0, f = 0 }) {
   const k = Math.sqrt(Math.abs(a * d)) || 1;
-  return items.map((it) => (it.kind !== 'stroke' ? it : {
+  return items.map((it) => (it.kind === 'text' ? {
+    ...it, el: undefined, version: (it.el && it.el.version) || 0, id: it.id || (it.el && it.el.id),
+    x: r2(a * it.x + c), y: r2(d * it.y + f), w: r2(it.w * k), h: r2(it.h * k), size: r2(it.size * k),
+  } : it.kind !== 'stroke' ? it : {
     ...it, el: undefined, version: (it.el && it.el.version) || 0, id: it.id || (it.el && it.el.id),
     width: it.width * k, points: it.points.map(([x, y, p]) => [r2(a * x + c), r2(d * y + f), p]),
   }));
@@ -297,9 +344,11 @@ export function eraseArea(items, x, y, r) {
   return changed ? out : items;
 }
 
-/** Copies of strokes, as new strokes (for paste and duplicate). */
+/** Copies of strokes and text boxes, as new ones (for paste and duplicate). */
 export function copies(items, dx = 0, dy = 0) {
-  return items.filter((it) => it.kind === 'stroke').map((it) => ({ ...it, el: undefined, id: undefined, points: it.points.map(([x, y, p]) => [r2(x + dx), r2(y + dy), p]) }));
+  return items.filter((it) => it.kind === 'stroke' || it.kind === 'text').map((it) => (it.kind === 'text'
+    ? { ...it, el: undefined, id: undefined, x: r2(it.x + dx), y: r2(it.y + dy) }
+    : { ...it, el: undefined, id: undefined, points: it.points.map(([x, y, p]) => [r2(x + dx), r2(y + dy), p]) }));
 }
 
 // ---- shapes: a stroke held still at its end, made clean ----------------------------------
@@ -392,6 +441,7 @@ export function pageHeight(items, min = PAGE_HEIGHT) {
   let bottom = 0;
   for (const it of items) {
     if (it.kind === 'stroke') for (const p of it.points) bottom = Math.max(bottom, p[1]);
+    else if (it.kind === 'text') bottom = Math.max(bottom, it.y + it.h);
     else if (!it.el.isDeleted) bottom = Math.max(bottom, (it.el.y || 0) + (it.el.height || 0));
   }
   return Math.max(min, Math.ceil(bottom + 160));
@@ -468,6 +518,15 @@ function otherSvg(el) {
   }
 }
 
+/** A text box as SVG: its lines from the top, a right-to-left text against its right edge. */
+export function textSvg(t) {
+  const r = rtl(t.text), font = (FONTS[t.font] || FONTS.sans).css.replace(/"/gu, "'");
+  const x = r ? t.x + t.w : t.x;
+  const lines = String(t.text).split('\n');
+  return `<text x="${r2(x)}" y="${r2(t.y)}" font-family="${font}" font-size="${r2(t.size)}" fill="${esc(t.color)}"${(t.opacity ?? 100) < 100 ? ` fill-opacity="${r2(t.opacity / 100)}"` : ''}${r ? ' direction="rtl" text-anchor="end"' : ''}>`
+    + lines.map((l, i) => `<tspan x="${r2(x)}" dy="${r2(i ? t.size * LINE_HEIGHT : t.size)}">${esc(l) || ' '}</tspan>`).join('') + '</text>';
+}
+
 /** Anything the plugin drew besides strokes, as SVG (for the page as it's written on, too). */
 export const othersSvg = (items) => items.filter((it) => it.kind === 'other').map((it) => otherSvg(it.el)).join('');
 
@@ -500,6 +559,6 @@ export function inkSvg(items, { paper = 'lined', color = PAPER_COLOR, view = 'sc
   const dark = isDark(color);
   const { highlights, rest } = layersOf(items);
   const hl = highlights.map((g) => `<g opacity="${r2(g.opacity)}" style="mix-blend-mode:${dark ? 'screen' : 'multiply'}">${g.items.map((it) => `<path d="${strokePath(it)}" fill="${esc(g.color)}"/>`).join('')}</g>`).join('\n');
-  const body = rest.map((it) => (it.kind === 'stroke' ? strokeSvg(it) : otherSvg(it.el))).join('\n');
+  const body = rest.map((it) => (it.kind === 'stroke' ? strokeSvg(it) : it.kind === 'text' ? textSvg(it) : otherSvg(it.el))).join('\n');
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">\n<defs>${GRAIN}</defs>\n${paperSvg(paper, w, h, { color, view, pages: n })}\n${hl}${hl ? '\n' : ''}${body}\n</svg>\n`;
 }

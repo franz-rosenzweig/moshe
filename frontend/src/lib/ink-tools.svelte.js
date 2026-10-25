@@ -22,10 +22,11 @@ const PENS = {
 const saved = prefs.inkTools || {};
 /** What's in hand, and how each pen is set. */
 export const tools = $state({
-  tool: saved.tool || 'pen',                  // pen | highlighter | eraser | lasso
+  tool: saved.tool || 'pen',                  // pen | highlighter | eraser | lasso | text
   pen: PEN_TYPES[saved.pen] && saved.pen !== 'highlighter' ? saved.pen : 'fountain',
   pens: Object.fromEntries(Object.entries(PENS).map(([k, v]) => [k, { ...v, ...((saved.pens || {})[k] || {}) }])),
   eraser: { mode: 'area', size: 24, takes: 'all', ...(saved.eraser || {}) },   // mode: area | stroke; takes: all | pen | highlighter
+  text: { size: 24, font: 'sans', color: '#1e1e1e', ...(saved.text || {}) },   // a new text box's: font size (page units), sans | hand
   favorites: saved.favorites || [],           // [{pen, size, color, opacity}]
   recent: saved.recent || ['#1e1e1e', '#1971c2', '#e03131'],
   fingers: !!saved.fingers,                   // fingers write (on a device with no pen)
@@ -49,6 +50,7 @@ export function brush() {
 
 /** The pen in hand set to a colour (and the colour remembered as used). */
 export function setColor(color) {
+  if (tools.tool === 'text') { tools.text.color = color; used(color); keep(); return; }
   const pen = tools.tool === 'highlighter' ? 'highlighter' : tools.pen;
   if (tools.tool !== 'highlighter') tools.tool = 'pen';
   tools.pens[pen].color = color;
@@ -93,6 +95,7 @@ export function suitPens(dark) {
   let changed = false;
   for (const p of Object.values(tools.pens)) if (p.color === from) { p.color = to; changed = true; }
   for (const f of tools.favorites) if (f.color === from) { f.color = to; changed = true; }
+  if (tools.text.color === from) { tools.text.color = to; changed = true; }
   if (tools.recent.includes(from)) { tools.recent = [...new Set(tools.recent.map((c) => (c === from ? to : c)))]; changed = true; }
   if (changed) keep();
 }

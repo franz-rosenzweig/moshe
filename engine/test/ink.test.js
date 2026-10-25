@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readInkFile, writeInkFile, inkFromScene, sceneFromInk, inkSvg, emptyScene, compressScene, pageHeight, pagesFor, strokePath, outlinePath,
-  eraseArea, lassoed, transformed, copies, snapShape, across, isDark, PEN_TYPES, PAGE_HEIGHT, PAGE_GAP } from '../src/ink.js';
+  eraseArea, lassoed, transformed, copies, snapShape, across, isDark, boundsOf, PEN_TYPES, PAGE_HEIGHT, PAGE_GAP } from '../src/ink.js';
 import { getStroke } from '../src/freehand.js';
 
 const stroke = (x0, y0, { pen = 'fountain', color = '#1e1e1e', width = 4.25, opacity = 100 } = {}) =>
@@ -62,7 +62,7 @@ test('saving again changes only the drawing: the plugin\'s text and files stay, 
   const scene = { ...emptyScene(), elements: [text, sceneFromInk([stroke(10, 20)]).elements[0]], files: { f1: { mimeType: 'image/png' } } };
   const prev = `---\n\nexcalidraw-plugin: parsed\ntags: [excalidraw]\nmy-key: kept\n\n---\n==⚠ ...\n\n# Excalidraw Data\n\n## Text Elements\nHello ^abc\n\n## Embedded Files\nf1: [[pic.png]]\n\n%%\n## Drawing\n\`\`\`compressed-json\n${compressScene(scene)}\n\`\`\`\n%%`;
   const ink = inkFromScene(readInkFile(prev).scene);
-  assert.deepEqual(ink.map((i) => i.kind), ['other', 'stroke']);
+  assert.deepEqual(ink.map((i) => i.kind), ['text', 'stroke'], 'the plugin\'s text is a text box Moshe can edit');
   ink.push(stroke(400, 500, { color: '#1971c2' }));
   const next = writeInkFile(prev, sceneFromInk(ink, readInkFile(prev).scene), { paper: 'dotted' });
   assert.match(next, /my-key: kept\nmoshe-paper: dotted\n/u);
@@ -159,4 +159,32 @@ test('a stroke held still at its end: a clean line, circle, rectangle or triangl
   assert.ok(closed(tri) && held(tri) === 4);
   assert.equal(snapShape(Array.from({ length: 40 }, (_, i) => [100 + i * 5, 100 + Math.sin(i / 2) * 14, 0.5])), null);
   assert.equal(snapShape([[0, 0, 0.5], [3, 3, 0.5], [5, 4, 0.5], [6, 6, 0.5]]), null, 'a dot');
+});
+
+test('a text box is the plugin\'s text element, listed under Text Elements, and moves and copies with the lasso', () => {
+  const box = { kind: 'text', x: 100, y: 200, w: 140, h: 60, text: 'A word\nand another', size: 24, color: '#1971c2', font: 'sans', opacity: 100 };
+  const hebrew = { kind: 'text', x: 100, y: 400, w: 110, h: 30, text: 'שלום עולם', size: 24, color: '#1e1e1e', font: 'hand', opacity: 100 };
+  const file = writeInkFile(null, sceneFromInk([box, hebrew, stroke(400, 500)]), { paper: 'lined' });
+  const [a, b] = JSON.parse(/```json\n([\s\S]*?)```/u.exec(file)[1]).elements;
+  assert.deepEqual([a.type, a.text, a.originalText, a.fontSize, a.fontFamily, a.textAlign, a.verticalAlign, a.lineHeight], ['text', 'A word\nand another', 'A word\nand another', 24, 2, 'left', 'top', 1.25]);
+  assert.deepEqual([b.fontFamily, b.textAlign], [5, 'right'], 'handwriting font; Hebrew from the right');
+  assert.match(file, new RegExp(`## Text Elements\\nA word\\nand another \\^${a.id}\\n\\nשלום עולם \\^${b.id}\\n\\n%%\\n## Drawing`, 'u'));
+  // changed and saved again: the list follows, and a deleted text leaves it
+  const ink = inkFromScene(readInkFile(file).scene);
+  assert.deepEqual(ink.map((i) => i.kind), ['text', 'text', 'stroke']);
+  const next = writeInkFile(file, sceneFromInk([{ ...ink[0], el: undefined, text: 'Changed' }, ink[2]], readInkFile(file).scene), { paper: 'lined' });
+  assert.match(next, new RegExp(`## Text Elements\\nChanged \\^${a.id}\\n\\n%%`, 'u'));
+  // drawn on the page
+  const svg = inkSvg([box, hebrew]);
+  assert.match(svg, /<text x="100" y="200" font-family="[^"]*Helvetica[^"]*" font-size="24" fill="#1971c2"><tspan x="100" dy="24">A word<\/tspan><tspan x="100" dy="30">and another<\/tspan><\/text>/u);
+  assert.match(svg, /<text x="210" y="400"[^>]* direction="rtl" text-anchor="end"><tspan x="210" dy="24">שלום עולם<\/tspan>/u);
+  // the lasso: taken by its middle, moved and resized, copied
+  assert.deepEqual(lassoed([box, hebrew], [[80, 180], [300, 180], [300, 300], [80, 300]]), [box]);
+  assert.deepEqual(boundsOf([box, hebrew]), { x0: 100, y0: 200, x1: 240, y1: 430 });
+  const [big] = transformed([box], { a: 2, d: 2, c: -100, f: -200 });
+  assert.deepEqual([big.x, big.y, big.w, big.size], [100, 200, 280, 48]);
+  const [copy] = copies([box], 10, 10);
+  assert.deepEqual([copy.x, copy.y, copy.id, copy.text], [110, 210, undefined, box.text]);
+  // never erased
+  assert.equal(eraseArea([box], 120, 210, 30)[0], box);
 });

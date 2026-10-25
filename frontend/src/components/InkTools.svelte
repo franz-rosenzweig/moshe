@@ -8,7 +8,7 @@
   import InkSample from './InkSample.svelte';
   import { app } from '../lib/state.svelte.js';
   import { tools, brush, setColor, choose, addFavorite, useFavorite, dropFavorite, keep, WRITING } from '../lib/ink-tools.svelte.js';
-  import { PEN_TYPES, COLORS, HIGHLIGHTS, PAPERS, PAPER_COLORS, VIEWS, across, paperSvg, isDark } from '@engine/ink.js';
+  import { PEN_TYPES, COLORS, HIGHLIGHTS, PAPERS, PAPER_COLORS, VIEWS, FONTS, across, paperSvg, isDark } from '@engine/ink.js';
 
   let { canUndo = false, canRedo = false, onundo, onredo, page, onpage, oneraseall, reading = false, onreading,
     typing = false, ontype = null, canPaste = false, onpaste, zoom = 1, onfit, panel = $bindable(null) } = $props();
@@ -18,6 +18,7 @@
   const top = $derived(app.interfaceHidden ? 66 : 10);
   const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
   const b = $derived(brush());
+  const inHand = $derived(tools.tool === 'text' ? tools.text.color : b && b.color);
   const hl = $derived(tools.pens.highlighter);
   const quick = $derived(tools.tool === 'highlighter' ? [...new Set([hl.color, ...HIGHLIGHTS])].slice(0, 3) : tools.recent.slice(0, 3));
   const PAPER_NAMES = { lined: 'Lined', blank: 'Blank', dotted: 'Dotted', grid: 'Grid', cornell: 'Cornell' };
@@ -45,9 +46,10 @@
     </button>
     <button class="tool" class:on={tools.tool === 'eraser'} title="Eraser (tap again for its settings; or hold the pen's button)" aria-label="Eraser" aria-pressed={tools.tool === 'eraser'} onclick={() => tap('eraser')}><Icon name="eraser" size={19} /></button>
     <button class="tool" class:on={tools.tool === 'lasso'} title="Lasso: draw round strokes to move, resize, copy or restyle them" aria-label="Lasso" aria-pressed={tools.tool === 'lasso'} onclick={() => tap('lasso')}><Icon name="lasso" size={19} /></button>
+    <button class="tool" class:on={tools.tool === 'text'} title="Text: tap the page to type on it (tap again for its size, font and colour)" aria-label="Text" aria-pressed={tools.tool === 'text'} onclick={() => tap('text')}><Icon name="type" size={19} /></button>
     <span class="sep"></span>
     {#each quick as c (c)}
-      <button class="swatch" class:on={b && b.color === c} style="--c:{c}" title="Colour" aria-label="Colour {c}" onclick={() => setColor(c)}></button>
+      <button class="swatch" class:on={inHand === c} style="--c:{c}" title="Colour" aria-label="Colour {c}" onclick={() => setColor(c)}></button>
     {/each}
     {#if tools.favorites.length}
       <span class="sep"></span>
@@ -101,6 +103,17 @@
         {#each tools.favorites as f, i}
           <span class="favitem"><button class="fav" onclick={() => useFavorite(f)} aria-label="Favourite pen {i + 1}"><InkSample pen={f.pen} color={f.color} width={Math.min(6, across(f.pen, f.size))} opacity={f.opacity} w={26} h={18} /></button><button class="x" aria-label="Remove favourite {i + 1}" onclick={() => dropFavorite(i)}><Icon name="x" size={11} /></button></span>
         {/each}
+      </div>
+    {:else if panel === 'text'}
+      <div class="preview text-preview" style="font-family:{FONTS[tools.text.font].css}; color:{tools.text.color}; font-size:{Math.min(44, tools.text.size)}px">Aa אב</div>
+      <label class="slider"><span>Size</span><input id="ink-text-size" type="range" min="10" max="96" value={tools.text.size} oninput={(e) => { tools.text.size = +e.currentTarget.value; keep(); }} /><b>{tools.text.size}</b></label>
+      <div class="seg" role="radiogroup" aria-label="Font">
+        <button class:on={tools.text.font === 'sans'} style="font-family:{FONTS.sans.css}" onclick={() => { tools.text.font = 'sans'; keep(); }}>Plain</button>
+        <button class:on={tools.text.font === 'hand'} style="font-family:{FONTS.hand.css}" onclick={() => { tools.text.font = 'hand'; keep(); }}>Handwritten</button>
+      </div>
+      <div class="colors">
+        {#each COLORS as c}<button class="swatch" class:on={tools.text.color === c} style="--c:{c}" aria-label="Colour {c}" onclick={() => setColor(c)}></button>{/each}
+        <label class="wheel" title="Any colour"><input id="ink-text-color" type="color" value={tools.text.color} onchange={(e) => setColor(e.currentTarget.value)} /></label>
       </div>
     {:else if panel === 'eraser'}
       <div class="seg" role="radiogroup" aria-label="How it erases">
@@ -169,6 +182,7 @@
     display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 14px; background: var(--popover-bg); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18); color: var(--text); font-size: 13px; }
   .kinds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
   .kind { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; border: 0; border-radius: 10px; background: none; color: var(--text); font-size: 11px; }
+  .text-preview { align-items: center; min-height: 56px; line-height: 1.2; }
   .preview { display: flex; justify-content: center; padding: 6px 0; border-radius: 10px; background: #fdfcf8; }
   .slider { display: grid; grid-template-columns: 58px 1fr 42px; align-items: center; gap: 8px; }
   .slider input { width: 100%; accent-color: var(--accent); }

@@ -30,7 +30,7 @@ Sometimes I just want to write, the way I would in a notebook, and nothing shoul
 
 ### Pens and the highlighter
 
-Along the top are the pen, the highlighter, the eraser and the lasso, then the colours you used last, your favourite pens, Undo and Redo, the page's settings, reading mode, ⋮ and **Type It Up**. Tap the pen again and its panel opens: six kinds of pen (fountain pen, calligraphy pen, pen, pencil, calligraphy brush and marker), a size from 1 to 100, opacity, and the colours, with the wheel for any colour at all. Each kind of pen remembers its own size and colour. **Add to Favourites** keeps the pen just as it's set, next to the colours on the bar, and a right-click or a long press on a favourite takes it off.
+Along the top are the pen, the highlighter, the eraser, the lasso and text, then the colours you used last, your favourite pens, Undo and Redo, the page's settings, reading mode, ⋮ and **Type It Up**. Tap the pen again and its panel opens: six kinds of pen (fountain pen, calligraphy pen, pen, pencil, calligraphy brush and marker), a size from 1 to 100, opacity, and the colours, with the wheel for any colour at all. Each kind of pen remembers its own size and colour. **Add to Favourites** keeps the pen just as it's set, next to the colours on the bar, and a right-click or a long press on a favourite takes it off.
 
 The highlighter has its own button and its own colours. It always goes under the writing, so it never dims it, and where two highlights cross the colour doesn't get darker.
 
@@ -45,6 +45,10 @@ Tap the eraser again for its settings. It can erase only what it passes over, wh
 ### The lasso
 
 Draw round some writing with the lasso and it's held in a box. Drag the box to move it, drag a corner to make it bigger or smaller, and the bar above it has **Cut**, **Copy**, **Duplicate**, **Delete** and **Style** (another pen, another colour, thinner or thicker). To paste, tap the page with the lasso and press **Paste**, on this page or on another one. On a keyboard, ⌘C, ⌘X, ⌘V, ⌘D and Delete work too.
+
+### Text on the page
+
+The **T** on the bar puts typed text on the page, next to your handwriting. Tap where it should go and type, with the keyboard or the tablet's own handwriting keyboard. Tap somewhere else (or press Escape) and it's on the page. Tap a text box with **T** again to change it, and empty it to take it away. Tap **T** once more for the size, the font (plain or handwritten) and the colour. Hebrew goes from the right, as it should. The lasso picks up text boxes along with the ink, to move them, resize them, copy them or change their colour, and the eraser leaves them alone. In Excalidraw they're ordinary text you can edit there too.
 
 ### Shapes
 

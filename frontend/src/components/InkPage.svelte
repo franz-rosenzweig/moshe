@@ -20,7 +20,8 @@
   import { app, theStorage, prefs, toast, persist } from '../lib/state.svelte.js';
   import { tools, brush, used, clipboard, suitPens, WRITING } from '../lib/ink-tools.svelte.js';
   import { readInkFile, writeInkFile, inkFromScene, sceneFromInk, inkSvg, pageHeight, pageSize, paperSvg, strokePath, paintOf, othersSvg, layersOf,
-    boundsOf, lassoed, transformed, touches, eraseArea, copies, snapShape, isDark, across, emptyScene, GRAIN, COLORS, PEN_TYPES, PAGE_WIDTH, PAGE_HEIGHT, PAGE_GAP, PAPER_COLOR } from '@engine/ink.js';
+    boundsOf, lassoed, transformed, touches, eraseArea, copies, snapShape, isDark, across, emptyScene, textSvg, measureText, GRAIN, COLORS, PEN_TYPES, FONTS, LINE_HEIGHT,
+    PAGE_WIDTH, PAGE_HEIGHT, PAGE_GAP, PAPER_COLOR } from '@engine/ink.js';
 
   let { inkPath, svgPath, typing = false, ontype = null } = $props();
 
@@ -38,6 +39,8 @@
   let radial = $state(null);                      // the round pen menu, at {x, y}
   let ring = $state(null);                        // the pen over the glass: {x, y, r}
   let pasteAt = $state(null);                     // a tap with the lasso: Paste here, at [x, y]
+  let editing = $state.raw(null);                 // a text box being typed in: {item (null: a new one), x, y, text, size, font, color}
+  let textEl = $state(null), tap = null;          // its textarea; a tap with the text tool, until the pointer lifts
   let wrap, scroller, pageEl, canvas, ctx;
   let base = emptyScene(), prevText = null;
   let live = null, liveId = null, liveType = null, erased = false, penAt = 0, penDownAt = 0, penButton = false, buttonAt = null, pinch = null;
@@ -82,6 +85,7 @@
       for (const t of ['touchstart', 'touchmove', 'touchend', 'touchcancel']) scroller.removeEventListener(t, touch);
       scroller.removeEventListener('wheel', wheel);
       delete window.mosheStylusButton;
+      commitText();
       flush();
     };
   });
@@ -90,7 +94,12 @@
   $effect(() => { if (app.interfaceHidden && !app.chrome) untrack(() => { panel = null; }); });
 
   // another tool in hand: the lasso lets go
-  $effect(() => { tools.tool; untrack(() => { if (chosen.size) chosen = new Set(); pasteAt = null; }); });
+  $effect(() => { tools.tool; untrack(() => { if (chosen.size) chosen = new Set(); pasteAt = null; if (tools.tool !== 'text') commitText(); }); });
+  // the text panel's size, font and colour, for the text being typed too
+  $effect(() => {
+    const { size, font, color } = tools.text;
+    untrack(() => { if (editing && (editing.size !== size || editing.font !== font || editing.color !== color)) { editing = { ...editing, size, font, color }; tick().then(() => textEl && textEl.focus()); } });
+  });
 
   async function load() {
     const s = theStorage();
@@ -139,6 +148,14 @@
     if (pen) penAt = performance.now();
     // the pen's button pressed with the pen over the glass, told as a press of its own: the round menu
     if (pen && e.button === 2 && !(e.buttons & 1)) { e.preventDefault(); penButton = true; openRadial(e.clientX, e.clientY); return; }
+    // the text tool: a tap (by pen, finger or mouse) puts a text box there, or opens the one it lands on
+    if (tools.tool === 'text' && !reading && !(e.pointerType === 'mouse' && e.button !== 0)) {
+      if (e.pointerType === 'touch' && performance.now() - penAt < PALM_MS) return;
+      commitText();
+      tap = { id: e.pointerId, x: e.clientX, y: e.clientY, p: at(e) };
+      if (e.pointerType !== 'touch') e.preventDefault();
+      return;
+    }
     if (e.pointerType === 'touch' && (!tools.fingers || reading || performance.now() - penAt < PALM_MS)) return;   // fingers scroll
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     e.preventDefault();
@@ -201,6 +218,12 @@
   }
 
   function up(e) {
+    if (tap && e.pointerId === tap.id) {
+      const t = tap;
+      tap = null;
+      if (e.type === 'pointerup' && Math.hypot(e.clientX - t.x, e.clientY - t.y) < 10) typeAt(t.p);
+      return;
+    }
     if (live == null || e.pointerId !== liveId) return;
     const l = live;
     live = null; liveId = null;
@@ -252,7 +275,7 @@
   /** The pen over the glass, as a ring the size of what it would write or erase. */
   function showRing(e) {
     const er = erasing(e);
-    if (e.pointerType === 'mouse' && !er) { ring = null; return; }
+    if ((e.pointerType === 'mouse' && !er) || (tools.tool === 'text' && !er)) { ring = null; return; }
     const b = brush(), c = wrap.getBoundingClientRect();
     const r = er ? (tools.eraser.size / 2) * k : b ? Math.max(2, (b.width / 2) * k) : 3;
     ring = { x: e.clientX - c.left, y: e.clientY - c.top, r, erase: er };
@@ -282,10 +305,60 @@
   function eraseAll() {
     if (!items.length) return;
     record();
-    items = items.filter((it) => it.kind !== 'stroke');
+    items = items.filter((it) => it.kind !== 'stroke' && it.kind !== 'text');
     soon();
     toast('The page is erased. Undo brings it back.');
   }
+
+  // ---- text boxes
+  let gauge = null;
+  /** How big a text is in its font (a canvas measures it). */
+  function measure(text, size, font) {
+    try {
+      gauge = gauge || document.createElement('canvas').getContext('2d');
+      gauge.font = `${size}px ${FONTS[font].css}`;
+      const lines = String(text).split('\n');
+      return { w: Math.max(size * 0.6, ...lines.map((l) => gauge.measureText(l).width)), h: lines.length * size * LINE_HEIGHT };
+    } catch { return measureText(text, size); }
+  }
+  /** The text tool's tap: the text box it lands on opened for typing, or a new one there. */
+  function typeAt(p) {
+    const hit = [...items].reverse().find((t) => t.kind === 'text' && p[0] >= t.x - 8 && p[0] <= t.x + t.w + 8 && p[1] >= t.y - 8 && p[1] <= t.y + t.h + 8);
+    if (hit) {
+      tools.text = { size: hit.size, font: hit.font, color: hit.color };
+      editing = { item: hit, x: hit.x, y: hit.y, text: hit.text, size: hit.size, font: hit.font, color: hit.color };
+    } else {
+      const { size, font, color } = tools.text;
+      editing = { item: null, x: p[0], y: Math.max(0, p[1] - size * 0.7), text: '', size, font, color };
+    }
+    tick().then(() => { if (textEl) { textEl.focus(); textEl.setSelectionRange(textEl.value.length, textEl.value.length); } });
+  }
+  /** The text being typed, put on the page (or taken off it, if it's empty now): one step of Undo. */
+  function commitText() {
+    const e = editing;
+    if (!e) return;
+    editing = null;
+    const text = e.text.replace(/\s+$/u, '');
+    const { w, h } = measure(text, e.size, e.font);
+    const was = e.item;
+    if (was && text === was.text && e.size === was.size && e.font === was.font && e.color === was.color) return;
+    if (!was && !text) return;
+    record();
+    if (!text) items = items.filter((it) => it !== was);
+    else if (was) items = items.map((it) => (it === was ? { ...keepId(it), text, size: e.size, font: e.font, color: e.color, w, h } : it));
+    else items = [...items, { kind: 'text', x: e.x, y: e.y, w, h, text, size: e.size, font: e.font, color: e.color, opacity: 100 }];
+    if (text) used(e.color);
+    soon();
+  }
+  function textKey(e) {
+    if (e.key === 'Escape' || ((e.metaKey || e.ctrlKey) && e.key === 'Enter')) { e.preventDefault(); commitText(); }
+  }
+  function textBlur(e) {
+    // to the text panel or the toolbar (a size, a colour): still typing
+    if (e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.ink .bar, .ink .panel')) return;
+    commitText();
+  }
+  const editBox = $derived(editing ? measure(editing.text || ' ', editing.size, editing.font) : null);
 
   // ---- the lasso: what it holds moved, resized, copied, restyled
   const grab = (what) => (e) => {
@@ -331,7 +404,9 @@
   function duplicateHeld() { if (!held.length) return; const c = copies(held, 30, 30); record(); items = [...items, ...c]; chosen = new Set(c); soon(); }
   function restyle(patch) {
     if (!held.length) return;
-    replace(held, held.map((it) => ({ ...keepId(it), ...(patch.color ? { color: patch.color } : {}), ...(patch.pen ? { pen: patch.pen } : {}), ...(patch.scale ? { width: Math.max(0.5, it.width * patch.scale) } : {}) })));
+    replace(held, held.map((it) => (it.kind === 'text'
+      ? { ...keepId(it), ...(patch.color ? { color: patch.color } : {}), ...(patch.scale ? { size: it.size * patch.scale, w: it.w * patch.scale, h: it.h * patch.scale } : {}) }
+      : { ...keepId(it), ...(patch.color ? { color: patch.color } : {}), ...(patch.pen ? { pen: patch.pen } : {}), ...(patch.scale ? { width: Math.max(0.5, it.width * patch.scale) } : {}) })));
   }
   /** What was copied, put on the page: where the lasso tapped, or in the middle of what's on the screen. */
   function paste(where = null) {
@@ -453,7 +528,7 @@
     // black ink turns white on a dark page, and back
     if (isDark(page.color) !== was) {
       const from = was ? '#ffffff' : '#1e1e1e', to = was ? '#1e1e1e' : '#ffffff';
-      items = items.map((it) => (it.kind === 'stroke' && it.color.toLowerCase() === from ? { ...keepId(it), color: to } : it));
+      items = items.map((it) => ((it.kind === 'stroke' || it.kind === 'text') && it.color.toLowerCase() === from ? { ...keepId(it), color: to } : it));
       suitPens(!was);
     }
     soon();
@@ -475,7 +550,7 @@
     saving = saving.then(async () => {
       const s = theStorage();
       const scene = sceneFromInk(now, base, { color: pg.color });
-      now.forEach((it, i) => { if (it.kind === 'stroke' && !it.el) it.el = scene.elements[i]; });   // the same element next time
+      now.forEach((it, i) => { if ((it.kind === 'stroke' || it.kind === 'text') && !it.el) it.el = scene.elements[i]; });   // the same element next time
       const text = writeInkFile(prevText, scene, { paper: pg.paper, color: pg.color === PAPER_COLOR ? null : pg.color, view: pg.view === 'scroll' ? null : pg.view, pages: pg.view === 'pages' ? pg.pages : null });
       await s.write(inkPath, text);
       prevText = text;
@@ -530,6 +605,8 @@
           {#if it.kind === 'stroke'}
             {@const p = paintOf(it)}
             <path d={pathOf(it)} fill={p.color} fill-opacity={p.opacity < 1 ? p.opacity : undefined} filter={p.grain ? 'url(#grain)' : undefined} transform={moved(it)} />
+          {:else if it.kind === 'text'}
+            {#if !editing || editing.item !== it}<g transform={moved(it)}>{@html textSvg(it)}</g>{/if}
           {:else}
             <g>{@html othersSvg([it])}</g>
           {/if}
@@ -560,6 +637,13 @@
           </div>
         {/if}
       {/if}
+      {#if editing}
+        <textarea class="textedit" bind:this={textEl} dir="auto" spellcheck="true" aria-label="Text on the page" value={editing.text}
+          style="left:{editing.x * k}px; top:{editing.y * k}px; font-size:{editing.size * k}px; line-height:{LINE_HEIGHT}; color:{editing.color}; font-family:{FONTS[editing.font].css};
+            width:{Math.max(140, (editBox.w + editing.size) * k)}px; height:{(editBox.h + editing.size * 0.3) * k}px"
+          oninput={(e) => (editing = { ...editing, text: e.currentTarget.value })} onkeydown={textKey} onblur={textBlur}
+          onpointerdown={(e) => e.stopPropagation()}></textarea>
+      {/if}
       {#if pasteAt}
         <button class="pastehere popover" style="left:{pasteAt[0] * k}px; top:{pasteAt[1] * k}px" onpointerdown={(e) => e.stopPropagation()} onclick={() => paste(pasteAt)}><Icon name="clipboard" size={15} /> Paste</button>
       {/if}
@@ -589,6 +673,9 @@
   .scroll.pinching { overflow: hidden; }
   .scroll.reading { cursor: grab; }
   .scroll.eraser { cursor: none; }
+  .scroll.text { cursor: text; }
+  .textedit { position: absolute; z-index: 3; margin: 0; padding: 0; border: 0; outline: 1.5px dashed var(--accent); outline-offset: 4px; border-radius: 2px;
+    background: transparent; resize: none; overflow: hidden; white-space: pre; box-sizing: content-box; }
   .page { position: relative; margin: 0 auto; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12); transform-origin: 0 0; }
   .page.pages { box-shadow: none; }
   .page svg { position: relative; display: block; }
