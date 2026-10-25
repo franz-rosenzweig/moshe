@@ -13,6 +13,7 @@ import android.graphics.Insets;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
@@ -61,6 +62,7 @@ public class MainActivity extends Activity {
     private Bridge bridge;
     private ShellServices services;
     private Library library;
+    private StylusButton stylus;
     private boolean serverMode;
     private Uri server;
 
@@ -106,6 +108,7 @@ public class MainActivity extends Activity {
             web.addJavascriptInterface(bridge, "MosheStorage");
             web.addJavascriptInterface(services, "MosheShellNative");
         }
+        stylus = new StylusButton(web);
         setContentView(web);
         edgeToEdge();
         if (Build.VERSION.SDK_INT >= 33) {
@@ -171,6 +174,24 @@ public class MainActivity extends Activity {
         String text = intent.getStringExtra(Intent.EXTRA_TEXT), subject = intent.getStringExtra(Intent.EXTRA_SUBJECT);
         String all = subject != null && text != null && !text.startsWith(subject) ? subject + "\n\n" + text : text != null ? text : subject;
         return all == null || all.trim().isEmpty() ? null : all;
+    }
+
+    // ---- the S Pen's button (StylusButton): the WebView doesn't pass it on
+
+    @Override
+    public boolean dispatchGenericMotionEvent(MotionEvent ev) {
+        if (stylus != null && stylus.hover(ev)) return true;
+        return super.dispatchGenericMotionEvent(ev);
+    }
+
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        MotionEvent e = stylus != null ? stylus.touch(ev) : ev;
+        try {
+            return super.dispatchTouchEvent(e);
+        } finally {
+            if (e != ev) e.recycle();
+        }
     }
 
     @Override

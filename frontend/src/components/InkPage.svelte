@@ -40,7 +40,7 @@
   let pasteAt = $state(null);                     // a tap with the lasso: Paste here, at [x, y]
   let wrap, scroller, pageEl, canvas, ctx;
   let base = emptyScene(), prevText = null;
-  let live = null, liveId = null, liveType = null, erased = false, penAt = 0, penDownAt = 0, penButton = false, pinch = null;
+  let live = null, liveId = null, liveType = null, erased = false, penAt = 0, penDownAt = 0, penButton = false, buttonAt = null, pinch = null;
   let saveTimer = null, saving = Promise.resolve();
   let holdTimer = null, holdAt = null;           // a stroke held still at its end: made a clean shape
 
@@ -163,9 +163,11 @@
       penAt = performance.now();                                         // over the glass counts: the hand comes down next
       const button = !!(e.buttons & (2 | 32));
       if (!(e.buttons & 1)) {
-        if (button && !penButton && !live && !radial) openRadial(e.clientX, e.clientY);
+        // the button clicked over the glass (pressed and let go, the pen not down between): the round menu
+        if (button && !penButton) buttonAt = { x: e.clientX, y: e.clientY, t: penAt };
+        else if (!button && penButton && buttonAt && !live && !radial && penAt - buttonAt.t < 1500) openRadial(buttonAt.x, buttonAt.y);
         if (!live) showRing(e);
-      } else penDownAt = penAt;
+      } else { penDownAt = penAt; buttonAt = null; }                    // held while writing: it erases, no menu
       penButton = button;
     } else if (e.pointerType === 'mouse' && !live) showRing(e);
     if (live == null || e.pointerId !== liveId) return;

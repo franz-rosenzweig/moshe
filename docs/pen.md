@@ -36,7 +36,7 @@ The highlighter has its own button and its own colours. It always goes under the
 
 ### The S Pen's button
 
-Hold the button down while you write and the pen erases. Press it with the pen just above the page, not touching, and the round pen menu opens: the pen you're holding in the middle (tap it for all the pens, the eraser and the lasso), its size on the left, its colour on the right (tap it for the colours), Undo and Redo at the top, and your favourites at the bottom, with **+** to add the pen you're holding. On a tablet there's also a round button in the bottom corner that opens the same menu, in case your tablet keeps the button press to itself (⋮ hides it).
+Hold the button down while you write and the pen erases. Click it (press and let go) with the pen just above the page, not touching, and the round pen menu opens: the pen you're holding in the middle (tap it for all the pens, the eraser and the lasso), its size on the left, its colour on the right (tap it for the colours), Undo and Redo at the top, and your favourites at the bottom, with **+** to add the pen you're holding. On a tablet there's also a round button in the bottom corner that opens the same menu, in case your tablet keeps the button press to itself (⋮ hides it).
 
 ### The eraser
 
