@@ -171,7 +171,7 @@
               <label>Fixed Scrolling <select class="field" bind:value={app.typewriter.fixed} onchange={persist}><option value="off">Off</option><option value="top">Top</option><option value="middle">Middle</option><option value="bottom">Bottom</option><option value="variable">Variable</option></select></label>
             </span>
             <span class="lbl gap">Handwriting:</span>
-            <span class="gap"><label>New pages on <select class="field" bind:value={prefs.inkPaper}><option value="lined">Lined</option><option value="blank">Blank</option><option value="dotted">Dotted</option><option value="grid">Grid</option></select> paper</label></span>
+            <span class="gap"><label>New pages on <select class="field" bind:value={prefs.inkPaper}><option value="lined">Lined</option><option value="blank">Blank</option><option value="dotted">Dotted</option><option value="grid">Grid</option><option value="cornell">Cornell</option></select> paper</label></span>
             <span class="lbl gap">Getting Started:</span>
             <span class="gap"><button class="btn" onclick={() => window.mosheCommand('gettingStarted')}>Add to the Inbox</button></span>
           </div>

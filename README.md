@@ -42,7 +42,7 @@ I also wanted translation in the same place. Moshe has a translation mode: the o
 - **Sheets and groups.** Notes with an Inbox, projects with their own groups and Extras, glued sheets that read as one text, split and merge, favorites, the Trash with **Put Back**, and project templates for a novel, a non-fiction book, a blog, a paper and a translation.
 - **Goals and the dashboard.** A goal for a sheet, a group or a project (words, characters, pages, reading time and more, with a deadline if I want one), the ring that fills as I write, and a history of what I wrote each day.
 - **Keywords and filters.** Coloured keywords on sheets, and filters that gather sheets by keyword, text, date, goal or notes.
-- **The pen.** On a tablet with a pen, proofreading by hand in Revision Mode: a strike through words deletes them, a caret and a few written words insert, a circle highlights with a comment, all as the same revision marks the menus write. Plus handwritten sheets, a page you just write on like a notebook, with nothing turned into text unless you type it up beside it, kept as an Excalidraw drawing that Obsidian's Excalidraw plugin opens too. And sketches saved as SVG pictures beside the sheet. See [The pen](docs/pen.md).
+- **The pen.** On a tablet with a pen, proofreading by hand in Revision Mode: a strike through words deletes them, a caret and a few written words insert, a circle highlights with a comment, all as the same revision marks the menus write. Plus handwritten sheets, a page you just write on like a notebook, with nothing turned into text unless you type it up beside it. It works a lot like Samsung Notes, with seven pens, a highlighter, the lasso, an eraser, the S Pen's button and its round pen menu, shapes that snap clean, and dark or lined or Cornell paper, and it's kept as an Excalidraw drawing that Obsidian's Excalidraw plugin opens too. And sketches saved as SVG pictures beside the sheet. See [The pen](docs/pen.md).
 - **Focus.** **Hide Interface** with **⌘.**, and the typewriter options: a line marker, fading everything but the current sentence or paragraph, and fixed scrolling.
 - **Themes.** Nine of Moshe's own, each in light and dark, and a copy of any of them to change colour by colour, shared between devices as small files.
 
@@ -175,6 +175,7 @@ Start with [Getting started](docs/what-is-moshe.md).
 - [hunspell-wasm](https://www.npmjs.com/package/hunspell-wasm), under LGPL-2.0, GPL-2.0 or MPL-1.1, whichever you pick, with Hspell's Hebrew dictionary from [dictionary-he](https://github.com/wooorm/dictionaries), AGPL-3.0.
 - [LanguageTool](https://languagetool.org), LGPL-2.1 or later, run from its own release for **Check Text** (not bundled).
 - [fflate](https://github.com/101arrowz/fflate), MIT, which Harper uses.
+- [perfect-freehand](https://github.com/steveruizok/perfect-freehand), MIT, which draws the handwriting, and [lz-string](https://github.com/pieroxy/lz-string), MIT, which reads the drawings Excalidraw compressed.
 - [OkHttp](https://square.github.io/okhttp/), Apache-2.0, in the Android app, and [XcodeGen](https://github.com/yonaskolb/XcodeGen), MIT, for building the Mac app.
 
 ## License

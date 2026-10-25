@@ -26,13 +26,45 @@ For turning handwriting into text, Moshe leaves it to the tablet, which does it 
 
 ## Handwritten sheets
 
-Sometimes I just want to write, the way I would in a notebook, and nothing should turn my writing into text while I do. So a sheet can be handwritten: press the pen button next to **New Sheet** in the sheet list (or **File › New Handwritten Sheet**), and the sheet opens as a page of paper. Write on it with the pen, as much as you like, and the page keeps growing downwards. Nothing is recognised or changed, it's just your handwriting.
+Sometimes I just want to write, the way I would in a notebook, and nothing should turn my writing into text while I do. So a sheet can be handwritten: press the pen button next to **New Sheet** in the sheet list (or **File › New Handwritten Sheet**), and the sheet opens as a page of paper. Write on it with the pen, as much as you like. Nothing is recognised or changed, it's just your handwriting. The page works a lot like Samsung Notes, because that's what my hand is used to.
 
-The pens are along the top: black, blue, red, green and a see-through yellow marker, three sizes, an eraser (or hold the pen's button), and Undo and Redo. The paper is lined to start with, and the menu there switches it to blank, dotted or grid. **Settings › General › Handwriting** sets which paper a new page starts on. Your fingers scroll the page and never write, so you can rest your hand on it. On a device with no pen, the hand button lets a finger write, and on a computer the mouse or trackpad always does.
+### Pens and the highlighter
+
+Along the top are the pen, the highlighter, the eraser and the lasso, then the colours you used last, your favourite pens, Undo and Redo, the page's settings, reading mode, ⋮ and **Type It Up**. Tap the pen again and its panel opens: six kinds of pen (fountain pen, calligraphy pen, pen, pencil, calligraphy brush and marker), a size from 1 to 100, opacity, and the colours, with the wheel for any colour at all. Each kind of pen remembers its own size and colour. **Add to Favourites** keeps the pen just as it's set, next to the colours on the bar, and a right-click or a long press on a favourite takes it off.
+
+The highlighter has its own button and its own colours. It always goes under the writing, so it never dims it, and where two highlights cross the colour doesn't get darker.
+
+### The S Pen's button
+
+Hold the button down while you write and the pen erases. Press it with the pen just above the page, not touching, and the round pen menu opens: the pen you're holding in the middle (tap it for all the pens, the eraser and the lasso), its size on the left, its colour on the right (tap it for the colours), Undo and Redo at the top, and your favourites at the bottom, with **+** to add the pen you're holding. On a tablet there's also a round button in the bottom corner that opens the same menu, in case your tablet keeps the button press to itself (⋮ hides it).
+
+### The eraser
+
+Tap the eraser again for its settings. It can erase only what it passes over, which cuts a stroke in two, or whole strokes at a time. You can set its size, and whether it takes all the ink, only the pen or only the highlighter. **Erase the Page** clears everything, and Undo brings it back.
+
+### The lasso
+
+Draw round some writing with the lasso and it's held in a box. Drag the box to move it, drag a corner to make it bigger or smaller, and the bar above it has **Cut**, **Copy**, **Duplicate**, **Delete** and **Style** (another pen, another colour, thinner or thicker). To paste, tap the page with the lasso and press **Paste**, on this page or on another one. On a keyboard, ⌘C, ⌘X, ⌘V, ⌘D and Delete work too.
+
+### Shapes
+
+Draw a line, a circle, a rectangle or a triangle, keep the pen still at the end for a moment, and it snaps into a clean shape. A line that's nearly level comes out level. Handwriting is left alone.
+
+### The page
+
+The page button has the page's colour (white, cream, yellow, a few soft ones and three dark ones), its paper (lined, blank, dotted, grid or Cornell) and the view: one long page that keeps growing as you write, or separate pages, one under the other, with **Add a Page** at the bottom. When you switch to a dark page, black ink turns white, and back again. **Use for New Pages** makes new handwritten sheets start the same way (**Settings › General › Handwriting** sets the paper too).
+
+### Fingers, zooming and reading
+
+Your fingers scroll the page and never write, so you can rest your hand on it, and two fingers pinch to zoom (on a computer, pinch the trackpad or hold ⌘ or Ctrl and scroll). The number in the corner shows how far in you are, and tapping it fits the page again. **Reading mode** (the open book) makes the pen scroll instead of write, so you can read through a page without marking it. On a device with no pen, ⋮ › **Fingers write** lets a finger write, and on a computer the mouse or trackpad always does.
+
+### Typing it up
 
 When you want to type it up, press **Type It Up**. The page stays on one side and the sheet's text opens on the other (or underneath, on an upright screen), so you can read your handwriting and type it in. The typing goes into the same sheet, under a picture of the page. **Done Typing** gives the whole screen back to the page.
 
-Everything is saved as you go, as plain files beside the sheet in `_media`. The page itself is an Excalidraw drawing (`.excalidraw.md`), which means Obsidian's Excalidraw plugin opens it and you can keep drawing on it there. Next to it is an SVG picture of the page, which is what the sheet shows, in Moshe and in Obsidian. If you change the drawing in Excalidraw, Moshe redraws the picture the next time you open the sheet. Moshe draws Excalidraw's shapes, arrows and text plainly, and leaves anything it doesn't draw itself exactly as it was.
+### Where it's kept
+
+Everything is saved as you go, as plain files beside the sheet in `_media`. The page itself is an Excalidraw drawing (`.excalidraw.md`), which means Obsidian's Excalidraw plugin opens it and you can keep drawing on it there. Next to it is an SVG picture of the page, which is what the sheet shows, in Moshe and in Obsidian. Excalidraw draws every stroke the way it draws its own, like the fountain pen, but Moshe remembers which pen each one was. If you change the drawing in Excalidraw, Moshe redraws the picture the next time you open the sheet. Moshe draws Excalidraw's shapes, arrows and text plainly, and leaves anything it doesn't draw itself exactly as it was.
 
 ## Sketches
 

@@ -1,7 +1,7 @@
 // What the menus, buttons and shortcuts do: each a change to the library
 // through the store, and whatever the window should show after it.
 import { app, store, select, openSheet, openProject, closeProject, persist, toast, prefs, theStorage } from './state.svelte.js';
-import { writeInkFile, inkSvg, emptyScene } from '@engine/ink.js';
+import { writeInkFile, inkSvg, emptyScene, sceneFromInk, PAPER_COLOR } from '@engine/ink.js';
 import { setMeta } from '@engine/sheet.js';
 import { openDialog, confirm } from './ui.svelte.js';
 
@@ -40,10 +40,11 @@ export async function newHandwrittenSheet() {
   const stamp = `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}.${two(d.getMinutes())}`;
   let name = `Handwritten ${stamp}`;
   for (let n = 2; store.exists(`${dir}/_media/${name}.excalidraw.md`); n++) name = `Handwritten ${stamp} ${n}`;
-  const paper = prefs.inkPaper || 'lined';
+  // a new page starts as the one last chosen to (the page's settings, Use for New Pages)
+  const paper = prefs.inkPaper || 'lined', color = prefs.inkColor && prefs.inkColor !== PAPER_COLOR ? prefs.inkColor : null, view = prefs.inkView === 'pages' ? 'pages' : null;
   try {
-    await s.write(`${dir}/_media/${name}.excalidraw.md`, writeInkFile(null, emptyScene(), { paper }));
-    await s.write(`${dir}/_media/${name}.svg`, inkSvg([], { paper }));
+    await s.write(`${dir}/_media/${name}.excalidraw.md`, writeInkFile(null, sceneFromInk([], emptyScene(), { color: color || PAPER_COLOR }), { paper, color, view }));
+    await s.write(`${dir}/_media/${name}.svg`, inkSvg([], { paper, color: color || PAPER_COLOR, view: view || 'scroll' }));
     store.makeDirs(`${dir}/_media`);
   } catch (err) { toast(`Could not make the page: ${err.message}`); return null; }
   const text = setMeta(`# ${name}\n![Handwriting](_media/${encodeURI(name)}.svg)\n`, { ink: `_media/${name}.excalidraw.md` });

@@ -429,7 +429,37 @@ async def run(b, url, root: Path, mode: str, sim_url: str | None):
     got = await until(lambda: dr and len(els()) == 2, 5)
     check("the pen's strokes go into the drawing, pressure and all; a finger writes nothing", bool(got) and all(e["type"] == "freedraw" and len(e["pressures"]) == len(e["points"]) for e in els()))
     pic = dr.with_name(dr.name.replace(".excalidraw.md", ".svg")) if dr else None
-    check("and into its picture", bool(pic) and pic.read_text().count("<g fill=") == 2)
+    inked = lambda: len(re.findall(r'<path d="M[^"]*Q[^"]*" fill=', pic.read_text())) if pic and pic.exists() else 0
+    check("and into its picture", inked() == 2, str(inked()))
+    # the pens: the pencil, from the pen's panel (the pen tapped again)
+    await b.js("document.querySelector('.ink .pentool').click(); return true;")
+    await b.wait_for("!!document.querySelector('.ink .panel .kind')", 3)
+    await b.js("[...document.querySelectorAll('.ink .panel .kind')].find(k => k.textContent.includes('Pencil')).click(); return true;")
+    await b.js("document.querySelector('.ink .scrim').dispatchEvent(new PointerEvent('pointerdown', {bubbles: true})); return true;")
+    await pen(b, scrawl(pg["l"] + 80, pg["t"] + 260))
+    got = await until(lambda: dr and len(els()) == 3, 5)
+    check("each pen draws its own way, and the drawing says which pen", bool(got) and els()[2].get("customData", {}).get("moshe", {}).get("pen") == "pencil" and 'filter="url(#grain)"' in pic.read_text())
+    # the eraser cuts the first stroke where it passes
+    await b.js("document.querySelector('.ink [aria-label=Eraser]').click(); return true;")
+    await pen(b, [(pg["l"] + 120, pg["t"] + 110 + i * 6) for i in range(14)])
+    got = await until(lambda: dr and len(els()) == 4, 5)
+    check("the eraser takes only what it passes over, and the stroke falls in two", bool(got), str(len(els())))
+    # the lasso round the second stroke, and it moved
+    await b.js("document.querySelector('.ink [aria-label=Lasso]').click(); return true;")
+    x2 = max(e["x"] for e in els() if e["y"] < 200)
+    await pen(b, [(pg["l"] + 300 + 110 * math.cos(t / 16 * 2 * math.pi), pg["t"] + 150 + 50 * math.sin(t / 16 * 2 * math.pi)) for t in range(17)])
+    check("the lasso holds what it goes round", bool(await b.wait_for("!!document.querySelector('.ink .held')", 3)))
+    box = await b.js("const r = document.querySelector('.ink .held').getBoundingClientRect(); return {x: r.left + r.width / 2, y: r.top + r.height / 2};")
+    await pen(b, [(box["x"], box["y"] + i * 10) for i in range(11)])
+    got = await until(lambda: dr and any(abs(e["x"] - x2) < 1 and e["y"] > 200 for e in els()), 5)
+    check("and moves it, as the same element", bool(got))
+    # a dark page: the paper's colour is kept, and black ink turns white
+    await b.js("document.querySelector('.ink [aria-label=Page]').click(); return true;")
+    await b.wait_for("!!document.querySelector('.ink .panel .paper-c')", 3)
+    await b.js("[...document.querySelectorAll('.ink .panel .paper-c')].find(x => x.getAttribute('aria-label').includes('dark')).click(); return true;")
+    await b.js("document.querySelector('.ink .scrim').dispatchEvent(new PointerEvent('pointerdown', {bubbles: true})); return true;")
+    got = await until(lambda: dr and "moshe-color: #3b352e" in dr.read_text() and all(e["strokeColor"] != "#1e1e1e" for e in els()), 5)
+    check("a dark page keeps its colour in the drawing, and its black ink turns white", bool(got))
     await b.js("document.querySelector('.ink .type').click(); return true;")
     await b.wait_for("!!document.querySelector('.textside .cm-content')", 4)
     await b.js("document.querySelector('.textside .cm-content').focus(); return true;")
@@ -480,14 +510,11 @@ async def run(b, url, root: Path, mode: str, sim_url: str | None):
     await b.js("const p = window.__mosheStore.createSheet('Notes', {text: '# שלום עולם\\nטקסט.\\n'}); return p;")
     heb = await until(lambda: (root / "Notes" / "שלום עולם.md").exists(), 5)
     check("a Hebrew title makes a Hebrew file name, exactly", bool(heb), str([p.name for p in (root / "Notes").iterdir()]))
-    await b.js("""
-        const rows = () => [...document.querySelectorAll('.library .row')];
-        rows().find(r => r.textContent.includes('Kafka')).click();
-        await new Promise(r => setTimeout(r, 400));
-        rows().find(r => r.textContent.trim() === 'Original').click();
-        await new Promise(r => setTimeout(r, 400));
-        window.mosheCommand('translation');
-        return true;""")
+    await b.js("[...document.querySelectorAll('.library .row')].find(r => r.textContent.includes('Kafka')).click(); return true;")
+    await asyncio.sleep(0.4)
+    await b.js("[...document.querySelectorAll('.library .row')].find(r => r.textContent.trim() === 'Original').click(); return true;")
+    await asyncio.sleep(0.4)
+    await b.js("window.mosheCommand('translation'); return true;")
     two = await b.wait_for("document.querySelectorAll('.cm-editor').length === 2 && document.querySelectorAll('.cm-editor')[1].textContent.includes('Gregor Samsa')", 6)
     check("translation mode shows the translation beside the original", bool(two))
     rtl = await b.js("const l = document.querySelector('.cm-line'); return getComputedStyle(l).direction;")
