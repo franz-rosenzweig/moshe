@@ -82,8 +82,8 @@
     scroller.addEventListener('touchend', touch, { passive: false });
     scroller.addEventListener('touchcancel', touch, { passive: false });
     scroller.addEventListener('wheel', wheel, { passive: false });
-    // the S Pen's button, for a shell that hears it when the browser doesn't
-    window.mosheStylusButton = (x, y) => openRadial(x, y);
+    // the S Pen's button, for a shell that hears it when the browser doesn't: it opens the round menu, and closes it again
+    window.mosheStylusButton = (x, y) => { if (radial) radial = null; else openRadial(x, y); };
     return () => {
       ro.disconnect();
       for (const t of ['touchstart', 'touchmove', 'touchend', 'touchcancel']) scroller.removeEventListener(t, touch);
