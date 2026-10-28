@@ -24,9 +24,17 @@ that and left" is typed. The pause is 0.7 s.
 The strip always shows what was heard and whether it was taken as text or as a
 command. It also shows why, when that isn't obvious.
 
-A short utterance that sounds like a command but isn't one ("build that") is
-still typed. The strip names the command it sounds like (`soundsLike`), so she
-can say "scratch that" and try again. Nothing is ever carried out on a guess.
+### When it isn't quite a command
+
+Recognizers mishear short commands, so the rule is applied with some give, in
+three layers, from the safest:
+
+- **More ways to say each command.** "Please", "okay,", "can you…" and "…for me" around a command are ignored, as are "um" and "uh" before it. Most commands also take other words: "erase that", "make that bold", "bold the selection", "end of the paragraph", "down a paragraph", "what's another word for cold". Each command's other phrasings are in its `also`, and a test checks that each one parses to its command. Words a writer may well dictate on their own stay text: "Listen.", "The end.", "Again.", "Enough.", "Forget it.".
+- **The recognizer's other guesses.** When the words as heard are text but one of the recognizer's alternatives is an exact command, the command is taken (`commandAmong`), and the strip says so. This never takes a command that is open-ended ("select ‹words›") or big.
+- **Near misses.** A short utterance whose letters are within a quarter of an exact command's is carried out as that command (`nearCommand`): "build that" is "bold that", "Highlight dad" is "highlight that". The strip says "Heard … taken as …". Within a third, it is still typed, and the strip names the command it sounds like, so she can say "scratch that" and try again.
+  - **Commands marked `exact`** are never done on a guess: "accept all", "new sheet", "export", "type…", the language, "go back", the next sheet, "undo three times", "do that again".
+  - **A guess that can't be carried out** does nothing, and the words are typed with the hint.
+  - **"I like that"** is too far from "highlight that" to guess: it may be meant.
 
 ## The pieces
 
@@ -123,7 +131,7 @@ The app tells the page what it hears through `window.mosheVoice`:
 | The app calls | When |
 | --- | --- |
 | `mosheVoice.partial(text)` | The guess so far, shown grey at the cursor. |
-| `mosheVoice.final(text, {how})` | At each pause: one utterance. `how` is shown on the strip, e.g. "Apple's speech · 0.3 s". |
+| `mosheVoice.final(text, {how, alternatives})` | At each pause: one utterance. `how` is shown on the strip, e.g. "Apple's speech · 0.3 s". `alternatives` are the recognizer's other guesses at the whole of it, if any. |
 | `mosheVoice.state(s, pct)` | `listening`, `loading` (with a percentage), `error`, `off`. |
 | `mosheVoice.level(v)` | How loud, 0–1, a few times a second, for the meter. |
 
@@ -147,7 +155,17 @@ custom words. Spoken by the Mac's own voices:
 - "make that italic" came out as "make that metallic";
 - "italicize that" and "make that bold" came through every time.
 
-Hence the longer forms ("make that bold") and the hint above.
+Hence the longer forms ("make that bold") and the layers above. With them, the
+same recordings came out as follows:
+
+- "High like that" became highlight. Its second guess was "Highlight that", and it is a near miss anyway.
+- "build that" became bold.
+- "Highlight dad" became highlight.
+- "I like that" and "call dad" are still typed. They're too far from the commands to guess, and Apple's other guesses were "call that" or nothing.
+
+The app sends the recognizer's alternatives with each utterance (`alternatives` in
+`mosheVoice.final`'s second argument). It sends them only for an utterance heard
+as one piece, since they are guesses at all of it.
 
 ### Android and Windows
 

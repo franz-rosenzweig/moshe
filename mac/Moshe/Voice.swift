@@ -117,7 +117,7 @@ private final class AppleListener {
     private var results: Task<Void, Never>?
     private var fileTask: Task<Void, Never>?
     private let gate = PauseGate()
-    private var finals: [(start: Double, text: String)] = []
+    private var finals: [(start: Double, text: String, others: [String])] = []
     private var volatile = ""
     private var label = "Apple’s dictation"
     private var stopped = false
@@ -131,7 +131,7 @@ private final class AppleListener {
             throw ShellError("Apple’s dictation has no \(lang == "he" ? "Hebrew" : "English") on this Mac. Choose Whisper in Settings › Voice.")
         }
         let transcriber = DictationTranscriber(locale: locale, contentHints: [], transcriptionOptions: [.punctuation],
-                                               reportingOptions: [.volatileResults, .frequentFinalization], attributeOptions: [])
+                                               reportingOptions: [.volatileResults, .frequentFinalization, .alternativeTranscriptions], attributeOptions: [])
         // the model is downloaded once, by the system
         if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
             service.send("state", "loading", 0)
@@ -182,13 +182,19 @@ private final class AppleListener {
 
     // ---- what Apple's dictation hears
 
-    private func heard(_ r: DictationTranscriber.Result) {
-        let raw = String(r.text.characters).trimmingCharacters(in: .whitespaces)
-        // Apple's dictation writes "new paragraph" and "new line" as the breaks themselves: the page wants the words
+    /// Apple's dictation writes "new paragraph" and "new line" as the breaks themselves: the page wants the words.
+    private static func words(_ s: AttributedString) -> String {
+        let raw = String(s.characters).trimmingCharacters(in: .whitespaces)
         let breaks = raw.filter(\.isNewline).count
-        let text = !raw.isEmpty && breaks == raw.count ? (breaks > 1 ? "new paragraph" : "new line") : raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !raw.isEmpty && breaks == raw.count ? (breaks > 1 ? "new paragraph" : "new line") : raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func heard(_ r: DictationTranscriber.Result) {
+        let text = Self.words(r.text)
         if r.isFinal {
-            if !text.isEmpty { finals.append((r.range.start.seconds, text)) }
+            // its other guesses too: "highlight that" may come second to "I like that"
+            let others = r.alternatives.map(Self.words).filter { !$0.isEmpty && $0 != text }
+            if !text.isEmpty { finals.append((r.range.start.seconds, text, others)) }
             volatile = ""
         } else {
             volatile = text
@@ -210,7 +216,8 @@ private final class AppleListener {
             guard !stopped else { return }
             if text.isEmpty { service.send("partial", ""); return }
             let how = String(format: "%@ · words %.1f s after the pause", label, Date().timeIntervalSince(t0))
-            service.send("final", text, ["how": how])
+            // other guesses only for an utterance heard as one piece: they are guesses at all of it
+            service.send("final", text, ["how": how, "alternatives": mine.count == 1 ? Array(mine[0].others.prefix(4)) : []])
         }
     }
 
