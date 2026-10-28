@@ -122,11 +122,34 @@ public sealed partial class ShellWindow : Window
     /// <summary>Room for the caption buttons, which the system draws over the row.</summary>
     void FitTitleBar()
     {
-        var scale = Root.XamlRoot?.RasterizationScale ?? GetDpiForWindow(Handle) / 96.0;
-        if (scale <= 0) return;
-        LeftPad.Width = new GridLength(AppWindow.TitleBar.LeftInset / scale);
-        RightPad.Width = new GridLength(AppWindow.TitleBar.RightInset / scale);
+        // A minimised window has no caption buttons to measure, and Windows fails
+        // when asked, inside its own event, which takes the app down (Daf's
+        // self-test found it): nothing to fit then, nor while hidden or full screen.
+        if (!AppWindow.IsVisible || IsFullScreen || AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized }) return;
+        try
+        {
+            var scale = Root.XamlRoot?.RasterizationScale ?? GetDpiForWindow(Handle) / 96.0;
+            if (scale <= 0) return;
+            LeftPad.Width = new GridLength(Math.Max(0, AppWindow.TitleBar.LeftInset / scale));
+            RightPad.Width = new GridLength(Math.Max(0, AppWindow.TitleBar.RightInset / scale));
+        }
+        catch (Exception e) { Log.Write($"title bar: {e.Message}"); }
     }
+
+    /// <summary>The room kept for the caption buttons, for the self-test.</summary>
+    public double CaptionRoom => RightPad.Width.Value;
+
+    /// <summary>Minimise the window and bring it back, as a person would, for the self-test.</summary>
+    public async Task MinimiseAndRestore()
+    {
+        if (AppWindow.Presenter is not OverlappedPresenter presenter) return;
+        presenter.Minimize();
+        await Task.Delay(700);
+        presenter.Restore();
+        await Task.Delay(700);
+    }
+
+    public bool IsMinimised => AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized };
 
     /// <summary>The window's name, in the title bar and the taskbar: the library's, then Moshe, as Windows names a document's window.</summary>
     void NameWindow()

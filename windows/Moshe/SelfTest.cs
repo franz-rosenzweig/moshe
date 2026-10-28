@@ -135,6 +135,11 @@ static class SelfTest
             Add("the menu's Full Screen then takes both out, title bar and all", restored && pageOut,
                 $"window {(window.IsFullScreen ? "full screen" : "normal")}, title bar {(window.TitleShown ? "shown" : "hidden")}, page {(pageOut ? "out" : "still full screen")}");
 
+            // minimised and back: the title bar fits itself again, and the app lives through it
+            await window.MinimiseAndRestore();
+            Add("minimising and restoring the window", !window.IsMinimised && window.TitleShown && window.CaptionRoom > 0,
+                $"{(window.IsMinimised ? "still minimised" : "restored")}, {window.CaptionRoom:0} px kept for the caption buttons");
+
             // the window: Windows 11's title bar, holding the five menus
             var titles = string.Join(", ", window.MenuTitles);
             Add("the title bar holds File, Edit, Format, View and Help", titles == "File, Edit, Format, View, Help" && window.ExtendsContentIntoTitleBar, titles);
