@@ -9,7 +9,11 @@ import WebKit
 /// page's promise settles when the panel closes.
 @MainActor
 final class ShellServices: NSObject, WKScriptMessageHandlerWithReply {
-    weak var webView: WKWebView?
+    weak var webView: WKWebView? {
+        didSet { if oldValue !== webView { voice.stop() }; voice.webView = webView }
+    }
+    /// Listening, for writing by voice (Voice.swift): on macOS 26 and later.
+    let voice = VoiceService()
 
     /// Defined before the page's own scripts run, so the page finds it at once.
     static let script = """
@@ -23,6 +27,7 @@ final class ShellServices: NSObject, WKScriptMessageHandlerWithReply {
         copy: (what) => call('copy', { text: String((what && what.text) || ''), html: what && what.html ? String(what.html) : '' }),
         print: (html, fileName) => call('print', { html: String(html), fileName: String(fileName || 'Print') }),
         sharePdf: (html, fileName) => call('sharePdf', { html: String(html), fileName: String(fileName || 'Export.pdf') }),
+    \(VoiceService.available ? VoiceService.script : "")
       });
     })();
     """
@@ -54,6 +59,8 @@ final class ShellServices: NSObject, WKScriptMessageHandlerWithReply {
 
     private func answer(_ op: String, _ args: [String: Any]) async throws -> Any {
         switch op {
+        case "voiceStart", "voiceStop", "voiceLanguage":
+            return try await voice.answer(op, args)
         case "savePdf":
             guard let html = args["html"] as? String else { throw ShellError("no HTML to print") }
             let name = Self.withExtension(args["fileName"] as? String ?? "Export", "pdf")

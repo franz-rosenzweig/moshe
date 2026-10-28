@@ -65,6 +65,7 @@ enum SelfTest {
         if wants("settings") { await settings(first) }
         if wants("panes") { await panes(first) }
         if wants("reload") { await reload(first) }
+        if wants("voice") { await voice(first) }
         finish()
     }
 
@@ -819,6 +820,32 @@ enum SelfTest {
     }
 
     /// The library moved: every window loads again, on the new folder.
+    /// Writing by voice (docs/VOICE.md): Apple's dictation hears sentences from a file (selftest.sh makes it with
+    /// `say`), the pauses cut them into utterances, and the page carries each out in a new sheet.
+    static func voice(_ c: MosheWindowController) async {
+        let web = c.webView!
+        guard VoiceService.available else { log("INFO  voice: this Mac's dictation needs macOS 26; the page would use Whisper"); return }
+        guard UserDefaults.standard.string(forKey: "SelfTestVoiceFile").map({ FileManager.default.fileExists(atPath: $0) }) == true else {
+            return check(false, "voice: the spoken file is there", "no say?")
+        }
+        check(await js(web, "window.mosheShell && window.mosheShell.voice ? 'yes' : 'no'") == "yes", "voice: the shell offers its recognizer")
+        await js(web, "mosheMenuState().voice || mosheCommand('voice'), mosheCommand('newSheet'), 1")
+        await pause(0.8)
+        let before = Int(await js(web, "__mosheVoice.state().count")) ?? 0
+        await js(web, "mosheCommand('listen'), 1")
+        let all = await until(90) { Int(await js(web, "__mosheVoice.state().count")) ?? 0 >= before + 9 }
+        await js(web, "mosheCommand('listen'), 1")                         // stop
+        let heard = await js(web, "JSON.stringify(__mosheVoice.state().heard.slice(0, 9).reverse().map((h) => [h.said, h.kind, h.msg, h.how]))")
+        for line in heard.components(separatedBy: "],[") { log("INFO  voice heard " + line.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))) }
+        check(all, "voice: nine utterances heard, one at each pause", heard)
+        let kinds = await js(web, "__mosheVoice.state().heard.slice(0, 9).reverse().map((h) => h.kind).join(' ')")
+        check(kinds == "text command text command command command command ignored command", "voice: text, commands and sleep told apart", kinds)
+        let text = await js(web, "__mosheVoice.text()")
+        check(text == "The storm came in from the west.\n\nIt rained for three days.", "voice: the sheet says what was said", text)
+        check(heard.contains("Apple’s dictation"), "voice: heard by Apple's dictation")
+        await snapPage(web, "voice")
+    }
+
     static func reload(_ c: MosheWindowController) async {
         let other = FileManager.default.temporaryDirectory.appendingPathComponent("moshe-selftest-second-\(UUID().uuidString.prefix(6))")
         try? FileManager.default.createDirectory(at: other.appendingPathComponent("Notes"), withIntermediateDirectories: true)

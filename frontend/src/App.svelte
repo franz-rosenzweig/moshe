@@ -15,7 +15,7 @@
   import MarkupBar from './components/MarkupBar.svelte';
   import VoiceStrip from './components/VoiceStrip.svelte';
   import { connect as connectVoice } from './voice/voice.svelte.js';
-  import { toggleListening } from './voice/mic.js';
+  import { toggleListening, isListening } from './voice/mic.js';
   import { app, prefs, store, start, back, forward, setPanes, persist, openSheet, openProject, closeProject, toast, select } from './lib/state.svelte.js';
   import { ui, menuUnder, openDialog, confirm } from './lib/ui.svelte.js';
   import { newSheet, newHandwrittenSheet, newGroup, trashSheets, newProject, newFilter, targetGroup, goalFor, glue } from './lib/actions.js';
@@ -212,6 +212,7 @@
       dashboard: !!app.dashboard, dashboardView: app.dashboardView || 'overview',
       dashboardViews: [['overview', 'Overview'], ['progress', 'Progress'], ['outline', 'Outline'], ['attachments', 'Attachments'], ['annotations', 'Annotations'], ...(prefs.voice.on ? [['voice', 'Voice'], ['words', 'Words']] : [])].map(([id, name]) => ({ id, name })),
       secondEditor: !!app.second, translation: !!app.translation, revision: !!app.revision, interfaceHidden: !!app.interfaceHidden,
+      voice: !!prefs.voice.on, listening: isListening(),
       favorite: !!(one && one.favorite), material: !!(one && one.material), glued: !!(one && one.glued),
       counter: !!prefs.showCounter, paragraphNumbers: !!prefs.paragraphNumbers, lineMarker: !!app.typewriter.marker, sheetDates: !!prefs.sheetListDates,
       highlight: app.typewriter.highlight || 'off', fixedScrolling: app.typewriter.fixed || 'off', appearance: prefs.appearance || 'system',
