@@ -239,8 +239,8 @@ void CrossCheck()
         + "f = b.Folder(Path(sys.argv[1]))\nops = json.load(open(sys.argv[2], encoding='utf-8'))\n"
         + "print(json.dumps([b.answer(f, m, {}) for m in ops], ensure_ascii=False))";
     var start = new ProcessStartInfo("python") { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, StandardOutputEncoding = Encoding.UTF8 };
-    foreach (var a in new[] { "-I", "-c", code, reference, ops, Path.Join(repo, "tools") }) start.ArgumentList.Add(a);
-    start.Environment["PYTHONIOENCODING"] = "utf-8";
+    // -X utf8 rather than PYTHONIOENCODING, which -I ignores: or Python writes Hebrew in the Windows code page
+    foreach (var a in new[] { "-X", "utf8", "-I", "-c", code, reference, ops, Path.Join(repo, "tools") }) start.ArgumentList.Add(a);
     string output, errors;
     try
     {
