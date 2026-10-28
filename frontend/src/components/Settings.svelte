@@ -8,7 +8,7 @@
   import { applyTheme, setCustomThemes } from '../lib/themes.js';
   import { STYLES, STYLE_ORDER, exportSheets } from '@export';
 
-  const TABS = [['general', 'settings', 'General'], ['sidebar', 'panel-left', 'Sidebar'], ['markup', 'palette', 'Markup'], ['backup', 'history', 'Backup'], ['sync', 'send', 'Sync'], ['styles', 'pen-tool', 'Styles']];
+  const TABS = [['general', 'settings', 'General'], ['sidebar', 'panel-left', 'Sidebar'], ['markup', 'palette', 'Markup'], ['voice', 'mic', 'Voice'], ['backup', 'history', 'Backup'], ['sync', 'send', 'Sync'], ['styles', 'pen-tool', 'Styles']];
   const FONTS = ['System Font', 'Georgia', 'Iowan Old Style', 'Palatino', 'Charter', 'Avenir Next', 'Helvetica Neue', 'Menlo', 'Courier Prime', 'American Typewriter', 'Frank Ruehl CLM', 'David CLM', 'Noto Serif Hebrew', 'Noto Sans Hebrew'];
 
   let backups = $state(null);
@@ -19,6 +19,12 @@
   let pw = $state({ current: '', next: '' });
   import { loadConfig, saveConfig, startSync, syncState } from '../lib/davsync.js';
   import { theStorage } from '../lib/state.svelte.js';
+  import { voice } from '../voice/voice.svelte.js';
+  import { MODELS, browserCanListen, checkGpu } from '../voice/mic.js';
+  // Voice: whether the app has its own recognizer, and the sizes of Whisper's models here (the graphics chip's are bigger)
+  const appListens = typeof window !== 'undefined' && !!(window.mosheShell && window.mosheShell.voice);
+  let gpu = $state(false);
+  $effect(() => { if (app.settingsOpen === 'voice') checkGpu().then((d) => { gpu = d === 'webgpu'; }); });
   const cfg0 = loadConfig();
   let dav = $state({ kind: cfg0 ? (cfg0.token ? 'moshe' : 'webdav') : 'off', url: cfg0 ? cfg0.site || cfg0.url : '', token: cfg0 ? cfg0.token || '' : '', user: cfg0 ? cfg0.user || '' : '', password: cfg0 ? cfg0.password || '' : '' });
   let syncInfo = $state({ ...syncState });
@@ -174,6 +180,29 @@
             <span class="gap"><label>New pages on <select class="field" bind:value={prefs.inkPaper}><option value="lined">Lined</option><option value="blank">Blank</option><option value="dotted">Dotted</option><option value="grid">Grid</option><option value="cornell">Cornell</option></select> paper</label></span>
             <span class="lbl gap">Getting Started:</span>
             <span class="gap"><button class="btn" onclick={() => window.mosheCommand('gettingStarted')}>Add to the Inbox</button></span>
+          </div>
+
+        {:else if app.settingsOpen === 'voice'}
+          <div class="form">
+            <span class="lbl">Voice:</span>
+            <span class="checks"><label><input type="checkbox" bind:checked={prefs.voice.on} /> Write and Edit by Voice</label>
+              <em>A strip under the text, and Voice and Words in the dashboard. ⌥⌘L starts and stops listening.</em></span>
+            <span class="lbl gap">Listen With:</span>
+            <span class="gap radios">
+              <label><input type="radio" bind:group={prefs.voice.engine} value="auto" /> {appListens ? 'This App’s Own Recognizer' : 'Whisper, on This Computer'}</label>
+              {#if appListens}<label><input type="radio" bind:group={prefs.voice.engine} value="whisper" /> Whisper, on This Computer</label>{/if}
+              <label><input type="radio" bind:group={prefs.voice.engine} value="browser" disabled={!browserCanListen} /> The Browser’s Own{browserCanListen ? ' (Chrome sends the audio to Google, Safari to Apple)' : ' (not in this browser)'}</label>
+            </span>
+            <label for="s-vm">Whisper:</label>
+            <span><select id="s-vm" class="field" bind:value={prefs.voice.model}>{#each ['tiny', 'base', 'small'] as k}<option value={k}>{k[0].toUpperCase() + k.slice(1)} · {gpu ? MODELS[k].gpu : MODELS[k].cpu} MB</option>{/each}</select>
+              <em>{gpu ? 'On the graphics chip' : 'On the processor'}; downloaded once</em></span>
+            <span class="lbl gap">While Listening:</span>
+            <span class="checks gap">
+              <label><input type="checkbox" bind:checked={prefs.voice.names} /> Put the Project’s Names Right ({voice.names.length} found)</label>
+              <label><input type="checkbox" bind:checked={prefs.voice.sounds} /> A Tone for Each Command</label>
+            </span>
+            <label for="s-vr">Reading Aloud:</label>
+            <span><input id="s-vr" type="range" min="0.6" max="1.6" step="0.1" bind:value={prefs.voice.rate} /> <em>{Number(prefs.voice.rate).toFixed(1)}×</em></span>
           </div>
 
         {:else if app.settingsOpen === 'sidebar'}

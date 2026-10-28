@@ -30,6 +30,7 @@
   import { check, dropFinding } from '../lib/check.svelte.js';
   import { hebrew, configureHebrew, hebrewAt, hebrewSuggestions } from '../editor/hebrew.js';
   import { paragraphNumbers } from '../editor/paranum.js';
+  import { voiceMarks } from '../voice/marks.js';
   import { penMarks, commitWriting, holdWriting, dropWriting } from '../editor/pen.js';
   import { snapBetweenWords } from '@engine/pen.js';
   import { readSketch } from '@engine/sketch.js';
@@ -113,6 +114,7 @@
       dynamic.of(dynExt()),
       proofC.of(proofExt()),
       checkField,
+      voiceMarks,
       penMarks(() => ({ on: !!app.revision && prefs.penMarks !== false, write: (req) => { writing = { ...req, text: '' }; }, fail: (why) => toast(why) })),
       keymap.of([
         { key: 'Enter', run: (v) => prefs.smartLists && smartEnter(v) },

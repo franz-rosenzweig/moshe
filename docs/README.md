@@ -42,6 +42,7 @@ These pages explain Moshe the way I'd explain it to a friend sitting next to me:
 - [The library on disk](FORMAT.md) — the folder format, key by key
 - [The folder bridge](BRIDGE.md) — how the Mac and Android apps give the page a folder
 - [The menus](MENUS.md) — the menu bar, item for item, and what each calls in the page
+- [Voice](VOICE.md) — writing and editing by voice: the rule, the pieces, a native app's recognizer
 - [Developing Moshe](DEVELOPING.md) — the pieces, running it, the API, the checkers and the tests
 - [Moshe for macOS](../mac/README.md) — building and testing the Mac app
 - [Moshe for Android](../android/README.md) — building, signing and checking the Android app

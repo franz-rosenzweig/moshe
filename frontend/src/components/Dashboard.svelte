@@ -1,8 +1,9 @@
 <script>
   // The dashboard (⌘4): everything about the open sheet that is not its
   // text. Overview, Progress, Outline, Attachments, Annotations; and the
-  // sheets that link here.
+  // sheets that link here. With voice on, Voice and Words (VoicePanel.svelte).
   import Icon from './Icon.svelte';
+  import VoicePanel from './VoicePanel.svelte';
   import { app, prefs, store, persist, openSheet, toast } from '../lib/state.svelte.js';
   import { openDialog, colorOf, menuUnder } from '../lib/ui.svelte.js';
   import { goalFor } from '../lib/actions.js';
@@ -13,7 +14,8 @@
   import { EditorView } from '@codemirror/view';
 
   let { pane } = $props();
-  const VIEWS = [['overview', 'layout-grid', 'Overview'], ['progress', 'chart-line', 'Progress'], ['outline', 'list', 'Outline'], ['attachments', 'image', 'Attachments'], ['annotations', 'message-square', 'Annotations']];
+  const VIEWS = $derived([['overview', 'layout-grid', 'Overview'], ['progress', 'chart-line', 'Progress'], ['outline', 'list', 'Outline'], ['attachments', 'image', 'Attachments'], ['annotations', 'message-square', 'Annotations'],
+    ...(prefs.voice.on ? [['voice', 'mic', 'Voice'], ['words', 'book-a', 'Words']] : [])]);
 
   const info = $derived.by(() => { app.version; return app.sheet && store && store.exists(app.sheet) ? store.sheetInfo(app.sheet) : null; });
   const body = $derived.by(() => { app.version; return info ? splitSheet(store.text(info.path) || '').body : ''; });
@@ -103,7 +105,9 @@
     {/each}
   </div>
   <div class="scroll body">
-    {#if !info}
+    {#if prefs.voice.on && (app.dashboardView === 'voice' || app.dashboardView === 'words')}
+      <VoicePanel view={app.dashboardView} />
+    {:else if !info}
       <div class="none">No Sheet Selected</div>
     {:else if app.dashboardView === 'overview'}
       <!-- the overview: sections the ⫶ button below shows or hides -->

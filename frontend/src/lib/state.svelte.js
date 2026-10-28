@@ -58,6 +58,8 @@ export const prefs = $state({
   imagePreviews: true, imageLines: 4, imageColor: false, caret: 'accent', theme: 'Moshe', appearance: 'system',
   smartLists: true, smartTags: true, penMarks: true, inkPaper: 'lined', showCounter: true, pageBackground: false, alwaysLightEditor: false,
   paragraphNumbers: false, sheetListDates: false, previewLines: 4, spellcheck: true, grammar: true, dialect: 0, hebrewSpelling: true, dashSections: null, dashFolded: null,
+  // voice (docs/VOICE.md): off until turned on; engine auto | whisper | browser; model tiny | base | small
+  voice: { on: false, engine: 'auto', model: 'base', names: true, sounds: false, rate: 1 },
   ...(saved.prefs || {}),
 });
 
