@@ -70,6 +70,28 @@ static class Scripts
             if (what) setTimeout(() => { if (!e.defaultPrevented) post({ channel: 'window', what }); }, 0);
           }, true);
 
+          // The text's size, as in any Windows app: Ctrl and + or - (either row of keys),
+          // Ctrl+0 for the usual size, and Ctrl with the mouse wheel or a pinch on the
+          // touchpad. Each goes to the page's own View › Zoom, never the browser's zoom.
+          window.addEventListener('keydown', (e) => {
+            if (!e.ctrlKey || e.altKey || e.metaKey) return;
+            const step = (e.code === 'Equal' || e.code === 'NumpadAdd' || e.key === '+') ? 1
+              : (e.code === 'Minus' || e.code === 'NumpadSubtract') ? -1
+              : ((e.code === 'Digit0' || e.code === 'Numpad0') && !e.shiftKey) ? 0 : null;
+            if (step === null) return;
+            e.preventDefault();
+            post({ channel: 'window', what: 'zoom', step });
+          }, true);
+          let wheel = 0;
+          window.addEventListener('wheel', (e) => {
+            if (!e.ctrlKey) return;
+            e.preventDefault();
+            wheel += e.deltaY;
+            if (Math.abs(wheel) < 50) return;
+            post({ channel: 'window', what: 'zoom', step: wheel < 0 ? 1 : -1 });
+            wheel = 0;
+          }, { capture: true, passive: false });
+
           // The menus' keys, as in any Windows app: Alt and a menu's letter opens it
           // (File, Edit, fOrmat, View, Help), and Alt alone, pressed and let go,
           // puts the keyboard on the menu bar. Again only if the page leaves them alone.

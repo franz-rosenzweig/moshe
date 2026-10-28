@@ -31,6 +31,7 @@ public sealed partial class ShellWindow : Window
     readonly ShellServices services;
     readonly Menus menus;
     bool started;
+    bool shellFull, pageFull;             // full screen by F11 or the menu; by the page itself (the Fullscreen API)
     ulong opening;                        // the navigation to the app's own page, whose failure is worth a word
     RectInt32 normal;                     // where the window is when it is neither maximised nor full screen
 
@@ -58,6 +59,7 @@ public sealed partial class ShellWindow : Window
             if ((e.DidPositionChange || e.DidSizeChange) && AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Restored })
                 normal = new RectInt32(AppWindow.Position.X, AppWindow.Position.Y, AppWindow.Size.Width, AppWindow.Size.Height);
             if (e.DidSizeChange) FitTitleBar();
+            if (e.DidPresenterChange) Presented();
         };
         Root.Loaded += async (_, _) =>
         {
@@ -176,7 +178,9 @@ public sealed partial class ShellWindow : Window
         var settings = core.Settings;
         settings.AreBrowserAcceleratorKeysEnabled = false;   // Ctrl+P, Ctrl+F, Ctrl+R… are the page's keys, not the browser's
         settings.IsStatusBarEnabled = false;
-        settings.IsZoomControlEnabled = false;               // the page has its own (View › Zoom In)
+        // Zoom control stays on: off, WebView2 keeps Ctrl+Plus and Ctrl+Minus from the
+        // page. Scripts.Shell turns them, and Ctrl and the wheel, into the page's own
+        // text size (View › Zoom), so the browser never zooms the whole window.
         settings.IsPinchZoomEnabled = false;
         settings.IsSwipeNavigationEnabled = false;
         settings.IsGeneralAutofillEnabled = false;
@@ -195,7 +199,11 @@ public sealed partial class ShellWindow : Window
         core.NewWindowRequested += OnNewWindowRequested;
         core.ProcessFailed += OnProcessFailed;
         core.ContextMenuRequested += OnContextMenuRequested;
-        core.ContainsFullScreenElementChanged += (_, _) => FullScreen(core.ContainsFullScreenElement);
+        core.ContainsFullScreenElementChanged += (_, _) =>
+        {
+            pageFull = core.ContainsFullScreenElement;
+            ApplyFullScreen();
+        };
         if (storage)
         {
             new AppScheme(Library.WebBundle!, Library.Folder, environment).Attach(core);
@@ -217,6 +225,12 @@ public sealed partial class ShellWindow : Window
     {
         bridge?.Dispose();
         bridge = null;
+        // a page that was full screen goes with its web view
+        if (pageFull)
+        {
+            pageFull = false;
+            ApplyFullScreen();
+        }
         if (web == null) return;
         Root.Children.Remove(web);
         try { web.Close(); } catch (Exception) { }
@@ -260,8 +274,12 @@ public sealed partial class ShellWindow : Window
                 {
                     case "close": Close(); break;
                     case "newWindow": Open(); break;
-                    case "fullScreen": FullScreen(AppWindow.Presenter.Kind != AppWindowPresenterKind.FullScreen); break;
+                    case "fullScreen": ToggleFullScreen(); break;
                     case "menu": menus.Open(J.Text(message["letter"])); break;     // Alt, or Alt and a menu's letter
+                    case "zoom":                                                     // Ctrl and +, -, 0 or the wheel
+                        var step = J.Int(message["step"]);
+                        Command(step > 0 ? "zoomIn" : step < 0 ? "zoomOut" : "zoomReset");
+                        break;
                 }
                 break;
         }
@@ -338,12 +356,22 @@ public sealed partial class ShellWindow : Window
             }.ToJsonString());
     }
 
-    /// <summary>An expression in the page, a promise awaited, the value as JSON (for the self-test).</summary>
-    public async Task<JsonNode?> Evaluate(string expression)
+    /// <summary>The mouse wheel turned over the page (DevTools' Input domain), for the self-test.</summary>
+    public async Task Wheel(double deltaY, int modifiers)
+    {
+        if (web?.CoreWebView2 is not { } core) return;
+        await core.CallDevToolsProtocolMethodAsync("Input.dispatchMouseEvent", new JsonObject
+        {
+            ["type"] = "mouseWheel", ["x"] = 300, ["y"] = 300, ["deltaX"] = 0, ["deltaY"] = deltaY, ["modifiers"] = modifiers,
+        }.ToJsonString());
+    }
+
+    /// <summary>An expression in the page, a promise awaited, the value as JSON (for the self-test); <paramref name="gesture"/> as if a person had clicked.</summary>
+    public async Task<JsonNode?> Evaluate(string expression, bool gesture = false)
     {
         var core = web?.CoreWebView2 ?? throw new InvalidOperationException("no page yet");
         var json = await core.CallDevToolsProtocolMethodAsync("Runtime.evaluate",
-            new JsonObject { ["expression"] = expression, ["awaitPromise"] = true, ["returnByValue"] = true }.ToJsonString());
+            new JsonObject { ["expression"] = expression, ["awaitPromise"] = true, ["returnByValue"] = true, ["userGesture"] = gesture }.ToJsonString());
         var result = JsonNode.Parse(json);
         if (result?["exceptionDetails"] is { } problem)
             throw new Exception(problem["exception"]?["description"]?.ToString() ?? problem.ToJsonString());
@@ -466,11 +494,84 @@ public sealed partial class ShellWindow : Window
         ];
     }
 
-    public void FullScreen(bool on)
+    // ---- full screen ---------------------------------------------------------------------
+
+    public bool IsFullScreen => AppWindow.Presenter.Kind == AppWindowPresenterKind.FullScreen;
+    public bool TitleShown => TitleRow.Visibility == Visibility.Visible;
+
+    /// <summary>
+    /// F11 and View › Full Screen. Out of full screen is out, whichever way it
+    /// came: the page's own full screen too, so nothing is left half-way.
+    /// </summary>
+    public void ToggleFullScreen()
     {
-        AppWindow.SetPresenter(on ? AppWindowPresenterKind.FullScreen : AppWindowPresenterKind.Overlapped);
-        TitleRow.Visibility = on ? Visibility.Collapsed : Visibility.Visible;
+        if (shellFull || pageFull || IsFullScreen)
+        {
+            shellFull = false;
+            if (pageFull) _ = web?.CoreWebView2?.ExecuteScriptAsync("document.fullscreenElement && document.exitFullscreen()");
+            pageFull = false;
+        }
+        else shellFull = true;
+        ApplyFullScreen();
     }
+
+    /// <summary>One state from the two ways in: full screen while either wants it, the title bar exactly when not.</summary>
+    void ApplyFullScreen()
+    {
+        var want = shellFull || pageFull;
+        if (want != IsFullScreen) AppWindow.SetPresenter(want ? AppWindowPresenterKind.FullScreen : AppWindowPresenterKind.Overlapped);
+        Presented();
+        if (want) Hint(pageFull && !shellFull ? "Press Esc to exit full screen" : "Press F11 to exit full screen");
+    }
+
+    /// <summary>
+    /// The presenter changed, by us or by Windows (Win+↓ takes a window out of full
+    /// screen): the title bar follows what the window really is.
+    /// </summary>
+    void Presented()
+    {
+        if (!IsFullScreen && (shellFull || pageFull))
+        {
+            shellFull = false;
+            if (pageFull) _ = web?.CoreWebView2?.ExecuteScriptAsync("document.fullscreenElement && document.exitFullscreen()");
+            pageFull = false;
+        }
+        TitleRow.Visibility = IsFullScreen ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    Border? hint;
+
+    /// <summary>A word at the top for three seconds, as Windows' browsers say how to leave full screen.</summary>
+    void Hint(string text)
+    {
+        if (hint != null) Root.Children.Remove(hint);
+        hint = new Border
+        {
+            Background = new SolidColorBrush(ColorHelper.FromArgb(0xE6, 0x2B, 0x2B, 0x2B)),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(16, 10, 16, 10),
+            Margin = new Thickness(0, 24, 0, 0),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Top,
+            IsHitTestVisible = false,
+            Child = new TextBlock { Text = text, Foreground = new SolidColorBrush(Colors.White) },
+        };
+        Grid.SetRowSpan(hint, 2);
+        Root.Children.Add(hint);
+        var shown = hint;
+        hintTimer?.Stop();
+        hintTimer = DispatcherQueue.CreateTimer();
+        hintTimer.Interval = TimeSpan.FromSeconds(3);
+        hintTimer.IsRepeating = false;
+        hintTimer.Tick += (_, _) =>
+        {
+            Root.Children.Remove(shown);
+            if (hint == shown) hint = null;
+        };
+        hintTimer.Start();
+    }
+
+    Microsoft.UI.Dispatching.DispatcherQueueTimer? hintTimer;
 
     static string Unreachable(string place, string why)
     {

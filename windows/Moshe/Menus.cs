@@ -256,7 +256,7 @@ sealed class Menus
         Choices(view, "Appearance", "appearance", "appearance", [("system", "Use System Setting"), ("light", "Light"), ("dark", "Dark")]);
         Dynamic(view, "Theme", "themes", "theme", "theme");
         Line(view);
-        Shell(view, "Full Screen", () => owner.FullScreen(owner.AppWindow.Presenter.Kind != Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen), "F11");
+        Shell(view, "Full Screen", owner.ToggleFullScreen, "F11");
 
         // ---- Help
         var help = Top("Help", "H");

@@ -104,6 +104,37 @@ static class SelfTest
                 && Outside.Opened.Any(u => u.AbsoluteUri == "https://example.com/elsewhere"),
                 window.Source?.AbsoluteUri ?? "");
 
+            // the text's size: Ctrl and + / - / 0, and Ctrl with the wheel, go to the page's View › Zoom
+            const string size = "((JSON.parse(localStorage.getItem('moshe.ui') || '{}').prefs || {}).fontSize || 16)";
+            var usual = J.Int(await window.Evaluate(size));
+            window.Key("=", "Equal", 0xBB, 2);
+            var bigger = J.Int(await Until(window, $"{size} > {usual} ? {size} : 0", TimeSpan.FromSeconds(3)));
+            Add("Ctrl and + makes the text bigger", bigger == usual + 1, $"{usual} to {bigger}");
+            window.Key("-", "Minus", 0xBD, 2);
+            var smaller = J.Int(await Until(window, $"{size} < {bigger} ? {size} : 0", TimeSpan.FromSeconds(3)));
+            Add("Ctrl and - makes it smaller", smaller == usual, $"{bigger} to {smaller}");
+            await window.Wheel(-120, 2);
+            var wheeled = J.Int(await Until(window, $"{size} > {smaller} ? {size} : 0", TimeSpan.FromSeconds(3)));
+            Add("Ctrl and the mouse wheel make it bigger", wheeled == smaller + 1, $"{smaller} to {wheeled}");
+            window.Key("0", "Digit0", 0x30, 2);
+            var reset = J.Int(await Until(window, $"{size} === 16 ? 16 : 0", TimeSpan.FromSeconds(3)));
+            Add("Ctrl+0 is the usual size again", reset == 16, $"{wheeled} to {reset}");
+
+            // full screen, in and out, and never a window left without its title bar
+            window.ToggleFullScreen();
+            Add("F11 makes the window full screen, without the title bar", window.IsFullScreen && !window.TitleShown);
+            window.ToggleFullScreen();
+            Add("F11 again brings the window and its title bar back", !window.IsFullScreen && window.TitleShown);
+            await window.Evaluate("document.documentElement.requestFullscreen().then(() => true)", gesture: true);
+            var pageFull = await Until(() => window.IsFullScreen && !window.TitleShown, TimeSpan.FromSeconds(3));
+            Add("the page's own full screen fills the screen too", pageFull);
+            // the way it got stuck: the menu's Full Screen while the page was full screen
+            window.ToggleFullScreen();
+            var restored = await Until(() => !window.IsFullScreen && window.TitleShown, TimeSpan.FromSeconds(3));
+            var pageOut = J.Bool(await Until(window, "!document.fullscreenElement", TimeSpan.FromSeconds(3)));
+            Add("the menu's Full Screen then takes both out, title bar and all", restored && pageOut,
+                $"window {(window.IsFullScreen ? "full screen" : "normal")}, title bar {(window.TitleShown ? "shown" : "hidden")}, page {(pageOut ? "out" : "still full screen")}");
+
             // the window: Windows 11's title bar, holding the five menus
             var titles = string.Join(", ", window.MenuTitles);
             Add("the title bar holds File, Edit, Format, View and Help", titles == "File, Edit, Format, View, Help" && window.ExtendsContentIntoTitleBar, titles);

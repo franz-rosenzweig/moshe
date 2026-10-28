@@ -26,7 +26,11 @@ A Mac or a phone allows file names Windows doesn't: a name with `: * ? " < > |` 
 
 ## The window
 
-The window looks like Windows 11's own apps: one title bar, in the same soft material as theirs, with the menus at the left, your library's name at the right ("Writing - Moshe") and the usual buttons beside it, Snap Layouts included. Moshe remembers where the window was. **F11** makes it full screen, **Ctrl+Alt+N** opens a second window on the same library, handy for a reference text on another screen, and **Ctrl+W** closes one. Links in a sheet open in your browser, and nothing but Moshe ever loads in the window.
+The window looks like Windows 11's own apps: one title bar, in the same soft material as theirs, with the menus at the left, your library's name at the right ("Writing - Moshe") and the usual buttons beside it, Snap Layouts included. Moshe remembers where the window was. **Ctrl+Alt+N** opens a second window on the same library, handy for a reference text on another screen, and **Ctrl+W** closes one. Links in a sheet open in your browser, and nothing but Moshe ever loads in the window.
+
+**F11**, or **View › Full Screen**, makes the window full screen, and either one again brings it and its title bar back, from Moshe's own full screen too. **Esc** also leaves the full screen that Moshe's page asks for. For the first few seconds a note at the top says which key to press.
+
+**Ctrl** and **+** or **−** makes the text bigger or smaller, **Ctrl+0** brings it back to the usual size, and so do **Ctrl** with the mouse wheel and a pinch on the touchpad. It's the same as **View › Zoom**, and the size is remembered.
 
 ## The menus
 

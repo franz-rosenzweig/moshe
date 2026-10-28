@@ -20,9 +20,19 @@ the few things a page cannot do well. C# and WinUI 3, with the page in WebView2.
 - **The window**, as Windows 11's own apps have it: the page under one Mica title
   bar that holds the icon, the menus and the library's name ("Writing - Moshe"),
   with the system's caption buttons, their Snap Layouts, and colours that follow
-  light and dark. The frame is remembered; F11 is full screen, Ctrl+Alt+N another
-  window on the same folder, Ctrl+W closes one. Scrollbars are Windows 11's thin
-  ones (WebView2's Fluent overlay style).
+  light and dark. The frame is remembered; Ctrl+Alt+N opens another window on the
+  same folder, Ctrl+W closes one. Scrollbars are Windows 11's thin ones (WebView2's
+  Fluent overlay style).
+- **Full screen** is one state with two ways in: F11 or View › Full Screen, and the
+  page's own (the Fullscreen API). The title bar is hidden exactly while the window
+  is full screen, even when Windows itself takes it out (Win+↓); F11 or the menu
+  takes it out of both at once, and Esc out of the page's. A word at the top says
+  how, for three seconds.
+- **Text size** the Windows way: Ctrl and + or −, Ctrl+0, and Ctrl with the mouse
+  wheel or a pinch go to the page's own View › Zoom (`zoomIn`, `zoomOut`,
+  `zoomReset`), never to the browser's zoom of the whole window. WebView2's zoom
+  control stays on, because with it off WebView2 keeps Ctrl+Plus and Ctrl+Minus
+  from the page.
 - **The menus**: every item of docs/MENUS.md, with Ctrl for ⌘, gathered into the
   five a Windows writing app has: **File** (with New ▸ and Sheet ▸), **Edit**,
   **Format** (the Mac's Markup and Insert), **View** (with the Mac's Go and the
