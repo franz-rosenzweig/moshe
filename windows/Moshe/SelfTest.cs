@@ -1,5 +1,7 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Encodings.Web;
+using System.Text.RegularExpressions;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -78,8 +80,13 @@ static class SelfTest
             var pdfBytes = File.Exists(pdfFile) ? await File.ReadAllBytesAsync(pdfFile) : Array.Empty<byte>();
             var head = pdfBytes.Length >= 5 ? Encoding.ASCII.GetString(pdfBytes, 0, 5) : "";
             Add("savePdf makes a PDF", J.Bool(pdf) && head == "%PDF-", $"{pdfBytes.Length} bytes");
-            // A5 is 419.53 × 595.28 points: the @page size was used
-            Add("the PDF is on the paper @page asks for", Encoding.ASCII.GetString(pdfBytes).Contains("419."), "looked for a MediaBox 419 points wide");
+            // A5 is 419.53 × 595.28 points, which Chromium may round: the @page size was used, not Letter or A4
+            var box = Regex.Match(Encoding.ASCII.GetString(pdfBytes), @"/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)\s*\]");
+            var (width, height) = box.Success
+                ? (double.Parse(box.Groups[1].Value, CultureInfo.InvariantCulture), double.Parse(box.Groups[2].Value, CultureInfo.InvariantCulture))
+                : (0.0, 0.0);
+            Add("the PDF is on the paper @page asks for", Math.Abs(width - 419.5) < 3 && Math.Abs(height - 595.3) < 3,
+                box.Success ? $"a MediaBox of {box.Groups[1].Value} × {box.Groups[2].Value} points" : "no MediaBox found");
             var saved = await window.Evaluate("window.mosheShell.saveFile('Self-test.md', btoa('# Saved\\n'), 'text/markdown')");
             var savedFile = Path.Join(saveDir, "Self-test.md");
             Add("saveFile saves the bytes", J.Bool(saved) && File.Exists(savedFile) && await File.ReadAllTextAsync(savedFile) == "# Saved\n");

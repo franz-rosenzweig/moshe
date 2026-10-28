@@ -66,13 +66,15 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           Compress-Archive -Path build\Moshe\* -DestinationPath "build\out\Moshe-${{ steps.version.outputs.version }}-portable.zip"
 
+      # kept even when a check fails: the self-test's PDF and saved files are the evidence
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: Moshe-${{ steps.version.outputs.version }}-windows
           path: |
             build/out/*
             build/selftest/*
-          if-no-files-found: error
+          if-no-files-found: warn
 
   release:
     if: startsWith(github.ref, 'refs/tags/windows-v')
