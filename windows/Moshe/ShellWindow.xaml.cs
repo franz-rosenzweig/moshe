@@ -1,0 +1,515 @@
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Text.Json.Nodes;
+using Microsoft.UI.Windowing;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.Web.WebView2.Core;
+using Windows.Graphics;
+using Windows.Storage.Pickers;
+using WinRT.Interop;
+
+namespace Moshe;
+
+/// <summary>
+/// One Moshe window: the menu bar (Menus) over the page, which draws everything
+/// else. The Mac's is MosheWindowController in mac/Moshe/Window.swift.
+/// </summary>
+public sealed partial class ShellWindow : Window
+{
+    /// <summary>Every open window, the way the menus and the self-test find one.</summary>
+    public static readonly List<ShellWindow> All = [];
+
+    public IntPtr Handle { get; }
+    WebView2? web;
+    FolderBridge? bridge;
+    readonly ShellServices services;
+    readonly Menus menus;
+    bool started;
+    ulong opening;                        // the navigation to the app's own page, whose failure is worth a word
+    RectInt32 normal;                     // where the window is when it is neither maximised nor full screen
+
+    public static ShellWindow Open()
+    {
+        var window = new ShellWindow();
+        All.Add(window);
+        window.Activate();
+        return window;
+    }
+
+    ShellWindow()
+    {
+        InitializeComponent();
+        Title = "Moshe";
+        Handle = WindowNative.GetWindowHandle(this);
+        services = new ShellServices(this);
+        menus = new Menus(this, Menu);
+        var icon = Path.Join(AppContext.BaseDirectory, "Assets", "Moshe.ico");
+        if (File.Exists(icon)) AppWindow.SetIcon(icon);
+        Place();
+        AppWindow.Changed += (_, e) =>
+        {
+            if ((e.DidPositionChange || e.DidSizeChange) && AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Restored })
+                normal = new RectInt32(AppWindow.Position.X, AppWindow.Position.Y, AppWindow.Size.Width, AppWindow.Size.Height);
+        };
+        Root.Loaded += async (_, _) => await StartAsync();
+        Activated += (_, e) => { if (e.WindowActivationState != WindowActivationState.Deactivated) menus.Refresh(); };
+        Library.Moved += Reload;
+        Closed += (_, _) =>
+        {
+            SavePlace();
+            Library.Moved -= Reload;
+            Teardown();
+            All.Remove(this);
+        };
+    }
+
+    async Task StartAsync()
+    {
+        if (started) return;
+        started = true;
+        // first run, or the folder has gone: ask for one, or the server, or quit
+        if (!await EnsureChosenAsync())
+        {
+            // the first window's Quit quits; another window with nothing to show just closes
+            if (All.Count > 1) Close();
+            else Application.Current.Exit();
+            return;
+        }
+        await MakeWebViewAsync();
+        if (App.Options.SelfTest && All.Count == 1) await SelfTest.Run(this);
+    }
+
+    // ---- the page --------------------------------------------------------------------
+
+    /// <summary>
+    /// The web view for the library as it is now: the page from inside the app
+    /// with the folder behind it, or the server's page. Made again when the library moves.
+    /// </summary>
+    async Task MakeWebViewAsync()
+    {
+        CoreWebView2Environment environment;
+        try { environment = await App.WebEnvironment; }
+        catch (Exception e)
+        {
+            Log.Write($"no WebView2: {e}");
+            Problem("Moshe needs the Microsoft Edge WebView2 Runtime",
+                "It comes with Windows 11 and recent Windows 10. Install it from https://go.microsoft.com/fwlink/p/?LinkId=2124703, then open Moshe again.");
+            return;
+        }
+        var view = new WebView2();
+        Grid.SetRow(view, 1);
+        Root.Children.Add(view);
+        web = view;
+        await view.EnsureCoreWebView2Async(environment);
+        var core = view.CoreWebView2;
+        var settings = core.Settings;
+        settings.AreBrowserAcceleratorKeysEnabled = false;   // Ctrl+P, Ctrl+F, Ctrl+R… are the page's keys, not the browser's
+        settings.IsStatusBarEnabled = false;
+        settings.IsZoomControlEnabled = false;               // the page has its own (View › Zoom In)
+        settings.IsPinchZoomEnabled = false;
+        settings.IsSwipeNavigationEnabled = false;
+        settings.IsGeneralAutofillEnabled = false;
+        settings.IsPasswordAutosaveEnabled = false;
+        settings.AreDevToolsEnabled = App.Options.DevTools || App.Options.SelfTest;
+        // lets the page tell it is inside the shell (docs/BRIDGE.md, 1)
+        settings.UserAgent = $"{settings.UserAgent} Moshe/{App.Version} (Windows shell)";
+
+        var storage = Library.UsesFolder;
+        var origins = new List<string> { AppScheme.Origin };
+        if (Library.Server is { } server) origins.Add(server.GetLeftPart(UriPartial.Authority));
+        await core.AddScriptToExecuteOnDocumentCreatedAsync(Scripts.Shell(origins, storage));
+        core.WebMessageReceived += OnMessage;
+        core.NavigationStarting += OnNavigationStarting;
+        core.NavigationCompleted += OnNavigationCompleted;
+        core.NewWindowRequested += OnNewWindowRequested;
+        core.ProcessFailed += OnProcessFailed;
+        core.ContextMenuRequested += OnContextMenuRequested;
+        core.ContainsFullScreenElementChanged += (_, _) => FullScreen(core.ContainsFullScreenElement);
+        if (storage)
+        {
+            new AppScheme(Library.WebBundle!, Library.Folder, environment).Attach(core);
+            bridge = new FolderBridge(Library.Folder!, Reply, Nudge, Asked);
+            bridge.StartWatching();
+        }
+        core.Navigate(Library.StartUri.AbsoluteUri);
+    }
+
+    /// <summary>The library moved: the page again, from where it lives now.</summary>
+    public async void Reload()
+    {
+        Teardown();
+        try { await MakeWebViewAsync(); }
+        catch (Exception e) { Log.Write($"reload: {e}"); }
+    }
+
+    void Teardown()
+    {
+        bridge?.Dispose();
+        bridge = null;
+        if (web == null) return;
+        Root.Children.Remove(web);
+        try { web.Close(); } catch (Exception) { }
+        web = null;
+    }
+
+    /// <summary>Where the window shows something instead of the page.</summary>
+    void Problem(string title, string text)
+    {
+        var panel = new StackPanel { Spacing = 12, Margin = new Thickness(48), MaxWidth = 560, VerticalAlignment = VerticalAlignment.Center };
+        panel.Children.Add(new TextBlock { Text = title, Style = (Style)Application.Current.Resources["SubtitleTextBlockStyle"], TextWrapping = TextWrapping.Wrap });
+        panel.Children.Add(new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true });
+        Grid.SetRow(panel, 1);
+        Root.Children.Add(panel);
+    }
+
+    public Uri? Source => web?.Source;
+
+    // ---- messages between the page and the window --------------------------------------
+
+    void OnMessage(CoreWebView2 sender, CoreWebView2WebMessageReceivedEventArgs e)
+    {
+        // only the app's own page, never anything else loaded into the window
+        if (!Uri.TryCreate(e.Source, UriKind.Absolute, out var source) || !Library.IsOurs(source)) return;
+        JsonObject? message;
+        try { message = JsonNode.Parse(e.WebMessageAsJson) as JsonObject; }
+        catch (Exception) { return; }
+        if (message == null) return;
+        switch (J.Text(message["channel"]))
+        {
+            case "storage" when bridge != null && source.AbsoluteUri.StartsWith(AppScheme.Origin + "/", StringComparison.OrdinalIgnoreCase):
+                bridge.Receive(J.Int(message["id"]), J.Text(message["json"]) ?? "");
+                break;
+            case "shell":
+                services.Handle(J.Int(message["id"]), J.Text(message["op"]) ?? "", message["args"] as JsonObject ?? new JsonObject());
+                break;
+            case "window":
+                switch (J.Text(message["what"]))
+                {
+                    case "close": Close(); break;
+                    case "newWindow": Open(); break;
+                    case "fullScreen": FullScreen(AppWindow.Presenter.Kind != AppWindowPresenterKind.FullScreen); break;
+                }
+                break;
+        }
+    }
+
+    /// <summary>A message to the page, from any thread.</summary>
+    public void Post(JsonObject message)
+    {
+        var json = message.ToJsonString();
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            try { web?.CoreWebView2?.PostWebMessageAsJson(json); }
+            catch (Exception e) { Log.Write($"post: {e.Message}"); }
+        });
+    }
+
+    void Reply(int id, JsonObject answer) => Post(new JsonObject { ["channel"] = "storage", ["id"] = id, ["reply"] = answer });
+
+    void Nudge() => DispatcherQueue.TryEnqueue(() =>
+        _ = web?.CoreWebView2?.ExecuteScriptAsync("window.__mosheFilesChanged && window.__mosheFilesChanged()"));
+
+    /// <summary>The bridge's pick and useServer: the picker is the window's; the reply goes when it closes, then the reload.</summary>
+    async void Asked(int id, string op)
+    {
+        if (op == "pick")
+        {
+            var chosen = await ChooseFolderAsync();
+            Reply(id, J.Ok(new JsonObject { ["changed"] = chosen != null }));
+            if (chosen != null) Library.UseFolder(chosen);
+            return;
+        }
+        if (Library.Server == null && !await AskServerAsync())
+        {
+            Reply(id, J.Ok(null));
+            return;
+        }
+        Reply(id, J.Ok(null));
+        Library.UseServer();
+    }
+
+    /// <summary>Run one of the page's commands (App.svelte, window.mosheCommand).</summary>
+    public void Command(string name, JsonNode? arg = null)
+    {
+        var a = arg?.ToJsonString() ?? "undefined";
+        _ = web?.CoreWebView2?.ExecuteScriptAsync($"window.mosheCommand ? window.mosheCommand({J.Quote(name)}, {a}) : false");
+    }
+
+    /// <summary>window.mosheMenuState() (docs/MENUS.md), or null before the page has one.</summary>
+    public async Task<JsonObject?> MenuState()
+    {
+        if (web?.CoreWebView2 is not { } core) return null;
+        try { return JsonNode.Parse(await core.ExecuteScriptAsync("window.mosheMenuState ? window.mosheMenuState() : null")) as JsonObject; }
+        catch (Exception) { return null; }
+    }
+
+    /// <summary>
+    /// A key pressed in the page as if on the keyboard (DevTools' Input domain), so
+    /// Cut, Copy, Paste and Select All in the menu do just what their keys do.
+    /// <paramref name="modifiers"/>: 1 Alt, 2 Ctrl, 8 Shift.
+    /// </summary>
+    public async void Key(string key, string code, int virtualKey, int modifiers)
+    {
+        if (web?.CoreWebView2 is not { } core) return;
+        web.Focus(FocusState.Programmatic);
+        foreach (var type in new[] { "rawKeyDown", "keyUp" })
+            await core.CallDevToolsProtocolMethodAsync("Input.dispatchKeyEvent", new JsonObject
+            {
+                ["type"] = type, ["modifiers"] = modifiers, ["key"] = key, ["code"] = code,
+                ["windowsVirtualKeyCode"] = virtualKey, ["nativeVirtualKeyCode"] = virtualKey,
+            }.ToJsonString());
+    }
+
+    /// <summary>An expression in the page, a promise awaited, the value as JSON (for the self-test).</summary>
+    public async Task<JsonNode?> Evaluate(string expression)
+    {
+        var core = web?.CoreWebView2 ?? throw new InvalidOperationException("no page yet");
+        var json = await core.CallDevToolsProtocolMethodAsync("Runtime.evaluate",
+            new JsonObject { ["expression"] = expression, ["awaitPromise"] = true, ["returnByValue"] = true }.ToJsonString());
+        var result = JsonNode.Parse(json);
+        if (result?["exceptionDetails"] is { } problem)
+            throw new Exception(problem["exception"]?["description"]?.ToString() ?? problem.ToJsonString());
+        return result?["result"]?["value"]?.DeepClone();
+    }
+
+    // ---- what loads in the window ---------------------------------------------------------
+
+    /// <summary>The window only ever shows the app. A link anywhere else — in the text, Ctrl-click on an address — opens in the browser.</summary>
+    void OnNavigationStarting(CoreWebView2 sender, CoreWebView2NavigationStartingEventArgs e)
+    {
+        if (Uri.TryCreate(e.Uri, UriKind.Absolute, out var target) && (Library.IsOurs(target) || target.Scheme is "about" or "data"))
+        {
+            opening = e.NavigationId;
+            return;
+        }
+        e.Cancel = true;
+        // and a file dropped where the page didn't take it isn't opened in place of the app
+        if (target?.Scheme is "http" or "https" or "mailto") Outside.Open(target);
+    }
+
+    void OnNavigationCompleted(CoreWebView2 sender, CoreWebView2NavigationCompletedEventArgs e)
+    {
+        if (e.IsSuccess || e.NavigationId != opening || e.WebErrorStatus == CoreWebView2WebErrorStatus.OperationCanceled) return;
+        var place = Library.UsesFolder ? "the app's own page" : Library.Server?.AbsoluteUri ?? "the server";
+        Log.Write($"could not open {place}: {e.WebErrorStatus}");
+        sender.NavigateToString(Unreachable(place, e.WebErrorStatus.ToString()));
+    }
+
+    /// <summary>window.open and target=_blank: the browser, or for the app's own pages another window.</summary>
+    void OnNewWindowRequested(CoreWebView2 sender, CoreWebView2NewWindowRequestedEventArgs e)
+    {
+        e.Handled = true;
+        if (!Uri.TryCreate(e.Uri, UriKind.Absolute, out var target)) return;
+        if (Library.IsOurs(target)) Open();
+        else if (target.Scheme is "http" or "https" or "mailto") Outside.Open(target);
+    }
+
+    void OnProcessFailed(CoreWebView2 sender, CoreWebView2ProcessFailedEventArgs e)
+    {
+        Log.Write($"the page's process failed: {e.ProcessFailedKind}");
+        // WebView2's page process went away (memory, a crash): bring the page back;
+        // the whole browser gone: a web view again
+        if (e.ProcessFailedKind == CoreWebView2ProcessFailedKind.RenderProcessExited) sender.Reload();
+        else if (e.ProcessFailedKind == CoreWebView2ProcessFailedKind.BrowserProcessExited) DispatcherQueue.TryEnqueue(Reload);
+    }
+
+    static readonly HashSet<string> Unwanted =
+        ["back", "forward", "reload", "saveAs", "print", "createQrCode", "share", "webCapture", "openLinkInNewWindow", "saveLinkAs", "copyLinkToHighlight"];
+
+    /// <summary>The page's right-click menu, without what belongs to a browser: spelling suggestions, cut, copy and paste stay.</summary>
+    void OnContextMenuRequested(CoreWebView2 sender, CoreWebView2ContextMenuRequestedEventArgs e)
+    {
+        var items = e.MenuItems;
+        for (var i = items.Count - 1; i >= 0; i--)
+            if (Unwanted.Contains(items[i].Name)) items.RemoveAt(i);
+        // and no separator left at an end or beside another
+        for (var i = items.Count - 1; i >= 0; i--)
+            if (items[i].Kind == CoreWebView2ContextMenuItemKind.Separator
+                && (i == 0 || i == items.Count - 1 || items[i - 1].Kind == CoreWebView2ContextMenuItemKind.Separator))
+                items.RemoveAt(i);
+    }
+
+    public void FullScreen(bool on)
+    {
+        AppWindow.SetPresenter(on ? AppWindowPresenterKind.FullScreen : AppWindowPresenterKind.Overlapped);
+        Menu.Visibility = on ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    static string Unreachable(string place, string why)
+    {
+        static string Esc(string s) => s.Replace("&", "&amp;").Replace("<", "&lt;");
+        return $$"""
+            <!doctype html><meta charset="utf-8"><style>
+            body{font:14px "Segoe UI Variable Text","Segoe UI",sans-serif;color:#555;display:flex;height:100vh;margin:0;align-items:center;justify-content:center;text-align:center}
+            @media (prefers-color-scheme:dark){body{color:#bbb;background:#202020} }
+            h1{font-size:18px;font-weight:600;color:inherit}
+            </style><div><h1>Moshe could not open {{Esc(place)}}</h1><p>{{Esc(why)}}</p>
+            <p>Choose a library folder or another server from the File menu.</p></div>
+            """;
+    }
+
+    // ---- choosing the library ---------------------------------------------------------------
+
+    /// <summary>First run, or the folder has gone: ask for one. False to quit.</summary>
+    async Task<bool> EnsureChosenAsync()
+    {
+        // server mode with no server to open
+        if (Library.Mode == "server" && Library.Server == null) Library.Choose("folder");
+        if (Library.Mode != "folder" || Library.Folder != null) return true;
+        if (Library.WebBundle == null)
+        {
+            // a build without the web app can only be a server's window
+            if (Library.Server == null && !await AskServerAsync()) return false;
+            Library.Choose("server");
+            return true;
+        }
+        if (All.Count > 1 || App.Options.SelfTest) return Library.Folder != null;   // one window asks
+        while (true)
+        {
+            var dialog = new ContentDialog
+            {
+                XamlRoot = Root.XamlRoot,
+                Title = Library.FolderMissing ? "Moshe can't find your library folder" : "Moshe keeps your writing in a folder",
+                Content = new TextBlock
+                {
+                    TextWrapping = TextWrapping.Wrap,
+                    Text = "Choose the folder your sheets live in: a folder in your Obsidian vault, or any folder Syncthing or OneDrive "
+                        + "keeps in step. An empty folder starts an empty library. Or open the library on a Moshe server instead.",
+                },
+                PrimaryButtonText = "Choose Folder…",
+                SecondaryButtonText = Library.Server == null ? "Use a Server…" : "Use the Server",
+                CloseButtonText = "Quit",
+                DefaultButton = ContentDialogButton.Primary,
+            };
+            switch (await dialog.ShowAsync())
+            {
+                case ContentDialogResult.Primary:
+                    if (await ChooseFolderAsync() is { } folder)
+                    {
+                        Library.Choose("folder", folder);
+                        return true;
+                    }
+                    continue;
+                case ContentDialogResult.Secondary:
+                    if (Library.Server == null && !await AskServerAsync()) continue;
+                    Library.Choose("server");
+                    return true;
+                default:
+                    return false;
+            }
+        }
+    }
+
+    /// <summary>The folder picker. Null if cancelled.</summary>
+    public async Task<string?> ChooseFolderAsync()
+    {
+        if (App.Options.SelfTest) return null;
+        var picker = new FolderPicker { SuggestedStartLocation = PickerLocationId.DocumentsLibrary, CommitButtonText = "Use This Folder" };
+        picker.FileTypeFilter.Add("*");
+        InitializeWithWindow.Initialize(picker, Handle);
+        var folder = await picker.PickSingleFolderAsync();
+        if (folder == null) return null;
+        if (string.IsNullOrEmpty(folder.Path))
+        {
+            await Tell("Moshe needs a folder on this PC", "That place isn't a folder Moshe can read and write directly. Choose one on a drive, in OneDrive, or in Syncthing's folders.");
+            return null;
+        }
+        return folder.Path;
+    }
+
+    /// <summary>The server's address, asked for and kept. False if cancelled or not an address.</summary>
+    public async Task<bool> AskServerAsync()
+    {
+        if (App.Options.SelfTest) return false;
+        var box = new TextBox { PlaceholderText = "https://moshe.example.com/", Text = Library.Server?.AbsoluteUri ?? "" };
+        var panel = new StackPanel { Spacing = 12 };
+        panel.Children.Add(new TextBlock { Text = "Moshe opens the library on this server instead of a folder on this PC.", TextWrapping = TextWrapping.Wrap });
+        panel.Children.Add(box);
+        var dialog = new ContentDialog
+        {
+            XamlRoot = Root.XamlRoot,
+            Title = "The server's address",
+            Content = panel,
+            PrimaryButtonText = "Use the Server",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return false;
+        if (!Uri.TryCreate(box.Text.Trim(), UriKind.Absolute, out var url) || url.Scheme is not ("http" or "https") || url.Host.Length == 0)
+        {
+            await Tell("That isn't a server's address", "Type the whole address, starting with https://");
+            return false;
+        }
+        Library.SetServer(url);
+        return true;
+    }
+
+    public async Task Tell(string title, string text)
+    {
+        var dialog = new ContentDialog
+        {
+            XamlRoot = Root.XamlRoot,
+            Title = title,
+            Content = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true },
+            CloseButtonText = "OK",
+        };
+        await dialog.ShowAsync();
+    }
+
+    // what the File menu's own items do
+
+    public async void ChooseLibraryFolder()
+    {
+        if (await ChooseFolderAsync() is { } folder) Library.UseFolder(folder);
+    }
+
+    public static void RevealFolder()
+    {
+        if (Library.Folder is { } folder) Process.Start(new ProcessStartInfo("explorer.exe") { ArgumentList = { folder }, UseShellExecute = false });
+    }
+
+    public async void UseTheServer()
+    {
+        if (await AskServerAsync()) Library.UseServer();
+    }
+
+    // ---- where the window is ------------------------------------------------------------------
+
+    [DllImport("user32.dll")]
+    static extern uint GetDpiForWindow(IntPtr window);
+
+    /// <summary>The first window where it was last time; another cascaded from the one in front.</summary>
+    void Place()
+    {
+        var scale = GetDpiForWindow(Handle) / 96.0;
+        var size = new SizeInt32((int)(1240 * scale), (int)(800 * scale));
+        if (All.Count == 0 && Library.WindowPlace is [var x, var y, var w, var h, var maximised]
+            && w > 200 && h > 200 && DisplayArea.GetFromRect(new RectInt32(x, y, w, h), DisplayAreaFallback.None) != null)
+        {
+            normal = new RectInt32(x, y, w, h);
+            AppWindow.MoveAndResize(normal);
+            if (maximised == 1 && AppWindow.Presenter is OverlappedPresenter presenter) presenter.Maximize();
+            return;
+        }
+        AppWindow.Resize(size);
+        if (All.Count > 0)
+        {
+            var front = All[^1].AppWindow.Position;
+            AppWindow.Move(new PointInt32(front.X + (int)(28 * scale), front.Y + (int)(28 * scale)));
+        }
+        else
+        {
+            var area = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary).WorkArea;
+            AppWindow.Move(new PointInt32(area.X + Math.Max(0, (area.Width - size.Width) / 2), area.Y + Math.Max(0, (area.Height - size.Height) / 2)));
+        }
+        normal = new RectInt32(AppWindow.Position.X, AppWindow.Position.Y, AppWindow.Size.Width, AppWindow.Size.Height);
+    }
+
+    void SavePlace()
+    {
+        if (App.Options.SelfTest || AppWindow.Presenter.Kind == AppWindowPresenterKind.FullScreen) return;
+        var maximised = AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Maximized };
+        Library.WindowPlace = [normal.X, normal.Y, normal.Width, normal.Height, maximised ? 1 : 0];
+    }
+}
