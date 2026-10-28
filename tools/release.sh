@@ -50,7 +50,7 @@ say "v$V tagged at $(git rev-parse --short HEAD) (Android $code, Mac build $buil
 # 2. built on the Mac, from a fresh clone of the tag
 W=/tmp/moshe-release
 mac "export PATH=/opt/homebrew/bin:\$PATH; rm -rf $W && git clone -q --depth 1 -b v$V https://github.com/$REPO.git $W \
-  && cd $W/frontend && npm ci --silent >/dev/null 2>&1 && npx vite build >/dev/null \
+  && cd $W/frontend && npm ci --silent >/dev/null 2>&1 && npm run words >/dev/null && npx vite build >/dev/null \
   && cd $W/android && ./release.sh $MOSHE_APK_SIGNING"
 say "APK built"
 mac "export PATH=/opt/homebrew/bin:\$PATH; security unlock-keychain -p \"\$(cat $MOSHE_KEYCHAIN_PASS)\" $MOSHE_KEYCHAIN \
