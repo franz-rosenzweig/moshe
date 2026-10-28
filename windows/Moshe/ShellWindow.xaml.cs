@@ -58,12 +58,17 @@ public sealed partial class ShellWindow : Window
         {
             if ((e.DidPositionChange || e.DidSizeChange) && AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Restored })
                 normal = new RectInt32(AppWindow.Position.X, AppWindow.Position.Y, AppWindow.Size.Width, AppWindow.Size.Height);
-            if (e.DidSizeChange) FitTitleBar();
+            if (e.DidSizeChange || e.DidPresenterChange)
+            {
+                FitTitleBar();
+                FitTitleBarSoon();
+            }
             if (e.DidPresenterChange) Presented();
         };
         Root.Loaded += async (_, _) =>
         {
             FitTitleBar();
+            FitTitleBarSoon();
             await StartAsync();
         };
         Activated += (_, e) =>
@@ -129,15 +134,23 @@ public sealed partial class ShellWindow : Window
         try
         {
             var scale = Root.XamlRoot?.RasterizationScale ?? GetDpiForWindow(Handle) / 96.0;
-            if (scale <= 0) return;
-            LeftPad.Width = new GridLength(Math.Max(0, AppWindow.TitleBar.LeftInset / scale));
-            RightPad.Width = new GridLength(Math.Max(0, AppWindow.TitleBar.RightInset / scale));
+            int left = AppWindow.TitleBar.LeftInset, right = AppWindow.TitleBar.RightInset;
+            // A window just shown, or on its way back from minimised, can report no
+            // caption buttons for a moment: keep the room there was rather than none.
+            if (scale <= 0 || (left <= 0 && right <= 0)) return;
+            LeftPad.Width = new GridLength(Math.Max(0, left / scale));
+            RightPad.Width = new GridLength(Math.Max(0, right / scale));
         }
         catch (Exception e) { Log.Write($"title bar: {e.Message}"); }
     }
 
-    /// <summary>The room kept for the caption buttons, for the self-test.</summary>
+    /// <summary>Again once Windows has finished moving the window: what it reports mid-way may not be the end of it.</summary>
+    void FitTitleBarSoon() =>
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, FitTitleBar);
+
+    /// <summary>The room kept for the caption buttons, and what Windows says they take, for the self-test.</summary>
     public double CaptionRoom => RightPad.Width.Value;
+    public int CaptionInset => AppWindow.TitleBar.RightInset;
 
     /// <summary>Minimise the window and bring it back, as a person would, for the self-test.</summary>
     public async Task MinimiseAndRestore()
