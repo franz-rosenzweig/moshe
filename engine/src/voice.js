@@ -76,7 +76,8 @@ export const COMMANDS = [
   { id: 'deletePhrase', group: 'Editing', say: 'delete ‹words› · strike ‹words›', example: 'strike already', does: '“strike” always marks them for deletion, as the pen does.', re: R('(delete|strike|cross out|remove) (.+)') },
   { id: 'replace', group: 'Editing', say: 'replace ‹words› with ‹words›', example: 'replace slanting with careful', does: 'In Revision Mode it’s kept as a change.', re: R('(?:replace|change) (.+?) (?:with|to|into) (.+)') },
   { id: 'insert', group: 'Editing', say: 'insert ‹words› after ‹words›', example: 'insert still after was', does: 'Also “before”. An insertion mark in Revision Mode.', re: R('(?:insert|add) (.+?) (after|before) (.+)') },
-  { id: 'format', group: 'Editing', say: 'bold · italicize · highlight that', example: 'highlight that', does: 'Also “bold ‹words›”.', re: R('(bold|italicize|italic|emphasize|highlight) (.+)') },
+  { id: 'format', group: 'Editing', say: 'bold · italicize · highlight that', example: 'highlight that', does: 'Also “bold ‹words›”, “mark ‹words›”.', re: R('(bold|italicize|italic|emphasize|highlight|mark) (.+)') },
+  { id: 'makeFormat', group: 'Editing', say: 'make that bold · italic · highlighted', example: 'make that bold', does: 'The same, in words recognizers hear better.', re: R(`make ${THAT} (bold|italic|italics|highlighted)`) },
   { id: 'heading', group: 'Editing', say: 'make that a heading', example: 'make that a heading', does: 'The paragraph at the cursor; also “subheading”.', re: R(`(?:make ${THAT} (?:a )?)?(heading|subheading)`) },
   { id: 'move', group: 'Editing', say: 'move that after ‹words›', example: 'move that to the end', does: 'Also “before ‹words›” and “to the end”.', re: R(`move ${THAT} (?:(after|before) (.+)|to the (end|start|top))`) },
   { id: 'comment', group: 'Editing', say: 'comment ‹words›', example: 'comment who lit it?', does: 'A note on the selection, or on the sentence at the cursor.', re: R('(?:add (?:a )?)?comment (.+)') },
@@ -109,6 +110,34 @@ export const COMMANDS = [
   { id: 'translation', group: 'App', say: 'translation mode', example: 'translation mode', does: 'The sheet and its translation side by side.', re: R('translation mode'), app: 'translation' },
   { id: 'checkText', group: 'App', say: 'check text', example: 'check text', does: 'LanguageTool, when the server has it.', re: R('check (?:the )?text'), app: 'checkText' },
 ];
+
+/** The commands' own words, for a recognizer that takes custom words: short commands ("highlight that")
+ *  are what dictation mishears most, as something it expects more ("I like that"). */
+export function commandPhrases() {
+  const out = new Set(['bold that', 'italicize that', 'highlight that', 'show paragraph numbers']);
+  for (const c of COMMANDS) {
+    if (c.hidden) continue;
+    for (const part of [...c.say.replace(/\([^)]*\)/gu, '').split(' · '), c.example]) {
+      const p = part.replace(/‹[^›]*›/gu, '').replace(/\s+/gu, ' ').trim().toLowerCase();
+      // only what is a command as it stands, and not one that takes any words ("select ‹words›")
+      const hit = p.includes(' ') && parse(p, { reading: true });
+      if (hit && hit.kind === 'command' && !hit.command.re.source.includes('(.+')) out.add(p);
+    }
+  }
+  return [...out];
+}
+
+let phrases = null;
+/** The command a short utterance sounds like, when it isn't one (“build that”: “bold that”), for the strip to
+ *  say so. Never carried out: “I like that” may be meant. */
+export function soundsLike(said) {
+  const l = lite(said).toLowerCase(), letters = (s) => s.replace(/[^a-z]/gu, ''), w = letters(l);
+  if (l.split(' ').length > 4 || w.length < 4) return '';
+  phrases ||= commandPhrases();
+  let best = '', far = Infinity;
+  for (const p of phrases) { const d = distance(w, letters(p)); if (d < far) { far = d; best = p; } }
+  return far > 0 && far / Math.max(w.length, letters(best).length) <= 0.35 ? best : '';
+}
 
 // the exact phrases are tried before those that take any words ("open the dashboard" before "open ‹sheet›")
 const ORDERED = [...COMMANDS.filter((c) => !c.re.source.includes('(.+')), ...COMMANDS.filter((c) => c.re.source.includes('(.+'))];

@@ -257,6 +257,12 @@ final class MosheWindowController: NSWindowController, NSWindowDelegate, WKNavig
 
     // MARK: WKUIDelegate
 
+    /// The microphone, for the page's own listening (Whisper, when this Mac's dictation can't): the app's page only.
+    func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin, initiatedByFrame frame: WKFrameInfo,
+                 type: WKMediaCaptureType, decisionHandler: @escaping @MainActor (WKPermissionDecision) -> Void) {
+        decisionHandler(type == .microphone && frame.isMainFrame && webView.url.map(Library.isOurs) == true ? .grant : .deny)
+    }
+
     /// window.open and target=_blank: the browser, or for the app's own pages another window.
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
                  for action: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {

@@ -44,6 +44,9 @@ targets:
         NSHumanReadableCopyright: "© 2026 the Moshe authors. Free software under the GNU GPL, version 3 or later."
         MosheDefaultServer: $(MOSHE_DEFAULT_SERVER)
         NSPrincipalClass: NSApplication
+        # Writing by voice (docs/VOICE.md): asked for when listening first starts
+        NSMicrophoneUsageDescription: "Moshe listens while you write by voice, from when you start listening until you stop."
+        NSSpeechRecognitionUsageDescription: "Moshe turns what you say into text with this Mac's own dictation, when you write by voice."
         # A server may be plain HTTP on a private network.
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
@@ -53,3 +56,5 @@ targets:
         # Sandbox off: the library is a folder anywhere on this Mac (inside the
         # Obsidian vault), chosen once and kept as a path.
         com.apple.security.app-sandbox: false
+        # the hardened runtime lets the microphone in only with this (writing by voice)
+        com.apple.security.device.audio-input: true

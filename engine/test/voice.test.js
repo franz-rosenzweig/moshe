@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   COMMANDS, parse, lite, fromSaid, numberOf, cleanDictation, placeDictation, phraseRanges, nearest, proseLines, sentenceRanges,
-  wordAt, headingsOf, marksOf, spokenText, soundex, snapNames, namesIn, alternatesFor, settleChanges,
+  wordAt, headingsOf, marksOf, spokenText, soundex, snapNames, namesIn, alternatesFor, settleChanges, commandPhrases, soundsLike,
 } from '../src/voice.js';
 
 const CHAPTER = `## Two: Arrival
@@ -28,6 +28,27 @@ test('every command is said by its own example', () => {
     assert.equal(p.kind, 'command', `“${c.example}” is a command`);
     assert.equal(p.id, c.id, `“${c.example}” is ${c.id}, not ${p.id}`);
   }
+});
+
+test('the words of the commands, for a recognizer to expect', () => {
+  const p = commandPhrases();
+  for (const w of ['scratch that', 'highlight that', 'new paragraph', 'go to sleep', 'select this sentence', 'read that back']) assert.ok(p.includes(w), w);
+  for (const w of ['select the water tower', 'strike already', 'synonyms (for']) assert.ok(!p.includes(w), w);
+  assert.ok(p.every((x) => !x.includes('‹') && x.split(' ').length >= 2), 'whole phrases, no slots');
+  assert.ok(p.length < 200);
+});
+
+test('a short utterance that sounds like a command is typed, with a hint', () => {
+  // what Apple's dictation made of the Mac's own voice saying them
+  assert.equal(soundsLike('High like that.'), 'highlight that');
+  assert.equal(soundsLike('Highlight dad'), 'highlight that');
+  assert.equal(soundsLike('build that'), 'bold that');
+  assert.equal(soundsLike('Scratch fat.'), 'scratch that');
+  for (const s of ['I liked that.', 'the frost came early', 'She sat.', 'scratch that', 'It rained for three days and nights.']) assert.equal(soundsLike(s), '', s);
+  assert.equal(parse('build that').kind, 'text', 'only a hint: never carried out');
+  assert.equal(parse('make that bold').id, 'makeFormat');
+  assert.equal(parse('mark that').id, 'format');
+  assert.equal(parse('mark 2').id, 'pickMark');
 });
 
 test('a command counts only as the whole utterance', () => {

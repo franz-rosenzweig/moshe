@@ -101,6 +101,8 @@ not read it itself from a menu).
 | Show Paragraph Numbers | | `toggleParagraphNumbers` | `paragraphNumbers` |
 | Sheet List ▸ (sort orders, Show Dates) | | `sheetSort`, arg; `toggleSheetDates` | `sheetSort`, `sheetSorts`, `sheetDates` |
 | Translation Mode · Revision Mode | ⇧⌘T · ⇧⌘E | `translation` · `revision` | `translation`, `revision` |
+| Voice ([VOICE.md](VOICE.md)) | | `voice` | `voice` |
+| Start Listening / Stop Listening | ⌥⌘L | `listen` | `listening` |
 | Zoom In · Zoom Out · Default Size | ⌘+ · ⌘− · ⌘0 | `zoomIn` · `zoomOut` · `zoomReset` | |
 | Show Line Marker | | `toggleLineMarker` | `lineMarker` |
 | Highlight ▸ Off · Line · Sentence · Paragraph | | `highlight`, arg | `highlight` |
@@ -162,6 +164,7 @@ Called by the shell when a menu opens; plain data, cheap to make:
   library: true,               // the library pane is shown
   dashboard: false, dashboardView: 'overview', dashboardViews: [{ id, name }],
   secondEditor: false, translation: false, revision: false, interfaceHidden: false,
+  voice: false, listening: false,                       // writing by voice: on, and listening now
   favorite: false, material: false, glued: false,       // the picked sheet(s)
   counter: true, paragraphNumbers: false, lineMarker: false, sheetDates: false,
   highlight: 'off', fixedScrolling: 'off', appearance: 'system',
