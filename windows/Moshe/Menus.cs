@@ -1,19 +1,25 @@
 using System.Text.Json.Nodes;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation.Peers;
+using Microsoft.UI.Xaml.Automation.Provider;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Windows.ApplicationModel.DataTransfer;
+using Windows.System;
 
 namespace Moshe;
 
 /// <summary>
-/// The menu bar of docs/MENUS.md, the Windows way: the Mac's items and commands
-/// (mac/Moshe/Menus.swift) with Ctrl for ⌘. The page hears every key first, so an
-/// item only shows its key; choosing the item calls the same command,
-/// window.mosheCommand(name, arg), and either way it runs once. What is ticked,
-/// what a toggle says now, and the submenus built from the library come from
-/// window.mosheMenuState() when a menu is pressed open. ⌃⌘ chords have no Windows
-/// key, so those items are in the menu only.
+/// The menus of docs/MENUS.md, the Windows way: the Mac's items and commands
+/// (mac/Moshe/Menus.swift) with Ctrl for ⌘, gathered into the five menus a
+/// Windows writing app has in its title bar — File, Edit, Format (the Mac's
+/// Markup and Insert), View (with Go and the Window menu's panels) and Help.
+/// Alt and a menu's letter opens it, as anywhere in Windows. The page hears every
+/// key first, so an item only shows its key; choosing the item calls the same
+/// command, window.mosheCommand(name, arg), and either way it runs once. What is
+/// ticked, what a toggle says now, and the submenus built from the library come
+/// from window.mosheMenuState() when a menu is pressed open. ⌃⌘ chords have no
+/// Windows key, so those items are in the menu only.
 /// </summary>
 sealed class Menus
 {
@@ -30,6 +36,8 @@ sealed class Menus
         Build();
         foreach (var top in bar.Items)
             top.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler((_, _) => Refresh()), handledEventsToo: true);
+        // Escape on the menu bar itself: back to the page, as from any title bar
+        bar.AddHandler(UIElement.KeyDownEvent, new KeyEventHandler((_, e) => { if (e.Key == VirtualKey.Escape) owner.FocusPage(); }), handledEventsToo: true);
     }
 
     /// <summary>The page's state, into every item: enabled for the commands the page has, ticks, titles, submenus.</summary>
@@ -41,6 +49,21 @@ sealed class Menus
         foreach (var update in updates) update(state);
     }
 
+    /// <summary>Alt and a letter (F, E, O, V, H) opens that menu; Alt alone puts the keyboard on the menu bar.</summary>
+    public void Open(string? letter)
+    {
+        if (letter == null)
+        {
+            bar.Items.FirstOrDefault()?.Focus(FocusState.Keyboard);
+            return;
+        }
+        var top = bar.Items.FirstOrDefault(m => string.Equals(m.AccessKey, letter, StringComparison.OrdinalIgnoreCase));
+        if (top == null) return;
+        Refresh();
+        top.Focus(FocusState.Keyboard);
+        if (FrameworkElementAutomationPeer.CreatePeerForElement(top) is IExpandCollapseProvider menu) menu.Expand();
+    }
+
     void Run(string command, JsonNode? arg)
     {
         owner.Command(command, arg);
@@ -50,44 +73,48 @@ sealed class Menus
 
     void Build()
     {
-        var file = Top("File");
+        // ---- File
+        var file = Top("File", "F");
         Page(file, "New Sheet", "newSheet", key: "Ctrl+N");
-        Page(file, "New Material Sheet", "newMaterialSheet");
-        Page(file, "New Handwritten Sheet", "newHandwrittenSheet");
-        Page(file, "New Group…", "newGroup", key: "Ctrl+Shift+N");
-        Page(file, "New Filter…", "newFilter");
-        Page(file, "New Project…", "newProject");
-        Line(file);
+        var create = Sub(file, "New");
+        Page(create.Items, "Material Sheet", "newMaterialSheet");
+        Page(create.Items, "Handwritten Sheet", "newHandwrittenSheet");
+        Page(create.Items, "Group…", "newGroup", key: "Ctrl+Shift+N");
+        Page(create.Items, "Filter…", "newFilter");
+        Page(create.Items, "Project…", "newProject");
         Page(file, "Open Quickly…", "openQuickly", key: "Ctrl+O");
         Line(file);
-        Swap(file, "Add to Favorites", "Remove from Favorites", "favorite", "favorite");
-        Swap(file, "Mark as Material", "Mark as Text", "material", "material");
-        Page(file, "Keywords…", "keywords", key: "Ctrl+Shift+K");
-        Page(file, "Goal…", "goal");
-        Page(file, "Statistics…", "statistics");
-        Swap(file, "Glue Sheets", "Unglue Sheets", "glued", "glue");
-        Page(file, "Merge Sheets…", "merge");
-        Page(file, "Duplicate", "duplicate", key: "Ctrl+D");
+        var sheet = Sub(file, "Sheet");
+        Swap(sheet.Items, "Add to Favorites", "Remove from Favorites", "favorite", "favorite");
+        Swap(sheet.Items, "Mark as Material", "Mark as Text", "material", "material");
+        Page(sheet.Items, "Keywords…", "keywords", key: "Ctrl+Shift+K");
+        Page(sheet.Items, "Goal…", "goal");
+        Page(sheet.Items, "Statistics…", "statistics");
+        Line(sheet.Items);
+        Swap(sheet.Items, "Glue Sheets", "Unglue Sheets", "glued", "glue");
+        Page(sheet.Items, "Merge Sheets…", "merge");
+        Page(sheet.Items, "Duplicate", "duplicate", key: "Ctrl+D");
         Line(file);
         Page(file, "Export…", "export", key: "Ctrl+Shift+P");
         Page(file, "Print…", "print", key: "Ctrl+P");
         Page(file, "Share…", "share");
         Line(file);
-        Page(file, "Browse Backups…", "browseBackups");
         Page(file, "Import…", "import");
+        Page(file, "Browse Backups…", "browseBackups");
         Line(file);
         Shell(file, "Library Folder…", owner.ChooseLibraryFolder);
         var reveal = Shell(file, "Show Library in File Explorer", ShellWindow.RevealFolder);
         updates.Add(_ => reveal.IsEnabled = Library.Folder != null);
         Shell(file, "Use the Server…", owner.UseTheServer);
         Line(file);
-        Page(file, "Settings…", "settings", key: "Ctrl+,");
-        Line(file);
         Shell(file, "New Window", () => ShellWindow.Open(), "Ctrl+Alt+N");
         Shell(file, "Close Window", owner.Close, "Ctrl+W");
+        Line(file);
+        Page(file, "Settings", "settings", key: "Ctrl+,");
         Shell(file, "Exit", () => Application.Current.Exit(), "Alt+F4");
 
-        var edit = Top("Edit");
+        // ---- Edit
+        var edit = Top("Edit", "E");
         var undo = Page(edit, "Undo", "undo", key: "Ctrl+Z");
         var redo = Page(edit, "Redo", "redo", key: "Ctrl+Shift+Z");
         // a page from before canUndo: always
@@ -96,13 +123,13 @@ sealed class Menus
         Line(edit);
         Native(edit, "Cut", "Ctrl+X", "x", 0x58);
         Native(edit, "Copy", "Ctrl+C", "c", 0x43);
+        Native(edit, "Paste", "Ctrl+V", "v", 0x56);
+        Native(edit, "Paste as Plain Text", "Ctrl+Shift+V", "V", 0x56, modifiers: 2 | 8);
         var copyAs = Sub(edit, "Copy As");
         Page(copyAs.Items, "Markdown", "copyAs", "markdown");
         Page(copyAs.Items, "HTML", "copyAs", "html");
         Page(copyAs.Items, "Rich Text", "copyAs", "rich");
-        Native(edit, "Paste", "Ctrl+V", "v", 0x56);
         var paste = Sub(edit, "Paste As");
-        Native(paste.Items, "Plain Text", "Ctrl+Shift+V", "V", 0x56, modifiers: 2 | 8);
         Clip(paste.Items, "Code Block", "pasteAs", "code");
         Clip(paste.Items, "Raw Source Block", "pasteAs", "raw");
         Line(paste.Items);
@@ -110,6 +137,13 @@ sealed class Menus
         Clip(paste.Items, "From HTML", "pasteFrom", "html");
         Clip(paste.Items, "From Rich Text", "pasteFrom", "rich");
         Native(edit, "Select All", "Ctrl+A", "a", 0x41);
+        Line(edit);
+        Page(edit, "Find…", "find", "open", "Ctrl+F");
+        Page(edit, "Replace…", "find", "replace", "Ctrl+Alt+F");
+        Page(edit, "Find Next", "find", "next", "Ctrl+G");
+        Page(edit, "Find Previous", "find", "previous", "Ctrl+Shift+G");
+        Page(edit, "Use Selection for Find", "find", "selection", "Ctrl+E");
+        Page(edit, "Search Library…", "openQuickly", key: "Ctrl+Shift+F");
         Line(edit);
         var up = Page(edit, "Move Line Up", "moveUp");
         var down = Page(edit, "Move Line Down", "moveDown");
@@ -122,118 +156,110 @@ sealed class Menus
         Page(edit, "Split at Selection", "split", key: "Ctrl+Shift+B");
         Page(edit, "Attach Note…", "attachNote");
         Page(edit, "Attach Image…", "attachImage");
-        Line(edit);
-        var find = Sub(edit, "Find");
-        Page(find.Items, "Find…", "find", "open", "Ctrl+F");
-        Page(find.Items, "Find and Replace…", "find", "replace", "Ctrl+Alt+F");
-        Page(find.Items, "Find Next", "find", "next", "Ctrl+G");
-        Page(find.Items, "Find Previous", "find", "previous", "Ctrl+Shift+G");
-        Page(find.Items, "Use Selection for Find", "find", "selection", "Ctrl+E");
-        Line(find.Items);
-        Page(find.Items, "Search Library…", "openQuickly", key: "Ctrl+Shift+F");
 
-        var markup = Top("Markup");
-        Page(markup, "Title", "heading", 1, "Ctrl+Alt+1");
-        Page(markup, "Heading", "heading", 2, "Ctrl+Alt+2");
-        Page(markup, "Subheading", "heading", 3, "Ctrl+Alt+3");
-        var more = Sub(markup, "More");
-        Page(more.Items, "Heading 4", "heading", 4, "Ctrl+Alt+4");
-        Page(more.Items, "Heading 5", "heading", 5, "Ctrl+Alt+5");
-        Page(more.Items, "Heading 6", "heading", 6, "Ctrl+Alt+6");
-        Page(more.Items, "Paragraph", "heading", 0, "Ctrl+Alt+0");
-        Line(markup);
-        Page(markup, "Strong", "strong", key: "Ctrl+B");
-        Page(markup, "Emphasis", "emphasis", key: "Ctrl+I");
-        Page(markup, "Code", "code");
-        var mark = Sub(markup, "Mark");
+        // ---- Format: the Mac's Markup and Insert
+        var format = Top("Format", "O");
+        Page(format, "Strong", "strong", key: "Ctrl+B");
+        Page(format, "Emphasis", "emphasis", key: "Ctrl+I");
+        Page(format, "Code", "code");
+        Page(format, "Link", "link", key: "Ctrl+K");
+        var mark = Sub(format, "Mark");
         Page(mark.Items, "Mark", "mark", key: "Ctrl+Shift+H");
         Page(mark.Items, "Delete", "markDelete");
         Page(mark.Items, "Insert", "markInsert");
         Page(mark.Items, "Comment", "comment", key: "Ctrl+Shift+C");
-        Page(markup, "Link", "link", key: "Ctrl+K");
-        Page(markup, "Annotate", "annotate");
-        Line(markup);
-        Page(markup, "Dashed List", "dashedList");
-        Page(markup, "Numbered List", "numberedList");
-        Page(markup, "Quote", "quote");
-        Line(markup);
-        Page(markup, "Comment Block", "commentBlock");
-        Page(markup, "Code Block", "codeBlock");
-        Page(markup, "Raw Source Block", "rawBlock");
-        Line(markup);
-        Page(markup, "Clear Markup", "clearMarkup", key: "Ctrl+L");
+        Page(format, "Annotate", "annotate");
+        Line(format);
+        var heading = Sub(format, "Heading");
+        Page(heading.Items, "Title", "heading", 1, "Ctrl+Alt+1");
+        Page(heading.Items, "Heading", "heading", 2, "Ctrl+Alt+2");
+        Page(heading.Items, "Subheading", "heading", 3, "Ctrl+Alt+3");
+        Page(heading.Items, "Heading 4", "heading", 4, "Ctrl+Alt+4");
+        Page(heading.Items, "Heading 5", "heading", 5, "Ctrl+Alt+5");
+        Page(heading.Items, "Heading 6", "heading", 6, "Ctrl+Alt+6");
+        Line(heading.Items);
+        Page(heading.Items, "Paragraph", "heading", 0, "Ctrl+Alt+0");
+        var lists = Sub(format, "List and Quote");
+        Page(lists.Items, "Dashed List", "dashedList");
+        Page(lists.Items, "Numbered List", "numberedList");
+        Page(lists.Items, "Quote", "quote");
+        var blocks = Sub(format, "Block");
+        Page(blocks.Items, "Comment Block", "commentBlock");
+        Page(blocks.Items, "Code Block", "codeBlock");
+        Page(blocks.Items, "Raw Source Block", "rawBlock");
+        Line(format);
+        var insert = Sub(format, "Insert");
+        Page(insert.Items, "Line Break", "insert", "lineBreak", "Shift+Enter");
+        Page(insert.Items, "Tab", "insert", "tab");
+        Page(insert.Items, "Divider", "insert", "divider");
+        Line(insert.Items);
+        Page(insert.Items, "Image", "insert", "image");
+        Page(insert.Items, "Video", "insert", "video");
+        Page(insert.Items, "Footnote", "insert", "footnote");
+        Page(insert.Items, "Equation", "insert", "equation");
+        Page(insert.Items, "Table", "insert", "table");
+        Page(insert.Items, "Table of Contents", "insert", "toc");
+        Line(insert.Items);
+        Page(insert.Items, "Sketch…", "insert", "sketch");
+        Line(format);
+        Page(format, "Clear Markup", "clearMarkup", key: "Ctrl+L");
 
-        var insert = Top("Insert");
-        Page(insert, "Line Break", "insert", "lineBreak", "Shift+Enter");
-        Page(insert, "Tab", "insert", "tab");
-        Page(insert, "Divider", "insert", "divider");
-        Line(insert);
-        Page(insert, "Image", "insert", "image");
-        Page(insert, "Video", "insert", "video");
-        Page(insert, "Footnote", "insert", "footnote");
-        Page(insert, "Equation", "insert", "equation");
-        Page(insert, "Table", "insert", "table");
-        Page(insert, "Table of Contents", "insert", "toc");
-        Line(insert);
-        Page(insert, "Sketch…", "insert", "sketch");
-
-        var view = Top("View");
+        // ---- View: the Mac's View, Go and the Window menu's panels
+        var view = Top("View", "V");
         Swap(view, "Show Library", "Hide Library", "library", "showLibrary", "showSheets");
-        Dynamic(view, "Dashboard", "dashboardViews", "dashboardView", "dashboardView");
         Toggle(view, "Second Editor", "secondEditor", "secondEditor", "Ctrl+Alt+3");
-        Swap(view, "Show Counter", "Hide Counter", "counter", "toggleCounter");
-        Swap(view, "Show Paragraph Numbers", "Hide Paragraph Numbers", "paragraphNumbers", "toggleParagraphNumbers");
+        Dynamic(view, "Dashboard", "dashboardViews", "dashboardView", "dashboardView");
         var dates = Toggle(null, "Show Dates", "toggleSheetDates", "sheetDates");
         Dynamic(view, "Sheet List", "sheetSorts", "sheetSort", "sheetSort", items =>
         {
             Line(items);
             items.Add(dates);
         });
+        var panels = Sub(view, "Panels");
+        Page(panels.Items, "Quick Export", "panel", "export", "Ctrl+6");
+        Page(panels.Items, "Statistics", "panel", "statistics", "Ctrl+7");
+        Page(panels.Items, "Navigation", "panel", "navigation", "Ctrl+8");
+        Page(panels.Items, "Markup", "panel", "markup", "Ctrl+9");
+        Page(panels.Items, "Keyword Manager", "keywordManager");
+        Line(view);
+        var go = Sub(view, "Go To");
+        Page(go.Items, "Back", "back", key: "Ctrl+[");
+        Page(go.Items, "Forward", "forward", key: "Ctrl+]");
+        Line(go.Items);
+        Dynamic(go.Items, "Notes", "notes", "select", "selection");
+        Dynamic(go.Items, "Projects", "projects", "select", "selection");
+        Page(go.Items, "Favorites", "favorites", key: "Ctrl+Shift+U");
+        Line(go.Items);
+        Page(go.Items, "Previous Sheet", "previousSheet", key: "Ctrl+Alt+Up");
+        Page(go.Items, "Next Sheet", "nextSheet", key: "Ctrl+Alt+Down");
+        Line(go.Items);
+        Page(go.Items, "Library", "showLibrary", key: "Ctrl+1");
+        Page(go.Items, "Sheet List", "showSheets", key: "Ctrl+2");
+        Page(go.Items, "Editor", "showEditor", key: "Ctrl+3");
+        Page(go.Items, "Dashboard", "dashboard", key: "Ctrl+4");
         Line(view);
         Toggle(view, "Translation Mode", "translation", "translation", "Ctrl+Shift+T");
         Toggle(view, "Revision Mode", "revision", "revision", "Ctrl+Shift+E");
+        Toggle(view, "Focus Mode", "hideInterface", "interfaceHidden", "Ctrl+.");
         Line(view);
-        Page(view, "Zoom In", "zoomIn", key: "Ctrl+Plus");
-        Page(view, "Zoom Out", "zoomOut", key: "Ctrl+Minus");
-        Page(view, "Default Size", "zoomReset", key: "Ctrl+0");
-        Line(view);
-        Swap(view, "Show Line Marker", "Hide Line Marker", "lineMarker", "toggleLineMarker");
-        Choices(view, "Highlight", "highlight", "highlight", [("off", "Off"), ("line", "Line"), ("sentence", "Sentence"), ("paragraph", "Paragraph")]);
-        Choices(view, "Fixed Scrolling", "fixedScrolling", "fixedScrolling",
+        var text = Sub(view, "Text");
+        Swap(text.Items, "Show Counter", "Hide Counter", "counter", "toggleCounter");
+        Swap(text.Items, "Show Paragraph Numbers", "Hide Paragraph Numbers", "paragraphNumbers", "toggleParagraphNumbers");
+        Swap(text.Items, "Show Line Marker", "Hide Line Marker", "lineMarker", "toggleLineMarker");
+        Choices(text.Items, "Highlight", "highlight", "highlight", [("off", "Off"), ("line", "Line"), ("sentence", "Sentence"), ("paragraph", "Paragraph")]);
+        Choices(text.Items, "Fixed Scrolling", "fixedScrolling", "fixedScrolling",
             [("off", "Off"), ("top", "Top"), ("middle", "Middle"), ("bottom", "Bottom"), ("variable", "Variable")]);
-        Line(view);
-        Choices(view, "Appearance", "appearance", "appearance", [("system", "Match System"), ("light", "Light"), ("dark", "Dark")]);
+        var zoom = Sub(view, "Zoom");
+        Page(zoom.Items, "Zoom In", "zoomIn", key: "Ctrl+Plus");
+        Page(zoom.Items, "Zoom Out", "zoomOut", key: "Ctrl+Minus");
+        Page(zoom.Items, "Default Size", "zoomReset", key: "Ctrl+0");
+        Choices(view, "Appearance", "appearance", "appearance", [("system", "Use System Setting"), ("light", "Light"), ("dark", "Dark")]);
         Dynamic(view, "Theme", "themes", "theme", "theme");
         Line(view);
-        Toggle(view, "Focus Mode", "hideInterface", "interfaceHidden", "Ctrl+.");
         Shell(view, "Full Screen", () => owner.FullScreen(owner.AppWindow.Presenter.Kind != Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen), "F11");
 
-        var go = Top("Go");
-        Page(go, "Back", "back", key: "Ctrl+[");
-        Page(go, "Forward", "forward", key: "Ctrl+]");
-        Line(go);
-        Dynamic(go, "Notes", "notes", "select", "selection");
-        Dynamic(go, "Projects", "projects", "select", "selection");
-        Page(go, "Favorites", "favorites", key: "Ctrl+Shift+U");
-        Line(go);
-        Page(go, "Previous Sheet", "previousSheet", key: "Ctrl+Alt+Up");
-        Page(go, "Next Sheet", "nextSheet", key: "Ctrl+Alt+Down");
-        Line(go);
-        Page(go, "Library", "showLibrary", key: "Ctrl+1");
-        Page(go, "Sheet List", "showSheets", key: "Ctrl+2");
-        Page(go, "Editor", "showEditor", key: "Ctrl+3");
-        Page(go, "Dashboard", "dashboard", key: "Ctrl+4");
-
-        var window = Top("Window");
-        Shell(window, "New Window", () => ShellWindow.Open(), "Ctrl+Alt+N");
-        Line(window);
-        Page(window, "Quick Export", "panel", "export", "Ctrl+6");
-        Page(window, "Statistics", "panel", "statistics", "Ctrl+7");
-        Page(window, "Navigation", "panel", "navigation", "Ctrl+8");
-        Page(window, "Markup", "panel", "markup", "Ctrl+9");
-        Page(window, "Keyword Manager", "keywordManager");
-
-        var help = Top("Help");
+        // ---- Help
+        var help = Top("Help", "H");
         Shell(help, "Moshe Help", () => Outside.Open(new Uri("https://github.com/franz-rosenzweig/moshe#readme")));
         Page(help, "Getting Started", "gettingStarted");
         Line(help);
@@ -242,9 +268,9 @@ sealed class Menus
 
     // ---- the kinds of item -----------------------------------------------------------------
 
-    IList<MenuFlyoutItemBase> Top(string title)
+    IList<MenuFlyoutItemBase> Top(string title, string accessKey)
     {
-        var menu = new MenuBarItem { Title = title };
+        var menu = new MenuBarItem { Title = title, AccessKey = accessKey };
         bar.Items.Add(menu);
         return menu.Items;
     }
@@ -381,12 +407,19 @@ sealed class Menus
     }
 
     /// <summary>An item that is the shell's own: the library folder, windows, help.</summary>
-    static MenuFlyoutItem Shell(IList<MenuFlyoutItemBase> into, string text, Action act, string? key = null)
+    MenuFlyoutItem Shell(IList<MenuFlyoutItemBase> into, string text, Action act, string? key = null)
     {
         var item = new MenuFlyoutItem { Text = text };
         Key(item, key);
-        item.Click += (_, _) => act();
+        item.Click += (_, _) =>
+        {
+            owner.FocusPage();
+            act();
+        };
         into.Add(item);
         return item;
     }
+
+    /// <summary>The menus' titles, for the self-test.</summary>
+    public IEnumerable<string> Titles => bar.Items.Select(m => m.Title);
 }

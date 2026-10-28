@@ -17,16 +17,27 @@ the few things a page cannot do well. C# and WinUI 3, with the page in WebView2.
   with a message that says so, rather than half-written. A file another app holds
   open is waited for, then written in place if it can't be replaced; a junction or
   link out of the library is refused like `..`.
-- **The window**: a menu bar over the page. The frame is remembered; F11 is full
-  screen, Ctrl+Alt+N another window on the same folder, Ctrl+W closes one.
-- **The menu bar**, item for item (docs/MENUS.md), with Ctrl for ⌘: File, Edit,
-  Markup, Insert, View, Go, Window, Help. Each item calls the page's own command
-  (`window.mosheCommand`); ticks, titles that change, and the submenus built from
-  the library come from `window.mosheMenuState()` when a menu is pressed open. The
-  page hears every key first, so the menu only shows the keys; Cut, Copy, Paste and
-  Select All press theirs in the page. ⌃⌘ chords have no Windows key: those items
-  are in the menu only. The browser's own keys (Ctrl+P, Ctrl+F, Ctrl+R…) are off,
-  so they reach the page.
+- **The window**, as Windows 11's own apps have it: the page under one Mica title
+  bar that holds the icon, the menus and the library's name ("Writing - Moshe"),
+  with the system's caption buttons, their Snap Layouts, and colours that follow
+  light and dark. The frame is remembered; F11 is full screen, Ctrl+Alt+N another
+  window on the same folder, Ctrl+W closes one. Scrollbars are Windows 11's thin
+  ones (WebView2's Fluent overlay style).
+- **The menus**: every item of docs/MENUS.md, with Ctrl for ⌘, gathered into the
+  five a Windows writing app has: **File** (with New ▸ and Sheet ▸), **Edit**,
+  **Format** (the Mac's Markup and Insert), **View** (with the Mac's Go and the
+  Window menu's panels) and **Help**. Alt and F, E, O, V or H opens one; Alt alone
+  moves to the menu bar. Each item calls the page's own command
+  (`window.mosheCommand`), then gives the keyboard back to the page; ticks, titles
+  that change, and the submenus built from the library come from
+  `window.mosheMenuState()` when a menu is pressed open. The page hears every key
+  first, so the menu only shows the keys; Cut, Copy, Paste and Select All press
+  theirs in the page. ⌃⌘ chords have no Windows key: those items are in the menu
+  only. The browser's own keys (Ctrl+P, Ctrl+F, Ctrl+R…) are off, so they reach
+  the page.
+- **Right-click** in a sheet: the spelling suggestions, then Strong, Emphasis,
+  Code, Link, Mark ▸, Heading ▸, Insert ▸ and Clear Markup, then Cut, Copy and
+  Paste. A browser's own items (Back, Reload, Save as, Print…) are taken out.
 - **`window.mosheShell`** (docs/BRIDGE.md §5): a paginated PDF, printed by WebView2
   with the export's `@page` for the paper and margins and its margin boxes for the
   page numbers, which Chromium draws itself; a save dialog for the other exports;

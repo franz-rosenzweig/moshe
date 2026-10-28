@@ -104,6 +104,11 @@ static class SelfTest
                 && Outside.Opened.Any(u => u.AbsoluteUri == "https://example.com/elsewhere"),
                 window.Source?.AbsoluteUri ?? "");
 
+            // the window: Windows 11's title bar, holding the five menus
+            var titles = string.Join(", ", window.MenuTitles);
+            Add("the title bar holds File, Edit, Format, View and Help", titles == "File, Edit, Format, View, Help" && window.ExtendsContentIntoTitleBar, titles);
+            Add("the window is named for its library", window.Title == $"{Path.GetFileName(folder)} - Moshe", window.Title);
+
             // the menu's state, from the page
             var state = await window.MenuState();
             Add("the page gives the menus their state", state?["commands"] is JsonArray { Count: > 0 }, state == null ? "none" : $"{(state["commands"] as JsonArray)?.Count} commands");

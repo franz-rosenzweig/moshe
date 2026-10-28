@@ -26,11 +26,21 @@ A Mac or a phone allows file names Windows doesn't: a name with `: * ? " < > |` 
 
 ## The window
 
-Moshe remembers where the window was. **F11** makes it full screen, **Ctrl+Alt+N** opens a second window on the same library, handy for a reference text on another screen, and **Ctrl+W** closes one. Links in a sheet open in your browser, and nothing but Moshe ever loads in the window.
+The window looks like Windows 11's own apps: one title bar, in the same soft material as theirs, with the menus at the left, your library's name at the right ("Writing - Moshe") and the usual buttons beside it, Snap Layouts included. Moshe remembers where the window was. **F11** makes it full screen, **Ctrl+Alt+N** opens a second window on the same library, handy for a reference text on another screen, and **Ctrl+W** closes one. Links in a sheet open in your browser, and nothing but Moshe ever loads in the window.
 
-## The menu bar
+## The menus
 
-The menu bar has everything, menu by menu: **File**, **Edit**, **Markup**, **Insert**, **View**, **Go**, **Window** and **Help**, the same items as the Mac app's with **Ctrl** where the Mac has **⌘**. Each item does what the same key does in the page. Ticks and changing titles (**Show Library** and **Hide Library**, **Add to Favorites** and **Remove from Favorites**) show what's true right now, and the submenus are built from your library: **Go › Notes** and **Go › Projects** list your groups and projects, **View › Theme** your themes. The Mac's few keys that use both ⌃ and ⌘ have no Windows key, so on Windows those are in the menus only: **Add to Favorites**, **Mark as Material**, **New Filter…**, **Move Line Up** and **Down**. The whole list is in [MENUS.md](MENUS.md).
+The title bar has five menus, with everything the Mac app's eight have and **Ctrl** where the Mac has **⌘**:
+
+- **File**: new sheets and groups (**New ▸**), **Open Quickly…**, what you can do to a sheet (**Sheet ▸**: favorites, material, keywords, a goal, glue, merge, duplicate), **Export…**, **Print…**, **Share…**, the library folder and the server, windows, and **Settings**.
+- **Edit**: undo, the clipboard (with **Copy As ▸** and **Paste As ▸** Markdown, HTML and Rich Text), finding, moving a line or a sheet, splitting, attaching.
+- **Format**: what the Mac calls Markup and Insert: **Strong**, **Emphasis**, **Link**, **Mark ▸**, **Heading ▸**, lists, blocks, **Insert ▸** (images, footnotes, tables, equations…), and **Clear Markup**.
+- **View**: the library and the second editor, the dashboard, the sheet list's order, the side **Panels ▸**, **Go To ▸** your groups and projects, translation, revision and focus modes, the text's counter and highlighting, **Zoom ▸**, the appearance and the theme, and full screen.
+- **Help**.
+
+**Alt** and a menu's letter opens it, as in any Windows app: **Alt+F** File, **Alt+E** Edit, **Alt+O** Format, **Alt+V** View, **Alt+H** Help; **Alt** alone moves to the menu bar. Each item does what the same key does in the page, then hands the keyboard back to your sheet. Ticks and changing titles (**Show Library** and **Hide Library**, **Add to Favorites** and **Remove from Favorites**) show what's true right now, and the submenus are built from your library: **View › Go To › Notes** and **Projects** list your groups and projects, **View › Theme** your themes. The Mac's few keys that use both ⌃ and ⌘ have no Windows key, so on Windows those are in the menus only: **Add to Favorites**, **Mark as Material**, **New › Filter…**, **Move Line Up** and **Down**. The whole list, the Mac's way, is in [MENUS.md](MENUS.md).
+
+**Right-click** in a sheet for the formatting too: after any spelling suggestions come **Strong**, **Emphasis**, **Code**, **Link**, **Mark**, **Heading** and **Insert**, then Cut, Copy and Paste.
 
 ## What Windows adds
 

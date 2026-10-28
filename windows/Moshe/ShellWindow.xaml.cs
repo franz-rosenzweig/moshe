@@ -1,9 +1,12 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text.Json.Nodes;
+using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.Web.WebView2.Core;
 using Windows.Graphics;
 using Windows.Storage.Pickers;
@@ -12,8 +15,9 @@ using WinRT.Interop;
 namespace Moshe;
 
 /// <summary>
-/// One Moshe window: the menu bar (Menus) over the page, which draws everything
-/// else. The Mac's is MosheWindowController in mac/Moshe/Window.swift.
+/// One Moshe window: a Mica title bar holding the menus (Menus), the way a
+/// Windows 11 app has them, over the page, which draws everything else. The
+/// Mac's is MosheWindowController in mac/Moshe/Window.swift.
 /// </summary>
 public sealed partial class ShellWindow : Window
 {
@@ -22,6 +26,7 @@ public sealed partial class ShellWindow : Window
 
     public IntPtr Handle { get; }
     WebView2? web;
+    CoreWebView2Environment? environment;
     FolderBridge? bridge;
     readonly ShellServices services;
     readonly Menus menus;
@@ -46,14 +51,26 @@ public sealed partial class ShellWindow : Window
         menus = new Menus(this, Menu);
         var icon = Path.Join(AppContext.BaseDirectory, "Assets", "Moshe.ico");
         if (File.Exists(icon)) AppWindow.SetIcon(icon);
+        MakeTitleBar();
         Place();
         AppWindow.Changed += (_, e) =>
         {
             if ((e.DidPositionChange || e.DidSizeChange) && AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Restored })
                 normal = new RectInt32(AppWindow.Position.X, AppWindow.Position.Y, AppWindow.Size.Width, AppWindow.Size.Height);
+            if (e.DidSizeChange) FitTitleBar();
         };
-        Root.Loaded += async (_, _) => await StartAsync();
-        Activated += (_, e) => { if (e.WindowActivationState != WindowActivationState.Deactivated) menus.Refresh(); };
+        Root.Loaded += async (_, _) =>
+        {
+            FitTitleBar();
+            await StartAsync();
+        };
+        Activated += (_, e) =>
+        {
+            var active = e.WindowActivationState != WindowActivationState.Deactivated;
+            // as any Windows title bar: dimmer while another window is in front
+            TitleText.Opacity = AppIcon.Opacity = active ? 1 : 0.5;
+            if (active) menus.Refresh();
+        };
         Library.Moved += Reload;
         Closed += (_, _) =>
         {
@@ -62,6 +79,59 @@ public sealed partial class ShellWindow : Window
             Teardown();
             All.Remove(this);
         };
+    }
+
+    // ---- the title bar ---------------------------------------------------------------
+
+    /// <summary>
+    /// The page's window runs to the top under Mica, as Windows 11's own apps do:
+    /// the icon, the menus and the library's name in one row, the system's own
+    /// caption buttons (and their Snap Layouts) at the right of it.
+    /// </summary>
+    void MakeTitleBar()
+    {
+        SystemBackdrop = new MicaBackdrop();
+        ExtendsContentIntoTitleBar = true;
+        SetTitleBar(DragArea);
+        var bar = AppWindow.TitleBar;
+        bar.PreferredHeightOption = TitleBarHeightOption.Tall;
+        bar.ButtonBackgroundColor = Colors.Transparent;
+        bar.ButtonInactiveBackgroundColor = Colors.Transparent;
+        PaintCaptionButtons();
+        Root.ActualThemeChanged += (_, _) => PaintCaptionButtons();
+        var png = Library.WebBundle == null ? null : Path.Join(Library.WebBundle, "icons", "icon-192.png");
+        if (png != null && File.Exists(png)) AppIcon.Source = new BitmapImage(new Uri(png));
+    }
+
+    /// <summary>The caption buttons in the theme's colours, light or dark, as the system's own title bars have them.</summary>
+    void PaintCaptionButtons()
+    {
+        var dark = Root.ActualTheme == ElementTheme.Dark;
+        var bar = AppWindow.TitleBar;
+        var ink = dark ? Colors.White : Colors.Black;
+        bar.ButtonForegroundColor = ink;
+        bar.ButtonHoverForegroundColor = ink;
+        bar.ButtonPressedForegroundColor = ink;
+        bar.ButtonHoverBackgroundColor = dark ? ColorHelper.FromArgb(0x15, 0xFF, 0xFF, 0xFF) : ColorHelper.FromArgb(0x09, 0, 0, 0);
+        bar.ButtonPressedBackgroundColor = dark ? ColorHelper.FromArgb(0x0B, 0xFF, 0xFF, 0xFF) : ColorHelper.FromArgb(0x06, 0, 0, 0);
+        bar.ButtonInactiveForegroundColor = dark ? ColorHelper.FromArgb(0x5D, 0xFF, 0xFF, 0xFF) : ColorHelper.FromArgb(0x5C, 0, 0, 0);
+    }
+
+    /// <summary>Room for the caption buttons, which the system draws over the row.</summary>
+    void FitTitleBar()
+    {
+        var scale = Root.XamlRoot?.RasterizationScale ?? GetDpiForWindow(Handle) / 96.0;
+        if (scale <= 0) return;
+        LeftPad.Width = new GridLength(AppWindow.TitleBar.LeftInset / scale);
+        RightPad.Width = new GridLength(AppWindow.TitleBar.RightInset / scale);
+    }
+
+    /// <summary>The window's name, in the title bar and the taskbar: the library's, then Moshe, as Windows names a document's window.</summary>
+    void NameWindow()
+    {
+        var library = Library.UsesFolder && Library.Folder is { } folder ? Path.GetFileName(Path.TrimEndingDirectorySeparator(folder))
+            : Library.Server?.Host;
+        Title = TitleText.Text = string.IsNullOrEmpty(library) ? "Moshe" : $"{library} - Moshe";
     }
 
     async Task StartAsync()
@@ -88,7 +158,7 @@ public sealed partial class ShellWindow : Window
     /// </summary>
     async Task MakeWebViewAsync()
     {
-        CoreWebView2Environment environment;
+        NameWindow();
         try { environment = await App.WebEnvironment; }
         catch (Exception e)
         {
@@ -165,6 +235,8 @@ public sealed partial class ShellWindow : Window
 
     public Uri? Source => web?.Source;
 
+    public IEnumerable<string> MenuTitles => menus.Titles;
+
     // ---- messages between the page and the window --------------------------------------
 
     void OnMessage(CoreWebView2 sender, CoreWebView2WebMessageReceivedEventArgs e)
@@ -189,6 +261,7 @@ public sealed partial class ShellWindow : Window
                     case "close": Close(); break;
                     case "newWindow": Open(); break;
                     case "fullScreen": FullScreen(AppWindow.Presenter.Kind != AppWindowPresenterKind.FullScreen); break;
+                    case "menu": menus.Open(J.Text(message["letter"])); break;     // Alt, or Alt and a menu's letter
                 }
                 break;
         }
@@ -229,12 +302,16 @@ public sealed partial class ShellWindow : Window
         Library.UseServer();
     }
 
-    /// <summary>Run one of the page's commands (App.svelte, window.mosheCommand).</summary>
+    /// <summary>Run one of the page's commands (App.svelte, window.mosheCommand), with the keyboard back in the page.</summary>
     public void Command(string name, JsonNode? arg = null)
     {
+        FocusPage();
         var a = arg?.ToJsonString() ?? "undefined";
         _ = web?.CoreWebView2?.ExecuteScriptAsync($"window.mosheCommand ? window.mosheCommand({J.Quote(name)}, {a}) : false");
     }
+
+    /// <summary>The keyboard to the page: after a menu, so typing goes on where it was.</summary>
+    public void FocusPage() => web?.Focus(FocusState.Programmatic);
 
     /// <summary>window.mosheMenuState() (docs/MENUS.md), or null before the page has one.</summary>
     public async Task<JsonObject?> MenuState()
@@ -317,23 +394,82 @@ public sealed partial class ShellWindow : Window
     static readonly HashSet<string> Unwanted =
         ["back", "forward", "reload", "saveAs", "print", "createQrCode", "share", "webCapture", "openLinkInNewWindow", "saveLinkAs", "copyLinkToHighlight"];
 
-    /// <summary>The page's right-click menu, without what belongs to a browser: spelling suggestions, cut, copy and paste stay.</summary>
-    void OnContextMenuRequested(CoreWebView2 sender, CoreWebView2ContextMenuRequestedEventArgs e)
+    /// <summary>
+    /// The page's right-click menu, without what belongs to a browser, and in the
+    /// editor with the formatting a Windows writing app has there: after the
+    /// spelling suggestions, before Cut, Copy and Paste.
+    /// </summary>
+    async void OnContextMenuRequested(CoreWebView2 sender, CoreWebView2ContextMenuRequestedEventArgs e)
     {
         var items = e.MenuItems;
         for (var i = items.Count - 1; i >= 0; i--)
             if (Unwanted.Contains(items[i].Name)) items.RemoveAt(i);
-        // and no separator left at an end or beside another
+        if (e.ContextMenuTarget.IsEditable && environment != null)
+        {
+            var deferral = e.GetDeferral();
+            try
+            {
+                // the sheet's own text, not a search box or a field in a panel
+                if (await sender.ExecuteScriptAsync("!!(document.activeElement && document.activeElement.isContentEditable)") == "true")
+                {
+                    var at = items.Select((item, i) => (item, i)).FirstOrDefault(x => x.item.Name is "cut" or "copy" or "paste").i;
+                    if (at == 0 && items.Count > 0 && items[0].Name is not ("cut" or "copy" or "paste")) at = items.Count;
+                    var formatting = Formatting();
+                    for (var i = formatting.Count - 1; i >= 0; i--) items.Insert(at, formatting[i]);
+                }
+            }
+            catch (Exception x) { Log.Write($"context menu: {x.Message}"); }
+            finally
+            {
+                Tidy(items);
+                deferral.Complete();
+            }
+        }
+        else Tidy(items);
+    }
+
+    /// <summary>No separator left at an end of the menu, or beside another.</summary>
+    static void Tidy(IList<CoreWebView2ContextMenuItem> items)
+    {
         for (var i = items.Count - 1; i >= 0; i--)
             if (items[i].Kind == CoreWebView2ContextMenuItemKind.Separator
                 && (i == 0 || i == items.Count - 1 || items[i - 1].Kind == CoreWebView2ContextMenuItemKind.Separator))
                 items.RemoveAt(i);
     }
 
+    /// <summary>The editor's right-click formatting: the page's own commands (docs/MENUS.md, Markup and Insert).</summary>
+    List<CoreWebView2ContextMenuItem> Formatting()
+    {
+        CoreWebView2ContextMenuItem Item(string label, string command, JsonNode? arg = null)
+        {
+            var item = environment!.CreateContextMenuItem(label, null, CoreWebView2ContextMenuItemKind.Command);
+            item.CustomItemSelected += (_, _) => Command(command, arg);
+            return item;
+        }
+        CoreWebView2ContextMenuItem Sub(string label, params CoreWebView2ContextMenuItem[] children)
+        {
+            var sub = environment!.CreateContextMenuItem(label, null, CoreWebView2ContextMenuItemKind.Submenu);
+            foreach (var child in children) sub.Children.Add(child);
+            return sub;
+        }
+        CoreWebView2ContextMenuItem Line() => environment!.CreateContextMenuItem("", null, CoreWebView2ContextMenuItemKind.Separator);
+        return
+        [
+            Line(),
+            Item("Strong", "strong"), Item("Emphasis", "emphasis"), Item("Code", "code"), Item("Link", "link"),
+            Sub("Mark", Item("Mark", "mark"), Item("Delete", "markDelete"), Item("Insert", "markInsert"), Item("Comment", "comment")),
+            Sub("Heading", Item("Title", "heading", 1), Item("Heading", "heading", 2), Item("Subheading", "heading", 3), Item("Paragraph", "heading", 0)),
+            Sub("Insert", Item("Footnote", "insert", "footnote"), Item("Image", "insert", "image"), Item("Table", "insert", "table"),
+                Item("Equation", "insert", "equation"), Item("Divider", "insert", "divider")),
+            Item("Clear Markup", "clearMarkup"),
+            Line(),
+        ];
+    }
+
     public void FullScreen(bool on)
     {
         AppWindow.SetPresenter(on ? AppWindowPresenterKind.FullScreen : AppWindowPresenterKind.Overlapped);
-        Menu.Visibility = on ? Visibility.Collapsed : Visibility.Visible;
+        TitleRow.Visibility = on ? Visibility.Collapsed : Visibility.Visible;
     }
 
     static string Unreachable(string place, string why)

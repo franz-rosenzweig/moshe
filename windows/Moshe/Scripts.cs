@@ -69,6 +69,23 @@ static class Scripts
             const what = shellKey(e);
             if (what) setTimeout(() => { if (!e.defaultPrevented) post({ channel: 'window', what }); }, 0);
           }, true);
+
+          // The menus' keys, as in any Windows app: Alt and a menu's letter opens it
+          // (File, Edit, fOrmat, View, Help), and Alt alone, pressed and let go,
+          // puts the keyboard on the menu bar. Again only if the page leaves them alone.
+          const letters = ['F', 'E', 'O', 'V', 'H'];
+          let altAlone = false;
+          window.addEventListener('keydown', (e) => {
+            if (e.key === 'Alt') { altAlone = !e.ctrlKey && !e.shiftKey && !e.metaKey; return; }
+            altAlone = false;
+            if (!e.altKey || e.ctrlKey || e.shiftKey || e.metaKey || (e.getModifierState && e.getModifierState('AltGraph'))) return;
+            const m = /^Key([A-Z])$/.exec(e.code || '');
+            if (m && letters.includes(m[1])) setTimeout(() => { if (!e.defaultPrevented) post({ channel: 'window', what: 'menu', letter: m[1] }); }, 0);
+          }, true);
+          window.addEventListener('keyup', (e) => {
+            if (e.key === 'Alt' && altAlone) { altAlone = false; post({ channel: 'window', what: 'menu' }); }
+          }, true);
+          window.addEventListener('blur', () => { altAlone = false; });
         })();
         """;
 }

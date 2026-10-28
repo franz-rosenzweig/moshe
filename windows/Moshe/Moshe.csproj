@@ -9,7 +9,7 @@
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <RootNamespace>Moshe</RootNamespace>
     <AssemblyName>Moshe</AssemblyName>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <Product>Moshe</Product>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platforms>x64;ARM64</Platforms>
