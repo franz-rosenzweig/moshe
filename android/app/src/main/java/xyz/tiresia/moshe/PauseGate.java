@@ -19,7 +19,7 @@ final class PauseGate {
         void level(float v);
     }
 
-    static final double MIN_MS = 250, MAX_MS = 15000;
+    static final double MIN_MS = 150, MAX_MS = 15000;   // less speech than this is a click; a quick "two" is about 0.2 s
     double pauseMs = 700;
     private float noise = 0.004f;
     private boolean speaking;
