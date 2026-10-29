@@ -193,7 +193,8 @@ the threshold. The rule used to let go of anything under 0.25 s of speech, so
 the page's detector and the gates alike dropped it as a click, and
 `tools/voice-e2e.mjs --audio` heard 8 of its 9 utterances. A person saying a
 quick "two" is near the same line. The rule's least is 0.15 s now, in the page
-(`mic.js`, `vad-worklet.js`) and on Windows; a click of 0.1 s is still let go.
+(`mic.js`, `vad-worklet.js`), on the Mac and on Windows; a click of 0.1 s is
+still let go.
 With it, the e2e hears all nine, in Edge; on the e2e's sentences the app's own
 base.en got 9 of 9, 0.6 s each on average.
 
