@@ -1,5 +1,6 @@
 package xyz.tiresia.moshe;
 
+import android.Manifest;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
@@ -18,6 +19,7 @@ import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.webkit.MimeTypeMap;
+import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -31,20 +33,25 @@ import android.window.OnBackInvokedDispatcher;
 import org.json.JSONObject;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * Moshe: the web app (frontend/) from inside the APK, over the library, in a
  * WebView. The page is the whole interface and already has a phone layout —
  * library, sheets, editor, each with a way back — so this serves it, gives it
  * the folder (Bridge, as window.MosheStorage) and the few things a page cannot
- * do (ShellServices), and hands Back to it.
+ * do (ShellServices; Voice, for writing by voice), and hands Back to it.
  *
  * The page comes from https://appassets.androidplatform.net/, answered from
  * assets/web/, and nothing else is ever loaded here: any other address goes to
@@ -56,11 +63,12 @@ public class MainActivity extends Activity {
     static final String HOST = "appassets.androidplatform.net";
     private static final String SHELL_JS = "/__moshe/shell.js";
     private static final String LIBRARY = "/_library/";
-    private static final int PICK = 1, SAVE = 2, FILES = 3;
+    private static final int PICK = 1, SAVE = 2, FILES = 3, MIC = 4;
 
     private WebView web;
     private Bridge bridge;
     private ShellServices services;
+    private Voice voice;
     private Library library;
     private StylusButton stylus;
     private boolean serverMode;
@@ -69,6 +77,7 @@ public class MainActivity extends Activity {
     private Bridge.Reply picking;                 // a "pick" waiting for the picker to close
     private ValueCallback<Uri> saving;            // a save waiting for its place
     private ValueCallback<Uri[]> choosing;        // an <input type=file> waiting for files
+    private final List<Consumer<Boolean>> micWaiting = new ArrayList<>();   // waiting for the microphone's permission
 
     @Override
     protected void onCreate(Bundle state) {
@@ -107,6 +116,9 @@ public class MainActivity extends Activity {
             services = new ShellServices(this, web);
             web.addJavascriptInterface(bridge, "MosheStorage");
             web.addJavascriptInterface(services, "MosheShellNative");
+            voice = new Voice(this, web);
+            testVoiceFile(getIntent());
+            web.addJavascriptInterface(voice, "MosheVoiceNative");
         }
         stylus = new StylusButton(web);
         web.addJavascriptInterface(new InkReader(web), "MosheInk");       // Hebrew handwriting read as text (InkReader)
@@ -195,10 +207,19 @@ public class MainActivity extends Activity {
         }
     }
 
+    /** A test build can hear a file instead of the microphone (check.sh voice), when it's started
+     *  or when it's already running (a Galaxy reopens an app on its own after an update). */
+    private void testVoiceFile(Intent intent) {
+        boolean debuggable = (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+        String heard = debuggable && intent != null ? intent.getStringExtra("moshe.voiceFile") : null;
+        if (voice != null && heard != null) voice.testFile = new File(getFilesDir(), heard);
+    }
+
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
+        testVoiceFile(intent);
         if (web == null || sharedText(intent) == null) return;
         // what is being typed is saved before the page starts again with the share
         web.evaluateJavascript("(window.__mosheLocal ? window.__mosheLocal.flush() : Promise.resolve()).catch(() => {})"
@@ -210,6 +231,14 @@ public class MainActivity extends Activity {
         super.onResume();
         // Syncthing may have brought changes while the app was away
         if (web != null) web.evaluateJavascript("window.__mosheFilesChanged && window.__mosheFilesChanged()", null);
+        if (voice != null) voice.resume();
+    }
+
+    @Override
+    protected void onPause() {
+        // Android gives an app in the background no microphone: listening waits until it's back
+        if (voice != null) voice.pause();
+        super.onPause();
     }
 
     // ---- Back ----
@@ -277,6 +306,7 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         if (bridge != null) bridge.close();
         if (services != null) services.close();
+        if (voice != null) voice.close();
         if (web != null) web.destroy();
         super.onDestroy();
     }
@@ -315,6 +345,26 @@ public class MainActivity extends Activity {
             saving = null;
             done.onReceiveValue(null);
         }
+    }
+
+    /** The microphone, for listening (Voice) or for the page's own (Whisper): asked for once. */
+    void withMic(Consumer<Boolean> then) {
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            then.accept(true);
+            return;
+        }
+        micWaiting.add(then);
+        if (micWaiting.size() == 1) requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, MIC);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int request, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(request, permissions, results);
+        if (request != MIC) return;
+        boolean allowed = results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED;
+        List<Consumer<Boolean>> all = new ArrayList<>(micWaiting);
+        micWaiting.clear();
+        for (Consumer<Boolean> c : all) c.accept(allowed);
     }
 
     @Override
@@ -434,8 +484,25 @@ public class MainActivity extends Activity {
         return type == null ? "application/octet-stream" : type;
     }
 
-    /** <input type=file>: a picture for a sheet, a file to import. */
+    /** <input type=file>: a picture for a sheet, a file to import. The microphone, for the page's own listening. */
     private final class Chrome extends WebChromeClient {
+        /** getUserMedia: the microphone (only) for the app's own page, which listens with Whisper where the phone can't. */
+        @Override
+        public void onPermissionRequest(PermissionRequest request) {
+            Uri from = request.getOrigin();
+            boolean ours = from != null && (serverMode
+                    ? String.valueOf(from.getScheme()).equals(server.getScheme()) && String.valueOf(from.getHost()).equals(server.getHost())
+                    : "https".equals(from.getScheme()) && HOST.equals(from.getHost()));
+            if (!ours || !Arrays.asList(request.getResources()).contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) {
+                request.deny();
+                return;
+            }
+            withMic(allowed -> {
+                if (allowed) request.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
+                else request.deny();
+            });
+        }
+
         @Override
         public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
             if (choosing != null) choosing.onReceiveValue(null);

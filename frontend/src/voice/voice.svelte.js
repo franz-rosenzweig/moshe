@@ -596,27 +596,41 @@ const DO = {
   back(g) { command(/back/iu.test(g[0]) ? 'back' : 'forward'); return { msg: /back/iu.test(g[0]) ? 'Back' : 'Forward' }; },
 };
 
-// ---- reading aloud, in the system's voices
+// ---- reading aloud, in the system's voices, or the app's (Android's WebView has none)
+
+let onSpoken = null;
+/** A native app reading aloud (mosheShell.voice.speak): the place in the text of the word it's reading. */
+export function spoken(start, end) { if (onSpoken) onSpoken(start, end); }
+const appReader = () => { const s = typeof window !== 'undefined' && window.mosheShell && window.mosheShell.voice; return s && s.speak ? s : null; };
 
 function read(v, r, msg = 'Reading') {
   const { text, map } = spokenText(textOf(v), r[0], r[1]);
   if (!text.trim()) return { fail: 'Nothing there to read' };
-  if (!('speechSynthesis' in window)) return { fail: 'This browser has no voices to read with' };
+  const app = appReader();
+  if (!app && !('speechSynthesis' in window)) return { fail: 'This browser has no voices to read with' };
   stopReading();
   const token = ++readToken;
   voice.reading = true;
   v.dispatch({ effects: setVoice.of({ reading: r, word: null }) });
+  /** Lights the word that starts at `at` (to `to`, when the reader says where it ends). */
+  const light = (at, to) => {
+    if (token !== readToken || !(at >= 0) || at >= text.length) return;
+    let j = to > at ? Math.min(to, text.length) : at;
+    if (!(to > at)) while (j < text.length && /[\p{L}\p{N}'’-]/u.test(text[j])) j++;
+    const vv = view();
+    if (vv && j > at) vv.dispatch({ effects: setVoice.of({ word: [map[at], map[j - 1] + 1] }) });
+  };
+  const done = () => { if (token !== readToken) return; voice.reading = false; onSpoken = null; const vv = view(); if (vv) vv.dispatch({ effects: setVoice.of({ reading: null, word: null }) }); };
+  const rate = prefs.voice.rate || 1;
+  if (app) {
+    onSpoken = light;
+    app.speak(text, voice.lang, rate).then(done, (e) => { const failed = token === readToken; done(); if (failed) report('', 'fail', String(e.message || e), '', {}); });
+    return { msg };
+  }
   const u = new SpeechSynthesisUtterance(text);
   u.lang = voice.lang === 'he' ? 'he-IL' : 'en-US';
-  u.rate = prefs.voice.rate || 1;
-  u.onboundary = (e) => {
-    if (token !== readToken || (e.name && e.name !== 'word')) return;
-    let j = e.charIndex;
-    while (j < text.length && /[\p{L}\p{N}'’-]/u.test(text[j])) j++;
-    const vv = view();
-    if (vv && j > e.charIndex) vv.dispatch({ effects: setVoice.of({ word: [map[e.charIndex], map[j - 1] + 1] }) });
-  };
-  const done = () => { if (token !== readToken) return; voice.reading = false; const vv = view(); if (vv) vv.dispatch({ effects: setVoice.of({ reading: null, word: null }) }); };
+  u.rate = rate;
+  u.onboundary = (e) => { if (!e.name || e.name === 'word') light(e.charIndex); };
   let started = false;
   u.onstart = () => { started = true; };
   u.onend = done;
@@ -629,7 +643,10 @@ function read(v, r, msg = 'Reading') {
 }
 export function stopReading() {
   readToken++;
+  onSpoken = null;
   try { if ('speechSynthesis' in window) speechSynthesis.cancel(); } catch { /* nothing to stop */ }
+  const app = appReader();
+  if (app && voice.reading) Promise.resolve(app.stopSpeaking()).catch(() => {});
   if (!voice.reading) return;
   voice.reading = false;
   const v = view();
