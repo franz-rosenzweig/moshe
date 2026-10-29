@@ -49,4 +49,4 @@ A few things are only in the menus:
 
 When the Mac app works on a folder, there's no server behind it on the Mac. If the same folder is also a Moshe server's library, through Syncthing as mine is, that server backs it up, and if the app syncs with a server over WebDAV, that server does; otherwise, Time Machine is the answer. **Settings › Backup** says what Moshe knows about it. For the same reason, **Check Text** needs the app to use the server's page; the as-you-type checks work everywhere.
 
-<sub>Next: [The Android app](android.md) →</sub>
+<sub>Next: [The Windows app](windows.md) →</sub>

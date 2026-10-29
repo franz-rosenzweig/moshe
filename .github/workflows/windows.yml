@@ -1,0 +1,104 @@
+# The Windows app (windows/README.md), on GitHub's Windows machines: the web app
+# built into it, the folder code's tests (with tools/bridge_sim.py as the
+# reference), the app, its self-test on a scratch library, and the installer,
+# kept with the run. A tag windows-vX.Y.Z also makes the GitHub release.
+name: Windows
+on:
+  push:
+    branches: [master, 'windows*', 'voice-windows']
+    tags: ['windows-v*']
+    paths: ['windows/**', 'frontend/**', 'engine/**', 'tools/bridge_sim.py', '.github/workflows/windows.yml']
+  pull_request:
+    paths: ['windows/**', 'frontend/**', 'engine/**', 'tools/bridge_sim.py', '.github/workflows/windows.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: The version
+        id: version
+        shell: pwsh
+        run: |
+          $v = if ($env:GITHUB_REF -like 'refs/tags/windows-v*') { $env:GITHUB_REF_NAME -replace '^windows-v', '' }
+               else { ([xml](Get-Content windows/Moshe/Moshe.csproj)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1 }
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+      - name: The web app builds, with voice's word files
+        working-directory: frontend
+        run: npm ci && npm run build
+
+      - name: The folder code's and voice's tests
+        run: dotnet run --project windows/Tests -c Release -- --repo "${{ github.workspace }}"
+
+      - name: The icon
+        shell: powershell
+        run: windows/tools/make-icon.ps1
+
+      # Whisper's base.en, built in (windows/tools/get-models.ps1 checks it), kept between runs
+      - uses: actions/cache@v4
+        with:
+          path: build/models
+          key: whisper-models-${{ hashFiles('windows/tools/get-models.ps1') }}
+      - name: Whisper's model
+        shell: pwsh
+        run: windows/tools/get-models.ps1 -Models base.en
+
+      - name: The app builds
+        run: dotnet publish windows/Moshe/Moshe.csproj -c Release -r win-x64 -p:Platform=x64 -p:Version=${{ steps.version.outputs.version }} -o build/Moshe
+
+      - name: The self-test
+        shell: pwsh
+        run: windows/selftest.ps1 -App build/Moshe/Moshe.exe
+
+      - name: The installer
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y | Out-Null
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /Q "/DVersion=${{ steps.version.outputs.version }}" "/DSource=$PWD\build\Moshe" windows\installer.iss
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          Compress-Archive -Path build\Moshe\* -DestinationPath "build\out\Moshe-${{ steps.version.outputs.version }}-portable.zip"
+
+      # kept even when a check fails: the self-test's PDF and saved files are the evidence
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Moshe-${{ steps.version.outputs.version }}-windows
+          path: |
+            build/out/*
+            build/selftest/*
+          if-no-files-found: warn
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/windows-v')
+    needs: windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - name: The release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "Moshe for Windows ${GITHUB_REF_NAME#windows-v}" \
+            --notes "Moshe for Windows. Run the Setup to install it for you alone (no administrator needed), or unzip the portable copy anywhere. Windows warns about an app from an unknown publisher the first time: More info → Run anyway." \
+            dist/*/out/Moshe-*-Setup.exe dist/*/out/Moshe-*-portable.zip

@@ -5,8 +5,8 @@
 Writing and editing by voice, for writers who can't use their hands much, or
 would rather not. It's off until **Settings › Voice** turns it on. Then a strip
 appears under the text, and the dashboard gains two views, **Voice** and
-**Words**. **⌥⌘L** starts and stops listening, and so does the strip's
-microphone button.
+**Words**. **⌥⌘L** (**Ctrl+Alt+L** on Windows) starts and stops listening, and
+so does the strip's microphone button.
 
 ## The rule
 
@@ -108,7 +108,9 @@ The thesaurus and the definitions are WordNet's (Princeton, a free licence:
 
 The pause detector keeps a running guess at the room's noise. It hears speech
 start when the sound rises well above that, and ends the utterance at the first
-0.7 s pause. It runs on the audio thread, so nothing the page does can drop a word.
+0.7 s pause. Less than 0.15 s of speech is a click or a cough, and is let go; a
+quick "two", picking from a list, is about 0.2 s. It runs on the audio thread,
+so nothing the page does can drop a word.
 
 Reading aloud ("read that back", "read this paragraph", "read sentence 4") uses
 the system's voices (`speechSynthesis`) and lights each word as it's read. The
@@ -167,11 +169,39 @@ The app sends the recognizer's alternatives with each utterance (`alternatives` 
 `mosheVoice.final`'s second argument). It sends them only for an utterance heard
 as one piece, since they are guesses at all of it.
 
-### Android and Windows
+### Windows
 
-Android's recognizer comes next. Windows has no app yet; it would use Whisper
-(whisper.cpp). The Android WebView has no `speechSynthesis`, so reading aloud
-there will need a `voice.speak` from the app.
+`windows/Moshe/Voice.cs`, on any 64-bit Windows 10 or 11 PC.
+
+- **Recognizer:** Whisper, through whisper.cpp (Whisper.net), on the processor and offline. **base.en** (148 MB) is built into the app. **small.en** (488 MB) hears more exactly and takes longer to: View › Voice Model fetches it once from Hugging Face and checks it against its SHA-256. With no model on the PC, there is no `mosheShell.voice`, and the page listens with its own Whisper.
+- **Pauses:** the Mac's pause detector, line for line (`windows/Moshe.Core/PauseGate.cs`), on the microphone's sound at 16 kHz: 20 ms blocks, the running noise floor, the pause `start` asks for. Each utterance keeps its sound from 0.4 s before speech was heard to just after it ended, so its first sound, quieter than the threshold, isn't lost. Whisper writes it down at the pause; there are no partials.
+- **Short utterances:** whisper.cpp hears nothing in less than a second ("input is too short"), and "Two." or "Bold that." are shorter. So each utterance gets silence either side, to 1.5 s at least. Cut down (below), Whisper wrote only a full stop for a "Two." said on its own; when it writes nothing else, the utterance is written down again with the whole window. Padding less instead made it loop ("2 2 2 2…") or write "Use to.".
+- **Custom words:** they are Whisper's initial prompt. whisper.cpp keeps only the prompt's last 224 tokens, so the commands come first and the names last, about 850 characters in all: the names and the first 45 or so of the 90 command phrases. The prompt matters. On the e2e's sentences, without it 2 of 8 came out exactly ("Abner's truck", "Use 2.", no stops); with it, 8 of 8. With a prompt, whisper.cpp starts what it writes with ". ", which the app takes off.
+- **Speed** (a 6-core i5-12400, six threads): whisper.cpp encodes a whole 30 s window however short the utterance. Cut down (`audio_ctx`) to what the utterance needs, it is two or three times quicker and hears as well. For utterances that don't fit, the whole window.
+  - base.en: 1.1 s an utterance with the whole window, 0.4 s at 512 (10 s of sound), 8 of 8 either way. At 256 it says everything twice.
+  - small.en: 3.7 s whole, 1.8 s at 768, where it wrote "Use 2." for "Use two." (the same to the page). At 512 it also wrote "Use to." and "scratch that.".
+  - The page's own Whisper base in Edge, for comparison: 2.3–3.2 s.
+- **Other guesses:** whisper.cpp gives one, so `alternatives` is empty; near misses still work.
+- **Hebrew:** base.en and small.en are English only. Starting in Hebrew is refused, with the reason on the strip: Settings › Voice › "Whisper, on This Computer" uses the page's multilingual model. Switching to Hebrew while listening stops listening.
+- **The microphone:** the default recording device, through WaveIn. If Windows' privacy settings keep the microphone from desktop apps, the strip says where to allow it. The page's own Whisper (when Settings › Voice chooses it) gets the microphone too, on the app's own page only.
+- **Reading aloud:** WebView2 has `speechSynthesis` with Windows' own voices, three on a Windows 11 PC, and it marks each word as it reads it, so it needs no `voice.speak`. Edge's online "natural" voices aren't in WebView2. With no speakers (GitHub's Windows machines) it has the voices but fails at once (`synthesis-failed`), and the self-test says so rather than failing.
+- **Menus:** View › Voice, View › Start Listening (Ctrl+Alt+L, which the page hears itself) and View › Voice Model.
+- **Self-test:** `windows/selftest.ps1` speaks the Mac's nine sentences with Windows' own voice (System.Speech, `windows/tools/speak.ps1`) into a file, then "Two." on its own and "Scratch that.". The app hears the file instead of the microphone (`--voice-file`), and the self-test checks the sheet. base.en writes each one down 0.4–0.5 s after its pause.
+
+What testing showed: Windows' own voice says "Two." in 0.24 s of sound above
+the threshold. The rule used to let go of anything under 0.25 s of speech, so
+the page's detector and the gates alike dropped it as a click, and
+`tools/voice-e2e.mjs --audio` heard 8 of its 9 utterances. A person saying a
+quick "two" is near the same line. The rule's least is 0.15 s now, in the page
+(`mic.js`, `vad-worklet.js`), on the Mac and on Windows; a click of 0.1 s is
+still let go.
+With it, the e2e hears all nine, in Edge; on the e2e's sentences the app's own
+base.en got 9 of 9, 0.6 s each on average.
+
+### Android
+
+Android's recognizer comes next. The Android WebView has no `speechSynthesis`,
+so reading aloud there will need a `voice.speak` from the app.
 
 ## Tests
 
@@ -185,12 +215,18 @@ node tools/voice-e2e.mjs APP_DIR --audio --gpu   # spoken by the Mac's `say` int
 `tools/voice-e2e.mjs` shows how to make it. The first run says about fifty
 things, from "select the water tower" and "two" to "accept all". After each one
 it checks what the text became. The second run speaks nine of them and needs
-Chromium, a Mac and the network (Whisper's first download).
+Chromium, a Mac and the network (Whisper's first download). On Windows it runs
+in Edge (`CHROME`), and speaks with Windows' own voice.
+
+The apps' own recognizers have their self-tests: `mac/selftest.sh voice` and
+`windows/selftest.ps1`. The Windows pause gate's tests, on made-up sound, are
+in `dotnet run --project windows/Tests`.
 
 ## Not yet
 
-- **Android's recognizer, and a Windows app,** described above.
-- **Hebrew:** commands, and a thesaurus.
+- **Android's recognizer,** described above.
+- **Hebrew:** commands, and a thesaurus; on Windows, a multilingual Whisper for the app's own recognizer.
+- **Whisper on the graphics chip on Windows** (whisper.cpp's Vulkan build).
 - **Starting to listen when Moshe opens.**
 - **A build of Moshe with voice on from the start,** under its own name.
 
