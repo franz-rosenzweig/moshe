@@ -250,6 +250,8 @@ void Voice()
 
     Check(Utterances.ForWhisper(new float[rate / 2]).Length == rate * 3 / 2 && Utterances.ForWhisper(new float[2 * rate]).Length == 2 * rate + 2 * rate / 5,
         "Whisper gets a second and a half at least, with silence either side");
+    Check(Utterances.Fits(Utterances.ForWhisper(new float[9 * rate]).Length, 512) && !Utterances.Fits(Utterances.ForWhisper(new float[10 * rate]).Length, 512)
+        && Utterances.Fits(Utterances.ForWhisper(new float[14 * rate]).Length, 768), "the quick encoder takes 9 s of speech at 512, 14 s at 768");
     Check(Utterances.Clean(" [BLANK_AUDIO]") == "" && Utterances.Clean(" Thank you.") == "" && Utterances.Clean("(wind blowing)") == "",
         "what Whisper makes up from noise is dropped");
     Check(Utterances.Clean(" \"Delete that.\"") == "Delete that." && Utterances.Clean("  Scratch   that. ") == "Scratch that.", "quotes round the whole of it and spaces go");

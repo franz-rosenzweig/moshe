@@ -79,12 +79,12 @@ public sealed class Utterances
     }
 
     /// <summary>
-    /// What whisper.cpp's encoder is given (audio_ctx, 50 to the second): 512 rather than
-    /// the 1500 of a whole 30 s window, which is two or three times quicker for what fits
-    /// in it, and heard as well (docs/VOICE.md, Windows). Longer utterances get the whole.
+    /// Whether an utterance (padded, <see cref="ForWhisper"/>) fits in whisper.cpp's
+    /// encoder cut down to <paramref name="context"/> (audio_ctx, 50 to the second) rather
+    /// than the 1500 of a whole 30 s window: two or three times quicker for what fits,
+    /// and heard as well (docs/VOICE.md, Windows). What doesn't fit gets the whole window.
     /// </summary>
-    public const int QuickContext = 512;
-    public const int QuickSamples = Rate * 10;
+    public static bool Fits(int samples, int context) => samples <= context * (Rate / 50) - Rate / 10;
 
     static readonly Regex Asides = new(@"\[[^\]]*\]|\([^)]*\)|♪", RegexOptions.Compiled);
     static readonly Regex Leading = new(@"^[\s.,;:!?…-]+", RegexOptions.Compiled);

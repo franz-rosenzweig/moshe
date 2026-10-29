@@ -148,8 +148,8 @@ sealed class Listener(VoiceService service)
             return builder.Build();
         }
         // the quick one for all but the longest utterances, the whole 30 s window for those
-        var (quick, whole) = (Processor(Utterances.QuickContext), Processor(0));
-        _ = Task.Run(() => Write(quick, whole));
+        var (quick, whole) = (Processor(model.Context), Processor(0));
+        _ = Task.Run(() => Write(quick, whole, model.Context));
         if (App.Options.VoiceFile is { } file)
         {
             label += ", from a file";
@@ -205,7 +205,7 @@ sealed class Listener(VoiceService service)
     }
 
     /// <summary>Whisper, one utterance after another: what it wrote, cleaned, to the page.</summary>
-    async Task Write(WhisperProcessor quick, WhisperProcessor whole)
+    async Task Write(WhisperProcessor quick, WhisperProcessor whole, int context)
     {
         try
         {
@@ -217,7 +217,7 @@ sealed class Listener(VoiceService service)
                 try
                 {
                     // never cancelled half-way: whisper.cpp finishes the utterance, and a stopped listener drops it
-                    var processor = padded.Length <= Utterances.QuickSamples ? quick : whole;
+                    var processor = Utterances.Fits(padded.Length, context) ? quick : whole;
                     await foreach (var segment in processor.ProcessAsync(padded)) parts.Add(segment.Text);
                 }
                 catch (Exception e) { Log.Write($"voice: Whisper: {e.Message}"); }
@@ -308,10 +308,11 @@ sealed class Listener(VoiceService service)
 /// </summary>
 static class VoiceModels
 {
-    public sealed record Model(string Key, string Label, string File, long Bytes, string Sha256);
+    /// <summary>A model; <c>Context</c> is its quick encoder's audio_ctx (Utterances.Fits), as small as it still hears as well with.</summary>
+    public sealed record Model(string Key, string Label, string File, long Bytes, string Sha256, int Context);
 
-    public static readonly Model Base = new("base.en", "Whisper base.en", "ggml-base.en.bin", 147_964_211, "a03779c86df3323075f5e796cb2ce5029f00ec8869eee3fdfb897afe36c6d002");
-    public static readonly Model Small = new("small.en", "Whisper small.en", "ggml-small.en.bin", 487_614_201, "c6138d6d58ecc8322097e0f987c32f1be8bb0a18532a3f88f734d1bbf9c41e5d");
+    public static readonly Model Base = new("base.en", "Whisper base.en", "ggml-base.en.bin", 147_964_211, "a03779c86df3323075f5e796cb2ce5029f00ec8869eee3fdfb897afe36c6d002", 512);
+    public static readonly Model Small = new("small.en", "Whisper small.en", "ggml-small.en.bin", 487_614_201, "c6138d6d58ecc8322097e0f987c32f1be8bb0a18532a3f88f734d1bbf9c41e5d", 768);
 
     static string Fetched => Path.Join(App.DataDir, "Models");
 
