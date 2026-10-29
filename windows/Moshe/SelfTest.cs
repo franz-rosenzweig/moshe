@@ -184,13 +184,16 @@ static class SelfTest
             await Task.Delay(800);
             var before = J.Int(await window.Evaluate("__mosheVoice.state().count"));
             await window.Evaluate("mosheCommand('listen'), 1");
-            var all = J.Bool(await Until(window, $"__mosheVoice.state().count >= {before + 9}", TimeSpan.FromSeconds(120)));
+            // the Mac's nine, then "Two." on its own (typed: there is no list) and "Scratch that."
+            var all = J.Bool(await Until(window, $"__mosheVoice.state().count >= {before + 11}", TimeSpan.FromSeconds(150)));
             await window.Evaluate("mosheCommand('listen'), 1");                                  // stop
-            var heard = (await window.Evaluate("__mosheVoice.state().heard.slice(0, 9).reverse().map((h) => [h.said, h.kind, h.msg || '', h.how || ''])")) as JsonArray ?? new JsonArray();
+            var heard = (await window.Evaluate("__mosheVoice.state().heard.slice(0, 11).reverse().map((h) => [h.said, h.kind, h.msg || '', h.how || ''])")) as JsonArray ?? new JsonArray();
             var said = string.Join(" | ", heard.OfType<JsonArray>().Select(h => $"“{J.Text(h[0])}” {J.Text(h[1])}{(J.Text(h[2]) is { Length: > 0 } m ? $" ({m})" : "")}"));
-            Add("voice: nine utterances heard, one at each pause", all && heard.Count == 9, said);
+            Add("voice: eleven utterances heard, one at each pause", all && heard.Count == 11, said);
             var kinds = string.Join(" ", heard.OfType<JsonArray>().Select(h => J.Text(h[1])));
-            Add("voice: text, commands and sleep told apart", kinds == "text command text command command command command ignored command", kinds);
+            Add("voice: text, commands and sleep told apart", kinds == "text command text command command command command ignored command text command", kinds);
+            var two = heard.Count == 11 ? J.Text(heard[9]?[0]) ?? "" : "";
+            Add("voice: a word said on its own is heard (“Two.”)", two.TrimEnd('.') is "2" or "Two" or "two", two);
             var text = J.Text(await window.Evaluate("__mosheVoice.text()"));
             Add("voice: the sheet says what was said", text == "The storm came in from the west.\n\nIt rained for three days.", text ?? "no sheet");
             var how = heard.OfType<JsonArray>().Select(h => J.Text(h[3]) ?? "").FirstOrDefault(h => h.Length > 0) ?? "";

@@ -16,7 +16,8 @@ public sealed class PauseGate
     /// <summary>Start and Short: the time, in seconds of sound; End: the time the utterance ends at; Level: 0–1.</summary>
     public readonly record struct Event(Kind Kind, double Value);
 
-    public const double MinMs = 250, MaxMs = 15000;
+    /// <summary>MinMs: less speech than that is a click or a cough; a quick "two" (picking from a list) is about 0.2 s.</summary>
+    public const double MinMs = 150, MaxMs = 15000;
     public double PauseMs { get; set; } = 700;
 
     /// <summary>Seconds of sound seen.</summary>

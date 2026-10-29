@@ -17,7 +17,8 @@ export const MODELS = {
   small: { repo: 'onnx-community/whisper-small.en', cpu: 249, gpu: 586, label: 'Whisper small' },
   he: { repo: 'onnx-community/whisper-base', cpu: 77, gpu: 206, label: 'Whisper base, multilingual' },
 };
-const PAUSE_MS = 700, MAX_MS = 15000, MIN_MS = 250;
+// MIN_MS: less speech than that is a click or a cough; a quick "two" (picking from a list) is about 0.2 s
+const PAUSE_MS = 700, MAX_MS = 15000, MIN_MS = 150;
 const SR = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
 export const browserCanListen = !!SR;
 const shell = () => (typeof window !== 'undefined' && window.mosheShell && window.mosheShell.voice) || null;

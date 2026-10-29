@@ -15,9 +15,10 @@ $results = Join-Path $work 'results.json'
 New-Item -ItemType Directory -Force $library, $data, $saved | Out-Null
 
 # Voice: the Mac's self-test's sentences (mac/selftest.sh), spoken by Windows' own voice into a
-# file, which the app hears instead of the microphone (Voice.cs, --voice-file), cut at the pauses
+# file, which the app hears instead of the microphone (Voice.cs, --voice-file), cut at the pauses;
+# then a word said on its own, which Whisper cut down can miss, and its undoing
 $voice = Join-Path $work 'voice.wav'
-$said = 'The storm came in from the west.|New paragraph.|It rained for three days.|Select the storm.|Make that bold.|Scratch that.|Go to sleep.|This should not be typed.|Wake up.'
+$said = 'The storm came in from the west.|New paragraph.|It rained for three days.|Select the storm.|Make that bold.|Scratch that.|Go to sleep.|This should not be typed.|Wake up.|Two.|Scratch that.'
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'tools\speak.ps1') -Out $voice -Say $said
 if ($LASTEXITCODE) { Write-Host "Windows' voice didn't speak: the voice checks will say so" }
 

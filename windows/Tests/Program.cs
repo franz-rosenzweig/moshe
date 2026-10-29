@@ -241,6 +241,8 @@ void Voice()
         "its sound starts in the quiet before it, and holds all of it");
     Check(Count(Hear(Sound(Quiet(1), Hum(0.1), Quiet(1))), PauseGate.Kind.Short) == 1 && Count(Hear(Sound(Quiet(1), Hum(0.1), Quiet(1))), PauseGate.Kind.End) == 0,
         "a click is too short to be an utterance");
+    // Windows' own voice says "Two." in 0.24 s of sound: a number, picked from a list, must count
+    Check(Count(Hear(Sound(Quiet(1), Hum(0.24), Quiet(1))), PauseGate.Kind.End) == 1, "a quick “two”, 0.24 s, is an utterance");
     Check(Count(Hear(Sound(Quiet(1), Hum(0.8), Quiet(0.4), Hum(0.8), Quiet(1.5))), PauseGate.Kind.End) == 1, "a breath of 0.4 s goes on with the same utterance");
     Check(Count(Hear(Sound(Quiet(1), Hum(0.8), Quiet(1), Hum(0.8), Quiet(1.5))), PauseGate.Kind.End) == 2, "a pause of 1 s ends it");
     Check(Count(Hear(Sound(Quiet(1), Hum(0.8), Quiet(0.4), Hum(0.8), Quiet(1.5)), pause: 300), PauseGate.Kind.End) == 2, "start's pause sets where it ends");

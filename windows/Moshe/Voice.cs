@@ -207,23 +207,29 @@ sealed class Listener(VoiceService service)
     /// <summary>Whisper, one utterance after another: what it wrote, cleaned, to the page.</summary>
     async Task Write(WhisperProcessor quick, WhisperProcessor whole, int context)
     {
+        static async Task<string> Written(WhisperProcessor processor, float[] padded)
+        {
+            var parts = new List<string>();
+            try
+            {
+                // never cancelled half-way: whisper.cpp finishes the utterance, and a stopped listener drops it
+                await foreach (var segment in processor.ProcessAsync(padded)) parts.Add(segment.Text);
+            }
+            catch (Exception e) { Log.Write($"voice: Whisper: {e.Message}"); }
+            return Utterances.Clean(string.Join(" ", parts));
+        }
         try
         {
             await foreach (var sound in queue.Reader.ReadAllAsync())
             {
                 var clock = Stopwatch.StartNew();
-                var parts = new List<string>();
                 var padded = Utterances.ForWhisper(sound);
-                try
-                {
-                    // never cancelled half-way: whisper.cpp finishes the utterance, and a stopped listener drops it
-                    var processor = Utterances.Fits(padded.Length, context) ? quick : whole;
-                    await foreach (var segment in processor.ProcessAsync(padded)) parts.Add(segment.Text);
-                }
-                catch (Exception e) { Log.Write($"voice: Whisper: {e.Message}"); }
+                var cut = Utterances.Fits(padded.Length, context);
+                var text = await Written(cut ? quick : whole, padded);
+                // cut down, whisper.cpp may write only a stop for a word said on its own ("Two."): the whole window, then
+                if (cut && text.Length == 0) text = await Written(whole, padded);
                 Interlocked.Decrement(ref pending);
                 if (Gone) continue;
-                var text = Utterances.Clean(string.Join(" ", parts));
                 var how = $"{label} · {sound.Length / (double)Utterances.Rate:0.0} s of speech, words in {clock.Elapsed.TotalSeconds:0.0} s";
                 if (text.Length == 0) service.Send("partial", "");
                 else service.Send("final", text, new JsonObject { ["how"] = how, ["alternatives"] = new JsonArray() });

@@ -108,7 +108,9 @@ The thesaurus and the definitions are WordNet's (Princeton, a free licence:
 
 The pause detector keeps a running guess at the room's noise. It hears speech
 start when the sound rises well above that, and ends the utterance at the first
-0.7 s pause. It runs on the audio thread, so nothing the page does can drop a word.
+0.7 s pause. Less than 0.15 s of speech is a click or a cough, and is let go; a
+quick "two", picking from a list, is about 0.2 s. It runs on the audio thread,
+so nothing the page does can drop a word.
 
 Reading aloud ("read that back", "read this paragraph", "read sentence 4") uses
 the system's voices (`speechSynthesis`) and lights each word as it's read. The
@@ -173,7 +175,7 @@ as one piece, since they are guesses at all of it.
 
 - **Recognizer:** Whisper, through whisper.cpp (Whisper.net), on the processor and offline. **base.en** (148 MB) is built into the app. **small.en** (488 MB) hears more exactly and takes longer to: View › Voice Model fetches it once from Hugging Face and checks it against its SHA-256. With no model on the PC, there is no `mosheShell.voice`, and the page listens with its own Whisper.
 - **Pauses:** the Mac's pause detector, line for line (`windows/Moshe.Core/PauseGate.cs`), on the microphone's sound at 16 kHz: 20 ms blocks, the running noise floor, the pause `start` asks for. Each utterance keeps its sound from 0.4 s before speech was heard to just after it ended, so its first sound, quieter than the threshold, isn't lost. Whisper writes it down at the pause; there are no partials.
-- **Short utterances:** whisper.cpp hears nothing in less than a second ("input is too short"), and "Two." or "Bold that." are shorter. So each utterance gets silence either side, to 1.5 s at least.
+- **Short utterances:** whisper.cpp hears nothing in less than a second ("input is too short"), and "Two." or "Bold that." are shorter. So each utterance gets silence either side, to 1.5 s at least. Cut down (below), Whisper wrote only a full stop for a "Two." said on its own; when it writes nothing else, the utterance is written down again with the whole window. Padding less instead made it loop ("2 2 2 2…") or write "Use to.".
 - **Custom words:** they are Whisper's initial prompt. whisper.cpp keeps only the prompt's last 224 tokens, so the commands come first and the names last, about 850 characters in all: the names and the first 45 or so of the 90 command phrases. The prompt matters. On the e2e's sentences, without it 2 of 8 came out exactly ("Abner's truck", "Use 2.", no stops); with it, 8 of 8. With a prompt, whisper.cpp starts what it writes with ". ", which the app takes off.
 - **Speed** (a 6-core i5-12400, six threads): whisper.cpp encodes a whole 30 s window however short the utterance. Cut down (`audio_ctx`) to what the utterance needs, it is two or three times quicker and hears as well. For utterances that don't fit, the whole window.
   - base.en: 1.1 s an utterance with the whole window, 0.4 s at 512 (10 s of sound), 8 of 8 either way. At 256 it says everything twice.
@@ -184,13 +186,16 @@ as one piece, since they are guesses at all of it.
 - **The microphone:** the default recording device, through WaveIn. If Windows' privacy settings keep the microphone from desktop apps, the strip says where to allow it. The page's own Whisper (when Settings › Voice chooses it) gets the microphone too, on the app's own page only.
 - **Reading aloud:** WebView2 has `speechSynthesis` with Windows' own voices, three on a Windows 11 PC, and it marks each word as it reads it, so it needs no `voice.speak`. Edge's online "natural" voices aren't in WebView2.
 - **Menus:** View › Voice, View › Start Listening (Ctrl+Alt+L, which the page hears itself) and View › Voice Model.
-- **Self-test:** `windows/selftest.ps1` speaks the Mac's nine sentences with Windows' own voice (System.Speech, `windows/tools/speak.ps1`) into a file, which the app hears instead of the microphone (`--voice-file`), and checks the sheet. base.en writes each one down 0.5 s after its pause.
+- **Self-test:** `windows/selftest.ps1` speaks the Mac's nine sentences with Windows' own voice (System.Speech, `windows/tools/speak.ps1`) into a file, then "Two." on its own and "Scratch that.". The app hears the file instead of the microphone (`--voice-file`), and the self-test checks the sheet. base.en writes each one down 0.4–0.5 s after its pause.
 
 What testing showed: Windows' own voice says "Two." in 0.24 s of sound above
-the threshold. That is under the rule's 250 ms, so the page's detector and the
-shells' gates alike drop it as a click: `tools/voice-e2e.mjs --audio` hears 8 of
-its 9 utterances on Windows. Every other check there passes. A person saying a
-quick "two" to pick from a list is near the same line.
+the threshold. The rule used to let go of anything under 0.25 s of speech, so
+the page's detector and the gates alike dropped it as a click, and
+`tools/voice-e2e.mjs --audio` heard 8 of its 9 utterances. A person saying a
+quick "two" is near the same line. The rule's least is 0.15 s now, in the page
+(`mic.js`, `vad-worklet.js`) and on Windows; a click of 0.1 s is still let go.
+With it, the e2e hears all nine, in Edge; on the e2e's sentences the app's own
+base.en got 9 of 9, 0.6 s each on average.
 
 ### Android
 
