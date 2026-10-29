@@ -5,7 +5,7 @@
 // recognizer (Chrome sends the audio to Google, Safari to Apple). Whichever it
 // is, it reports through the same window.mosheVoice the native apps call.
 import vadUrl from './vad-worklet.js?url&no-inline';
-import { voice, hear, partial, onLanguage } from './voice.svelte.js';
+import { voice, hear, partial, spoken, onLanguage } from './voice.svelte.js';
 import { commandPhrases } from '@engine/voice.js';
 import { prefs } from '../lib/state.svelte.js';
 
@@ -20,7 +20,8 @@ export const MODELS = {
 const PAUSE_MS = 700, MAX_MS = 15000, MIN_MS = 250;
 const SR = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
 export const browserCanListen = !!SR;
-const shell = () => (typeof window !== 'undefined' && window.mosheShell && window.mosheShell.voice) || null;
+// a native app's recognizer; an app may offer only reading aloud (voice.speak), which isn't one
+const shell = () => { const v = typeof window !== 'undefined' && window.mosheShell && window.mosheShell.voice; return v && v.start ? v : null; };
 
 let running = false, speaking = false, pending = 0;
 const set = (mic, { pct = null, caption = null } = {}) => {
@@ -41,8 +42,9 @@ if (typeof window !== 'undefined') {
       if (text) hear(text, { source: 'mic', how: meta.how || meta.engine || '', alternatives: Array.isArray(meta.alternatives) ? meta.alternatives.map(String) : [] });
       else partial('');
     },
-    state: (s, pct) => set(s === 'error' ? 'error' : s, { pct }),
+    state: (s, pct, caption) => { set(s === 'error' ? 'error' : s, { pct, caption: caption || null }); if (s === 'error' && running) stopListening(true); },
     level: (v) => { voice.level = Math.max(0, Math.min(1, Number(v) || 0)); },
+    spoken: (start, end) => spoken(Number(start), Number(end)),
   };
 }
 

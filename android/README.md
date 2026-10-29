@@ -28,6 +28,11 @@ what a page cannot do.
   (its dialog has Save as PDF; the export's `@page` gives the paper), the other
   exports through the system's create-document screen, the share sheet, and the
   browser for links.
+- **Writing by voice** (docs/VOICE.md): the phone's own speech recognizer
+  behind `mosheShell.voice`, cut at the page's pauses (`Voice.java`,
+  `PauseGate.java`), and reading aloud with the phone's text-to-speech
+  (`Speaker.java`). On Android 12 and earlier the page listens with Whisper, and
+  the app lets it have the microphone.
 - **Share into Moshe**: text shared from any app becomes a new sheet in the Inbox.
 - **Back** goes back in the page first (editor → sheets → library,
   `window.mosheBack()`), and leaves the app only when the page has nowhere to go.
@@ -64,6 +69,7 @@ With the phone plugged in and USB debugging on:
 ```sh
 ./check.sh           # the test build on its own folder, seeded with the sample library
 ./check.sh tree      # on the folder picked in the test build (pick it on the phone first)
+./check.sh voice     # writing by voice from a file made with the Mac's `say`, then reading aloud
 ```
 
 It installs the test build (`xyz.tiresia.moshe.debug`), opens it, and over the

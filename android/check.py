@@ -2,7 +2,7 @@
 """The test build's page, over DevTools (check.sh forwards it): the bridge's
 conformance checks, and what the shell adds — the user agent, mosheShell before
 the page's scripts, /_library/ serving pictures and refusing paths out, the
-Back chain, and info."""
+Back chain, and info. With `voice`: writing by voice and reading aloud instead."""
 import asyncio
 import json
 import sys
@@ -57,6 +57,10 @@ async def main(devtools, kind):
                         "window.__mosheStorageReply = (i, j) => { if (i === id) { window.__mosheStorageReply = prev; res(JSON.parse(j).ok); } else prev(i, j); }; "
                         "window.MosheStorage.request(id, JSON.stringify({ v: 1, op: 'info', args: {} })); }) : null")
         check(info and info.get("pollSeconds") == 15 and info.get("http") is True, "info: poll every 15 s, and op http", json.dumps(info, ensure_ascii=False))
+        if kind == "voice":
+            await voice(js)
+            print("SELFTEST passed" if failures == 0 else f"SELFTEST {failures} failed")
+            return 1 if failures else 0
 
         r = await js("window.__mosheLocal.conformance()", timeout=300)
         for x in (r or {}).get("results", []):
@@ -88,6 +92,87 @@ async def main(devtools, kind):
             check(first is True, "Back goes back a pane in the page first")
         print("SELFTEST passed" if failures == 0 else f"SELFTEST {failures} failed")
         return 1 if failures else 0
+
+
+async def new_sheet(js):
+    """A new sheet, open in the editor. On a phone a new sheet waits in the list, so it's tapped open."""
+    await js("(mosheCommand('newSheet'), 1)")
+    await asyncio.sleep(0.5)
+    if await js("__mosheVoice.text() === null && !!document.querySelector('.card.sel')"):
+        await js("(document.querySelector('.card.sel').click(), 1)")
+        await asyncio.sleep(0.8)
+
+
+async def voice(js):
+    """Writing by voice (docs/VOICE.md): the phone's recognizer hears the sentences check.sh made with `say`, from
+    a file instead of the microphone; the pauses cut them into utterances; the page carries each out in a new
+    sheet. Then the phone reads a paragraph aloud, lighting each word."""
+    shell = await js("JSON.stringify(Object.keys((window.mosheShell && window.mosheShell.voice) || {}))")
+    print("INFO  mosheShell.voice: " + shell)
+    check("speak" in shell and "stopSpeaking" in shell, "voice: the shell reads aloud (speak)")
+    if "start" not in shell:
+        print("INFO  voice: this phone has no recognizer for apps (or Android before 13); the page would use Whisper")
+    elif not await js("window.MosheVoiceNative.hearsFile()"):
+        # never the real microphone: on a phone someone may be talking
+        check(False, "voice: the test build hears the file check.sh gave it, not the microphone")
+    else:
+        await js("(mosheMenuState().voice || mosheCommand('voice'), 1)")
+        await new_sheet(js)
+        before = await js("__mosheVoice.state().count")
+        await js("(mosheCommand('listen'), 1)")
+        heard_all = False
+        for _ in range(240):
+            if await js("__mosheVoice.state().count") >= before + 9:
+                heard_all = True
+                break
+            await asyncio.sleep(0.5)
+        state = await js("__mosheVoice.state()")
+        await js("(mosheCommand('listen'), 1)")                                   # stop
+        heard = list(reversed(state["heard"][: state["count"] - before]))
+        for h in heard:
+            print("INFO  voice heard " + json.dumps([h["said"], h["kind"], h["msg"], h["how"]], ensure_ascii=False))
+        if state.get("caption"):
+            print("INFO  voice caption: " + state["caption"])
+        check(heard_all, "voice: nine utterances heard, one at each pause", f"{len(heard)} heard, mic {state['mic']}")
+        kinds = " ".join(h["kind"] for h in heard[:9])
+        check(kinds == "text command text command command command command ignored command", "voice: text, commands and sleep told apart", kinds)
+        text = await js("__mosheVoice.text()")
+        # Google's recognizers write "the West", Apple's "the west": either is what was said
+        check(text in ("The storm came in from the west.\n\nIt rained for three days.", "The storm came in from the West.\n\nIt rained for three days."),
+              "voice: the sheet says what was said", json.dumps(text))
+        check(any("Android" in h["how"] for h in heard), "voice: heard by Android's recognizer")
+
+    # the page's own microphone (Whisper, where the phone has no recognizer): granted to the app's page
+    mic = await js("navigator.mediaDevices.getUserMedia({ audio: true }).then((s) => (s.getTracks().forEach((t) => t.stop()), 'granted'), (e) => e.name)")
+    check(mic in ("granted", "NotFoundError", "NotReadableError"), "voice: the page may use the microphone (for Whisper)", mic)
+    print("INFO  the WebView's own speechSynthesis: " + await js("'speechSynthesis' in window ? (speechSynthesis.getVoices().length + ' voices') : 'none'"))
+
+    # reading aloud: what's said is handed over as if heard; the app reads it and says where each word is
+    await js("(window.__spoken = [], ((f) => { window.mosheVoice.spoken = (a, b) => { window.__spoken.push([a, b]); f(a, b); }; })(window.mosheVoice.spoken), 1)")
+    if not await js("__mosheVoice.text()"):
+        await new_sheet(js)
+        await js("(mosheVoice.final('The storm came in from the west.', { how: 'check.py' }), 1)")
+        await asyncio.sleep(0.8)
+    await js("(mosheVoice.final('read this paragraph', { how: 'check.py' }), 1)")
+    started = False
+    for _ in range(40):
+        if await js("__mosheVoice.state().reading"):
+            started = True
+            break
+        await asyncio.sleep(0.25)
+    lit = False
+    for _ in range(80):
+        if await js("!!document.querySelector('.cm-voice-word')"):
+            lit = True
+        if not await js("__mosheVoice.state().reading"):
+            break
+        await asyncio.sleep(0.25)
+    spoken = await js("window.__spoken")
+    last = await js("JSON.stringify(__mosheVoice.state().heard[0])")
+    check(started, "reading aloud: it starts", last)
+    check(len(spoken or []) >= 3, "reading aloud: the app says where each word is", json.dumps(spoken))
+    check(not await js("__mosheVoice.state().reading"), "reading aloud: it ends")
+    print("INFO  reading aloud: a word was lit in the text" if lit else "INFO  reading aloud: no word was lit")
 
 
 if __name__ == "__main__":
