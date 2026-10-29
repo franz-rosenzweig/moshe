@@ -19,6 +19,9 @@ sealed class ShellServices(ShellWindow owner)
 {
     StorageFile? sharing;
 
+    /// <summary>Listening, for writing by voice (Voice.cs): wherever a Whisper model is.</summary>
+    public VoiceService Voice { get; } = new(owner);
+
     public async void Handle(int id, string op, JsonObject args)
     {
         JsonObject reply;
@@ -35,6 +38,8 @@ sealed class ShellServices(ShellWindow owner)
     {
         switch (op)
         {
+            case "voiceStart" or "voiceStop" or "voiceLanguage":
+                return await Voice.Answer(op, args);
             case "savePdf":
             {
                 var html = J.Text(args["html"]) ?? throw new ShellError("no HTML to print");

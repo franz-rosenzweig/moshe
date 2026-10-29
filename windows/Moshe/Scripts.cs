@@ -32,6 +32,7 @@ static class Scripts
             sharePdf: (html, fileName) => call('sharePdf', { html: String(html), fileName: String(fileName || 'Export.pdf') }),
             openExternal: (url) => call('openExternal', { url: String(url) }),
             copy: (what) => call('copy', { text: String((what && what.text) || ''), html: what && what.html ? String(what.html) : '' }),
+        {{(VoiceService.Available ? VoiceService.Script : "")}}
           });
 
           // the folder bridge (docs/BRIDGE.md, 2) with Android's transport, which the

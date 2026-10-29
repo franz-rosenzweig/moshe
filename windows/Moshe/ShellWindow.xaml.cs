@@ -235,6 +235,7 @@ public sealed partial class ShellWindow : Window
         core.NewWindowRequested += OnNewWindowRequested;
         core.ProcessFailed += OnProcessFailed;
         core.ContextMenuRequested += OnContextMenuRequested;
+        core.PermissionRequested += OnPermissionRequested;
         core.ContainsFullScreenElementChanged += (_, _) =>
         {
             pageFull = core.ContainsFullScreenElement;
@@ -259,6 +260,8 @@ public sealed partial class ShellWindow : Window
 
     void Teardown()
     {
+        // the page that asked to listen is going: no more of what is heard for it
+        services.Voice.Stop(quiet: true);
         bridge?.Dispose();
         bridge = null;
         // a page that was full screen goes with its web view
@@ -286,6 +289,8 @@ public sealed partial class ShellWindow : Window
     public Uri? Source => web?.Source;
 
     public IEnumerable<string> MenuTitles => menus.Titles;
+
+    public IEnumerable<string> MenuItems(string title) => menus.Items(title);
 
     // ---- messages between the page and the window --------------------------------------
 
@@ -331,6 +336,19 @@ public sealed partial class ShellWindow : Window
             catch (Exception e) { Log.Write($"post: {e.Message}"); }
         });
     }
+
+    /// <summary>A script in the page, from any thread, its answer not waited for (voice's mosheVoice calls).</summary>
+    public void Script(string script) => DispatcherQueue.TryEnqueue(() =>
+    {
+        try { _ = web?.CoreWebView2?.ExecuteScriptAsync(script); }
+        catch (Exception e) { Log.Write($"script: {e.Message}"); }
+    });
+
+    /// <summary>Listening for the page (Voice.cs).</summary>
+    internal VoiceService Voice => services.Voice;
+
+    /// <summary>Where a dialog of the window's goes.</summary>
+    public XamlRoot? DialogRoot => Root.XamlRoot;
 
     void Reply(int id, JsonObject answer) => Post(new JsonObject { ["channel"] = "storage", ["id"] = id, ["reply"] = answer });
 
@@ -453,6 +471,22 @@ public sealed partial class ShellWindow : Window
         // the whole browser gone: a web view again
         if (e.ProcessFailedKind == CoreWebView2ProcessFailedKind.RenderProcessExited) sender.Reload();
         else if (e.ProcessFailedKind == CoreWebView2ProcessFailedKind.BrowserProcessExited) DispatcherQueue.TryEnqueue(Reload);
+    }
+
+    /// <summary>What the page asked the microphone for, and what it was told, for the self-test.</summary>
+    public static readonly List<(string Origin, bool Allowed)> MicrophoneAsked = [];
+
+    /// <summary>
+    /// The microphone, for the page's own listening (Whisper in the page, or the
+    /// browser's, when Settings › Voice chooses them): the app's own page only, never
+    /// anything else that might load in it. The app's own recognizer needs no asking.
+    /// </summary>
+    void OnPermissionRequested(CoreWebView2 sender, CoreWebView2PermissionRequestedEventArgs e)
+    {
+        if (e.PermissionKind != CoreWebView2PermissionKind.Microphone) return;
+        var ours = Uri.TryCreate(e.Uri, UriKind.Absolute, out var from) && Library.IsOurs(from);
+        e.State = ours ? CoreWebView2PermissionState.Allow : CoreWebView2PermissionState.Deny;
+        lock (MicrophoneAsked) MicrophoneAsked.Add((e.Uri, ours));
     }
 
     static readonly HashSet<string> Unwanted =

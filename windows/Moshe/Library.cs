@@ -16,6 +16,7 @@ static class Library
         public string? Folder { get; set; }               // a path
         public string? Server { get; set; }
         public int[]? Window { get; set; }                 // x, y, width, height, maximised: the first window's place
+        public string? VoiceModel { get; set; }            // "base.en" | "small.en": what voice listens with (Voice.cs)
     }
 
     static Settings settings = new();
@@ -105,5 +106,11 @@ static class Library
     {
         get => settings.Window;
         set { settings.Window = value; Save(); }
+    }
+
+    public static string? VoiceModel
+    {
+        get => settings.VoiceModel;
+        set { settings.VoiceModel = value; Save(); }
     }
 }

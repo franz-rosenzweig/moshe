@@ -24,8 +24,8 @@ static class SelfTest
 
     public static void Start()
     {
-        // never longer than two minutes, whatever hangs
-        _ = Task.Delay(TimeSpan.FromMinutes(2)).ContinueWith(_ => Finish("it took more than two minutes"));
+        // never longer than four minutes, whatever hangs (voice takes one: nine sentences, said at a talking pace)
+        _ = Task.Delay(TimeSpan.FromMinutes(4)).ContinueWith(_ => Finish("it took more than four minutes"));
     }
 
     static void Add(string name, bool ok, string detail = "")
@@ -152,12 +152,85 @@ static class SelfTest
             var state = await window.MenuState();
             Add("the page gives the menus their state", state?["commands"] is JsonArray { Count: > 0 }, state == null ? "none" : $"{(state["commands"] as JsonArray)?.Count} commands");
 
+            await Voice(window);
             Finish();
         }
         catch (Exception e)
         {
             Finish(e.ToString());
         }
+    }
+
+    /// <summary>
+    /// Writing by voice (docs/VOICE.md): Whisper hears sentences from a file (selftest.ps1
+    /// makes it with Windows' own voice) instead of the microphone, the pause gate cuts
+    /// them into utterances, and the page carries each out in a new sheet; as the Mac's
+    /// self-test does with Apple's dictation. Then the rest of what voice needs here: the
+    /// menus, Ctrl+Alt+L, the microphone for the page's own Whisper, reading aloud.
+    /// </summary>
+    static async Task Voice(ShellWindow window)
+    {
+        var view = window.MenuItems("View").ToList();
+        Add("voice: View has Voice, Start Listening (Ctrl+Alt+L) and Voice Model",
+            view.Contains("Voice") && view.Contains("Start Listening (Ctrl+Alt+L)") && view.Contains("Voice Model"), string.Join(", ", view));
+        var model = VoiceModels.Current;
+        Add("voice: a Whisper model is here, and the shell offers its recognizer",
+            model != null && J.Bool(await window.Evaluate("!!(window.mosheShell && window.mosheShell.voice)")), model?.Path ?? "no model");
+
+        if (App.Options.VoiceFile is not { } file || !File.Exists(file)) Add("voice: the spoken file is there", false, "selftest.ps1 makes it with System.Speech");
+        else
+        {
+            await window.Evaluate("mosheMenuState().voice || mosheCommand('voice'), mosheCommand('newSheet'), 1");
+            await Task.Delay(800);
+            var before = J.Int(await window.Evaluate("__mosheVoice.state().count"));
+            await window.Evaluate("mosheCommand('listen'), 1");
+            var all = J.Bool(await Until(window, $"__mosheVoice.state().count >= {before + 9}", TimeSpan.FromSeconds(120)));
+            await window.Evaluate("mosheCommand('listen'), 1");                                  // stop
+            var heard = (await window.Evaluate("__mosheVoice.state().heard.slice(0, 9).reverse().map((h) => [h.said, h.kind, h.msg || '', h.how || ''])")) as JsonArray ?? new JsonArray();
+            var said = string.Join(" | ", heard.OfType<JsonArray>().Select(h => $"“{J.Text(h[0])}” {J.Text(h[1])}{(J.Text(h[2]) is { Length: > 0 } m ? $" ({m})" : "")}"));
+            Add("voice: nine utterances heard, one at each pause", all && heard.Count == 9, said);
+            var kinds = string.Join(" ", heard.OfType<JsonArray>().Select(h => J.Text(h[1])));
+            Add("voice: text, commands and sleep told apart", kinds == "text command text command command command command ignored command", kinds);
+            var text = J.Text(await window.Evaluate("__mosheVoice.text()"));
+            Add("voice: the sheet says what was said", text == "The storm came in from the west.\n\nIt rained for three days.", text ?? "no sheet");
+            var how = heard.OfType<JsonArray>().Select(h => J.Text(h[3]) ?? "").FirstOrDefault(h => h.Length > 0) ?? "";
+            Add("voice: heard by Whisper on this PC", how.StartsWith("Whisper ", StringComparison.Ordinal), how);
+        }
+
+        // Ctrl+Alt+L, as the menu says: the page hears it and starts listening, and again stops
+        window.Key("l", "KeyL", 0x4C, 1 | 2);
+        var on = J.Bool(await Until(window, "mosheMenuState().listening", TimeSpan.FromSeconds(5)));
+        window.Key("l", "KeyL", 0x4C, 1 | 2);
+        var off = J.Bool(await Until(window, "!mosheMenuState().listening", TimeSpan.FromSeconds(5)));
+        Add("voice: Ctrl+Alt+L starts listening, and again stops it", on && off, $"{(on ? "started" : "didn't start")}, {(off ? "stopped" : "didn't stop")}");
+
+        // the microphone, for the page's own Whisper: the app's page may have it (where there is one)
+        var mic = J.Text(await window.Evaluate("navigator.mediaDevices.getUserMedia({ audio: true }).then((s) => { s.getTracks().forEach((t) => t.stop()); return 'granted'; }, (e) => e.name)"));
+        bool allowed;
+        lock (ShellWindow.MicrophoneAsked) allowed = ShellWindow.MicrophoneAsked.Any(a => a.Allowed && a.Origin.StartsWith(AppScheme.Origin, StringComparison.OrdinalIgnoreCase));
+        Add("voice: the app's own page may have the microphone", mic == "granted" ? allowed : mic == "NotFoundError",
+            mic == "NotFoundError" ? "no microphone on this PC" : $"{mic}; asked and allowed: {allowed}");
+
+        // reading aloud ("read that back"): the system's voices in the page, a word at a time as each is read
+        var read = await window.Evaluate("""
+            new Promise((done) => {
+              const voices = () => speechSynthesis.getVoices();
+              let words = 0, started = false;
+              const go = () => {
+                const u = new SpeechSynthesisUtterance('Reading aloud works in this window.');
+                u.volume = 0.05;
+                u.onstart = () => { started = true; };
+                u.onboundary = (e) => { if (e.name === 'word') words++; };
+                u.onend = () => done({ voices: voices().length, started, words, ended: true });
+                u.onerror = (e) => done({ voices: voices().length, started, words, error: e.error });
+                speechSynthesis.speak(u);
+                setTimeout(() => done({ voices: voices().length, started, words, ended: false }), 10000);
+              };
+              if (voices().length) go(); else { speechSynthesis.onvoiceschanged = () => { speechSynthesis.onvoiceschanged = null; go(); }; setTimeout(go, 3000); }
+            })
+            """);
+        Add("voice: reading aloud speaks, and says each word as it reads it",
+            J.Int(read?["voices"]) > 0 && J.Bool(read?["ended"]) && J.Int(read?["words"]) >= 5, read?.ToJsonString() ?? "");
     }
 
     /// <summary>The expression's value once it is truthy, or its last value when the time runs out.</summary>

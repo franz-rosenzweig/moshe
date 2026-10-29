@@ -242,6 +242,11 @@ sealed class Menus
         Toggle(view, "Revision Mode", "revision", "revision", "Ctrl+Shift+E");
         Toggle(view, "Focus Mode", "hideInterface", "interfaceHidden", "Ctrl+.");
         Line(view);
+        // writing by voice (docs/VOICE.md): on in Settings › Voice or here; the page hears Ctrl+Alt+L itself
+        Toggle(view, "Voice", "voice", "voice");
+        Swap(view, "Start Listening", "Stop Listening", "listening", "listen", key: "Ctrl+Alt+L");
+        VoiceModel(Sub(view, "Voice Model").Items);
+        Line(view);
         var text = Sub(view, "Text");
         Swap(text.Items, "Show Counter", "Hide Counter", "counter", "toggleCounter");
         Swap(text.Items, "Show Paragraph Numbers", "Hide Paragraph Numbers", "paragraphNumbers", "toggleParagraphNumbers");
@@ -313,9 +318,10 @@ sealed class Menus
     }
 
     /// <summary>An item whose title says what it will do: Add to Favorites, or Remove from Favorites when the sheet is one.</summary>
-    void Swap(IList<MenuFlyoutItemBase> into, string off, string on, string state, string offCommand, string? onCommand = null)
+    void Swap(IList<MenuFlyoutItemBase> into, string off, string on, string state, string offCommand, string? onCommand = null, string? key = null)
     {
         var item = new MenuFlyoutItem { Text = off };
+        Key(item, key);
         var now = offCommand;
         item.Click += (_, _) => Run(now, null);
         into.Add(item);
@@ -372,6 +378,36 @@ sealed class Menus
         updates.Add(Fill);
     }
 
+    /// <summary>
+    /// The Whisper model voice listens with (Voice.cs), the shell's own choice:
+    /// base.en, built in, or small.en, fetched the first time it is chosen.
+    /// </summary>
+    void VoiceModel(IList<MenuFlyoutItemBase> into)
+    {
+        var group = $"model{groups++}";
+        foreach (var model in new[] { VoiceModels.Base, VoiceModels.Small })
+        {
+            var item = new RadioMenuFlyoutItem { GroupName = group };
+            item.Click += async (_, _) =>
+            {
+                owner.FocusPage();
+                await VoiceModels.Choose(owner, model);
+                Refresh();
+            };
+            into.Add(item);
+            void Update(JsonObject _)
+            {
+                var here = VoiceModels.PathOf(model) != null;
+                item.Text = model == VoiceModels.Base ? "Whisper base.en (quicker)"
+                    : here ? "Whisper small.en (more exact)" : $"Whisper small.en (more exact; fetches {model.Bytes / 1_000_000} MB)";
+                item.IsChecked = VoiceModels.Current?.Model == model;
+                item.IsEnabled = here || model == VoiceModels.Small;
+            }
+            Update([]);
+            updates.Add(Update);
+        }
+    }
+
     /// <summary>A Paste As item: the page may not read the clipboard from a menu, so the shell hands it over.</summary>
     void Clip(IList<MenuFlyoutItemBase> into, string text, string command, string kind, string? key = null)
     {
@@ -422,4 +458,13 @@ sealed class Menus
 
     /// <summary>The menus' titles, for the self-test.</summary>
     public IEnumerable<string> Titles => bar.Items.Select(m => m.Title);
+
+    /// <summary>One menu's items, as "Text" or "Text (key)", for the self-test.</summary>
+    public IEnumerable<string> Items(string title) =>
+        bar.Items.FirstOrDefault(m => m.Title == title)?.Items.OfType<MenuFlyoutItemBase>().Select(i => i switch
+        {
+            MenuFlyoutItem item => string.IsNullOrEmpty(item.KeyboardAcceleratorTextOverride) ? item.Text : $"{item.Text} ({item.KeyboardAcceleratorTextOverride})",
+            MenuFlyoutSubItem sub => sub.Text,
+            _ => "-",
+        }) ?? [];
 }

@@ -30,6 +30,10 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260921001" />
+    <!-- writing by voice (Voice.cs): whisper.cpp on the processor, and the microphone through WaveIn -->
+    <PackageReference Include="Whisper.net" Version="1.9.1" />
+    <PackageReference Include="Whisper.net.Runtime" Version="1.9.1" />
+    <PackageReference Include="NAudio.WinMM" Version="3.3.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -39,5 +43,17 @@
   <ItemGroup>
     <Content Include="Assets\Moshe.ico" Condition="Exists('Assets\Moshe.ico')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\..\frontend\dist\**\*" LinkBase="web" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- Whisper's models, built in as Models\ (windows/tools/get-models.ps1 fetches them into
+       build\models): base.en, and with build.ps1 -SmallModel small.en too -->
+  <PropertyGroup>
+    <VoiceModels Condition="'$(VoiceModels)' == ''">base.en</VoiceModels>
+  </PropertyGroup>
+  <ItemGroup>
+    <Content Include="..\..\build\models\ggml-base.en.bin" Condition="$(VoiceModels.Contains('base.en')) And Exists('..\..\build\models\ggml-base.en.bin')"
+             Link="Models\ggml-base.en.bin" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\build\models\ggml-small.en.bin" Condition="$(VoiceModels.Contains('small.en')) And Exists('..\..\build\models\ggml-small.en.bin')"
+             Link="Models\ggml-small.en.bin" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

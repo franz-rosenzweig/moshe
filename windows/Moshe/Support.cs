@@ -2,8 +2,12 @@ using System.Text.Json.Nodes;
 
 namespace Moshe;
 
-/// <summary>The command line: nothing, for a person; the self-test's switches for windows/selftest.ps1.</summary>
-public sealed record Options(bool SelfTest, string? Data, string? Folder, string? Out, string? SaveDir, bool DevTools)
+/// <summary>
+/// The command line: nothing, for a person; the self-test's switches for windows/selftest.ps1.
+/// --voice-file is a WAV that voice hears instead of the microphone; --voice-model base.en
+/// or small.en listens with that one, whatever View › Voice Model says.
+/// </summary>
+public sealed record Options(bool SelfTest, string? Data, string? Folder, string? Out, string? SaveDir, bool DevTools, string? VoiceFile, string? VoiceModel)
 {
     public static Options Parse(string[] args)
     {
@@ -12,7 +16,8 @@ public sealed record Options(bool SelfTest, string? Data, string? Folder, string
             var i = Array.IndexOf(args, name);
             return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
         }
-        return new(args.Contains("--selftest"), Value("--data"), Value("--folder"), Value("--out"), Value("--save-dir"), args.Contains("--devtools"));
+        return new(args.Contains("--selftest"), Value("--data"), Value("--folder"), Value("--out"), Value("--save-dir"), args.Contains("--devtools"),
+            Value("--voice-file"), Value("--voice-model"));
     }
 }
 

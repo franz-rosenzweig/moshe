@@ -178,7 +178,7 @@ try
         "info names the folder and says the shell watches it");
 
     // ---- the http op's address rules
-    Check(ShellHttp.IsPrivate([100, 91, 202, 11]) && ShellHttp.IsPrivate([192, 168, 1, 2]) && ShellHttp.IsPrivate([127, 0, 0, 1]), "tailnet, LAN and loopback addresses are private");
+    Check(ShellHttp.IsPrivate([100, 64, 12, 34]) &&ShellHttp.IsPrivate([192, 168, 1, 2]) && ShellHttp.IsPrivate([127, 0, 0, 1]), "tailnet, LAN and loopback addresses are private");
     Check(!ShellHttp.IsPrivate([8, 8, 8, 8]) && !ShellHttp.IsPrivate([100, 128, 0, 1]), "public addresses are not");
     Check(ShellHttp.IsPrivate(System.Net.IPAddress.Parse("fd7a:115c:a1e0::1").GetAddressBytes())
         && ShellHttp.IsPrivate(System.Net.IPAddress.Parse("::1").GetAddressBytes())
@@ -187,6 +187,9 @@ try
     Check(await ShellHttp.IsPrivate("localhost") && await ShellHttp.IsPrivate("app.localhost"), "localhost is private");
     var plain = await ShellHttp.Answer(Args(("url", "http://example.com/"), ("method", "GET")));
     Check(Code(plain) == "EINVAL", "plain http to the internet is refused");
+
+    // ---- voice (docs/VOICE.md): the pause gate and the utterances it cuts, on made-up sound
+    Voice();
 
     // ---- the reference: the same messages through tools/bridge_sim.py
     CrossCheck();
@@ -199,6 +202,65 @@ finally
 
 Console.WriteLine(failures == 0 ? "\nall passed" : $"\n{failures} failed");
 return failures == 0 ? 0 : 1;
+
+void Voice()
+{
+    const int rate = Utterances.Rate;
+    // silence with a little hiss, and a voice-like hum at 0.1, as the microphone would give them
+    var random = new Random(7);
+    float[] Quiet(double s) => Enumerable.Range(0, (int)(s * rate)).Select(_ => (float)(random.NextDouble() - 0.5) * 0.004f).ToArray();
+    float[] Hum(double s) => Enumerable.Range(0, (int)(s * rate)).Select(i => 0.1f * MathF.Sin(2 * MathF.PI * 220 * i / rate)).ToArray();
+    float[] Sound(params float[][] parts) => parts.SelectMany(p => p).ToArray();
+    // in 50 ms pieces, as WaveIn hands them over: 2½ of the gate's 20 ms blocks each time
+    List<Utterances.Cut> Hear(float[] sound, double pause = 700)
+    {
+        var u = new Utterances { PauseMs = pause };
+        var cuts = new List<Utterances.Cut>();
+        for (var i = 0; i < sound.Length; i += 800) cuts.AddRange(u.Take(sound.AsSpan(i, Math.Min(800, sound.Length - i))));
+        return cuts;
+    }
+    int Count(List<Utterances.Cut> cuts, PauseGate.Kind kind) => cuts.Count(c => c.Kind == kind);
+
+    var gate = new PauseGate();
+    var one = Sound(Quiet(1), Hum(1.2), Quiet(1.5));
+    var events = new List<PauseGate.Event>();
+    for (var i = 0; i < one.Length; i += 800) events.AddRange(gate.Take(one.AsSpan(i, Math.Min(800, one.Length - i)), rate));
+    var start = events.FirstOrDefault(e => e.Kind == PauseGate.Kind.Start);
+    var end = events.FirstOrDefault(e => e.Kind == PauseGate.Kind.End);
+    Check(start.Kind == PauseGate.Kind.Start && Math.Abs(start.Value - 1.06) < 0.03, "the gate hears speech start three blocks in", $"{start.Value:0.000} s");
+    Check(end.Kind == PauseGate.Kind.End && Math.Abs(end.Value - 2.35) < 0.03, "and its end just after the sound stops", $"{end.Value:0.000} s");
+    Check(Math.Abs(gate.Time - one.Length / (double)rate) < 0.021, "no sound is lost between pieces", $"{gate.Time:0.000} s of {one.Length / (double)rate:0.000}");
+    var levels = events.Where(e => e.Kind == PauseGate.Kind.Level).ToList();
+    Check(levels.Count == 37 && levels.Max(e => e.Value) > 0.9, "the meter gets a level every 100 ms", $"{levels.Count}, at most {levels.Max(e => e.Value):0.00}");
+
+    var cuts = Hear(one);
+    var heard = cuts.FirstOrDefault(c => c.Kind == PauseGate.Kind.End).Sound ?? [];
+    Check(Count(cuts, PauseGate.Kind.End) == 1 && Math.Abs(heard.Length / (double)rate - 1.69) < 0.05,
+        "one utterance, from a little before its start to just after its end", $"{heard.Length / (double)rate:0.00} s");
+    Check(heard.Length > rate && Math.Abs(heard[(int)(0.2 * rate)]) < 0.01 && heard.Skip((int)(0.5 * rate)).Take(rate).Max() > 0.09,
+        "its sound starts in the quiet before it, and holds all of it");
+    Check(Count(Hear(Sound(Quiet(1), Hum(0.1), Quiet(1))), PauseGate.Kind.Short) == 1 && Count(Hear(Sound(Quiet(1), Hum(0.1), Quiet(1))), PauseGate.Kind.End) == 0,
+        "a click is too short to be an utterance");
+    Check(Count(Hear(Sound(Quiet(1), Hum(0.8), Quiet(0.4), Hum(0.8), Quiet(1.5))), PauseGate.Kind.End) == 1, "a breath of 0.4 s goes on with the same utterance");
+    Check(Count(Hear(Sound(Quiet(1), Hum(0.8), Quiet(1), Hum(0.8), Quiet(1.5))), PauseGate.Kind.End) == 2, "a pause of 1 s ends it");
+    Check(Count(Hear(Sound(Quiet(1), Hum(0.8), Quiet(0.4), Hum(0.8), Quiet(1.5)), pause: 300), PauseGate.Kind.End) == 2, "start's pause sets where it ends");
+    // twenty seconds of talk with only short breaths in it: cut at 15 s, and again at the end
+    var talk = Sound([Quiet(1), .. Enumerable.Repeat(0, 40).Select(_ => Sound(Hum(0.3), Quiet(0.2))), Quiet(1.5)]);
+    Check(Count(Hear(talk), PauseGate.Kind.End) == 2, "15 s at most in one utterance");
+
+    Check(Utterances.ForWhisper(new float[rate / 2]).Length == rate * 3 / 2 && Utterances.ForWhisper(new float[2 * rate]).Length == 2 * rate + 2 * rate / 5,
+        "Whisper gets a second and a half at least, with silence either side");
+    Check(Utterances.Clean(" [BLANK_AUDIO]") == "" && Utterances.Clean(" Thank you.") == "" && Utterances.Clean("(wind blowing)") == "",
+        "what Whisper makes up from noise is dropped");
+    Check(Utterances.Clean(" \"Delete that.\"") == "Delete that." && Utterances.Clean("  Scratch   that. ") == "Scratch that.", "quotes round the whole of it and spaces go");
+    Check(Utterances.Clean("la la la la la la la") == "", "a loop on noise is dropped");
+
+    var phrases = Enumerable.Range(0, 90).Select(i => $"command number {i}").ToList();
+    var prompt = Utterances.Prompt(["Avner", "Miriam", .. phrases, "Avner"]);
+    Check(prompt.Length <= 850 && prompt.EndsWith("Avner, Miriam.") && prompt.StartsWith("Command number 0. Command number 1."),
+        "the prompt: the commands as sentences, the names last, within the budget", prompt.Length + " characters");
+    Check(Utterances.Prompt([]) == "" && Utterances.Prompt(["scratch that"]) == "Scratch that.", "a prompt of few words or none");
+}
 
 void CrossCheck()
 {
