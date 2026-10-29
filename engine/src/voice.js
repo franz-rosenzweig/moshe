@@ -10,7 +10,7 @@ import { parseLines, parseInline } from './markup.js';
 // ---- numbers, as recognizers write them: "2", "two", and "to", "too", "for", "won" by their sound
 
 export const NUMBER_WORDS = {
-  one: 1, won: 1, two: 2, to: 2, too: 2, three: 3, four: 4, for: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  one: 1, won: 1, two: 2, to: 2, too: 2, three: 3, tree: 3, free: 3, four: 4, for: 4, five: 5, six: 6, seven: 7, eight: 8, ate: 8, nine: 9, ten: 10,
   eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20,
 };
 const NUM = `(\\d{1,3}|${Object.keys(NUMBER_WORDS).join('|')})`;
@@ -20,10 +20,15 @@ export const numberOf = (s) => (/^\d+$/u.test(s) ? Number(s) : NUMBER_WORDS[Stri
 // ---- what was said, made comparable
 
 const FILLER_START = /^(?:(?:u+m+|u+h+|e+r+m*|hmm+|mm+)[,.…]*\s+)+/iu;
-/** The utterance as the parser reads it: quotes, a filler at the start and the closing full stop gone. */
+// the polite and the filler around a command: "please", "okay,", "can you …", "… for me"
+const POLITE_START = /^(?:(?:please|okay|ok|alright|all right|moshe|hey moshe|can you|could you|would you|will you)[,.!]*\s+)+/iu;
+const POLITE_END = /(?:[,\s]+(?:please|for me|thanks|thank you))+$/iu;
+/** The utterance as the parser reads it: quotes, fillers and politeness around it, and the closing full stop gone. */
 export function lite(said) {
-  return String(said || '').replace(/[“”"«»]/gu, '').replace(/[‘’]/gu, "'").replace(/\s+/gu, ' ').trim()
-    .replace(FILLER_START, '').replace(/^[,.;:…\s]+|[,.;:!?…\s]+$/gu, '');
+  const trim = (t) => t.replace(/^[,.;:…\s]+|[,.;:!?…\s]+$/gu, '');
+  let t = trim(String(said || '').replace(/[“”"«»]/gu, '').replace(/[‘’]/gu, "'").replace(/\s+/gu, ' ').trim().replace(FILLER_START, ''));
+  for (let i = 0; i < 2; i++) t = trim(t.replace(POLITE_START, '').replace(POLITE_END, ''));
+  return t;
 }
 
 // ---- the commands: one table for the parser, the Voice panel's suggestions and docs/VOICE.md
@@ -33,91 +38,98 @@ const THAT = '(?:that|it|this)';
 
 /**
  * @typedef {{id: string, group: string, say: string, example: string, does: string, re: RegExp,
- *            when?: string, whyNot?: string, app?: string, hidden?: boolean}} Command
+ *            when?: string, whyNot?: string, app?: string, hidden?: boolean, also?: string[], exact?: boolean}} Command
  * `when` names what must be going on for the command to count (else it's text, and `whyNot` says why);
- * `app` names the page's own command (window.mosheCommand) it stands for.
+ * `app` names the page's own command (window.mosheCommand) it stands for; `also`, other ways to say it
+ * (each tested, and given to recognizers as custom words); `exact`, never carried out on a near miss.
  * @type {Command[]}
  */
 export const COMMANDS = [
   // Listening
-  { id: 'sleep', group: 'Listening', say: 'go to sleep', example: 'go to sleep', does: 'Stops listening. Only “wake up” works until then.', re: R('go to sleep|stop listening|mic(?:rophone)? off') },
+  { id: 'sleep', group: 'Listening', say: 'go to sleep', example: 'go to sleep', does: 'Stops listening. Only “wake up” works until then.', re: R('go to sleep|stop listening|pause listening|mic(?:rophone)? off'), also: ['stop listening'] },
   { id: 'wake', group: 'Listening', say: 'wake up', example: 'wake up', does: 'Listens again.', re: R('wake up|start listening') },
-  { id: 'type', group: 'Listening', say: 'type ‹words›', example: 'type delete that', does: 'Types the words, even when they sound like a command.', re: R('(?:type|literally) (.+)') },
-  { id: 'language', group: 'Listening', say: 'switch to Hebrew · English', example: 'switch to Hebrew', does: 'Changes the language of dictation.', re: R('(?:switch to |dictate in )?(hebrew|english)|(עברית|אנגלית)') },
+  { id: 'type', group: 'Listening', say: 'type ‹words›', example: 'type delete that', does: 'Types the words, even when they sound like a command.', re: R('(?:type|literally) (.+)'), exact: true },
+  { id: 'language', group: 'Listening', say: 'switch to Hebrew · English', example: 'switch to Hebrew', does: 'Changes the language of dictation.', re: R('(?:switch to |dictate in )?(hebrew|english)|(עברית|אנגלית)'), exact: true },
   // Writing
-  { id: 'newParagraph', group: 'Writing', say: 'new paragraph', example: 'new paragraph', does: 'Starts a paragraph.', re: R('new paragraph|new line|next line') },
-  { id: 'punctuation', group: 'Writing', say: 'period · comma · question mark', example: 'question mark', does: 'Puts that mark at the cursor.', re: R('(period|full stop|comma|question mark|exclamation (?:point|mark)|colon|semicolon)') },
-  { id: 'undo', group: 'Writing', say: 'scratch that · undo', example: 'scratch that', does: 'Takes back the last thing, said or done.', re: R('scratch that|undo(?: that)?|take that back') },
-  { id: 'redo', group: 'Writing', say: 'redo', example: 'redo', does: 'Puts it back.', re: R('redo(?: that)?') },
+  { id: 'newParagraph', group: 'Writing', say: 'new paragraph', example: 'new paragraph', does: 'Starts a paragraph.', re: R('new paragraph|new line|next line|start a new paragraph|paragraph break|line break'), also: ['new line'] },
+  { id: 'punctuation', group: 'Writing', say: 'period · comma · question mark', example: 'question mark', does: 'Puts that mark at the cursor; also dash, ellipsis, open quote, close quote.', re: R('(period|full stop|comma|question mark|exclamation (?:point|mark)|colon|semicolon|dash|hyphen|ellipsis|dot dot dot|open quote|close quote|end quote|unquote)'), also: ['open quote', 'close quote'] },
+  { id: 'undo', group: 'Writing', say: 'scratch that · undo', example: 'scratch that', does: 'Takes back the last thing, said or done.', re: R('scratch that|undo(?: that)?|take that back|undo (?:the )?last (?:thing|change|bit)'), also: ['undo that', 'take that back'] },
+  { id: 'undoMany', group: 'Writing', say: 'undo ‹n› times', example: 'undo three times', does: 'Several steps back at once.', re: R(`undo ${NUM}(?: times)?|undo (?:the )?last ${NUM}(?: things| changes)?`), exact: true },
+  { id: 'redo', group: 'Writing', say: 'redo', example: 'redo', does: 'Puts it back.', re: R('redo(?: that)?|put (?:it|that) back'), also: ['put it back'] },
+  { id: 'repeat', group: 'Writing', say: 'do that again', example: 'do that again', does: 'The last command, once more.', re: R('do (?:that|it) again|repeat that|same again'), exact: true },
   // Choosing
-  { id: 'selectThat', group: 'Choosing', say: 'select that', example: 'select that', does: 'Selects what was just said.', re: R(`select ${THAT}`) },
-  { id: 'selectAll', group: 'Choosing', say: 'select all', example: 'select all', does: 'Selects the whole sheet.', re: R('select (?:all|everything)') },
-  { id: 'selectUnit', group: 'Choosing', say: 'select this · next · last sentence', example: 'select this sentence', does: 'Also “paragraph” and “word”.', re: R('select (?:the )?(this|current|next|last|previous) (sentence|paragraph|word)') },
+  { id: 'selectThat', group: 'Choosing', say: 'select that', example: 'select that', does: 'Selects what was just said.', re: R(`select ${THAT}|select what i (?:just )?said|select the last thing(?: i said)?`), also: ['select what i said'] },
+  { id: 'selectAll', group: 'Choosing', say: 'select all', example: 'select all', does: 'Selects the whole sheet.', re: R('select (?:all|everything|the whole (?:sheet|thing|chapter|text))') },
+  { id: 'selectUnit', group: 'Choosing', say: 'select this · next · last sentence', example: 'select this sentence', does: 'Also “paragraph” and “word”.', re: R('select (?:the )?(?:whole )?(?:(this|current|next|last|previous) )?(sentence|paragraph|word|line)'), also: ['select the paragraph', 'select the last word'] },
   { id: 'selectRange', group: 'Choosing', say: 'select ‹words› through ‹words›', example: 'select she did through stones', does: 'From the first words to the second.', re: R('select (?:from )?(.+?) (?:through|thru|until) (.+)') },
   { id: 'selectPhrase', group: 'Choosing', say: 'select ‹words›', example: 'select the water tower', does: 'Selects them. If they appear more than once, each gets a number.', re: R('select (.+)') },
-  { id: 'showNumbers', group: 'Choosing', say: 'show numbers', example: 'show numbers', does: 'A number on every sentence; “show paragraph numbers” for paragraphs.', re: R('show (sentence |paragraph )?numbers|number (?:the )?(sentences|paragraphs)') },
+  { id: 'showNumbers', group: 'Choosing', say: 'show numbers', example: 'show numbers', does: 'A number on every sentence; “show paragraph numbers” for paragraphs.', re: R('show (?:the )?(sentence |paragraph )?numbers|number (?:the )?(sentences|paragraphs)'), also: ['show paragraph numbers'] },
   { id: 'hideNumbers', group: 'Choosing', say: 'hide numbers', example: 'hide numbers', does: 'Takes them away.', re: R('hide (?:the )?numbers') },
   { id: 'pickUnit', group: 'Choosing', say: 'sentence ‹n› · paragraph ‹n›', example: 'sentence 4', does: 'Selects it.', re: R(`(sentence|paragraph) ${NUM}`) },
-  { id: 'cancel', group: 'Choosing', say: 'cancel', example: 'cancel', does: 'Drops the selection, the numbers and any list.', re: R('cancel|never ?mind|unselect|deselect|clear (?:the )?selection') },
+  { id: 'cancel', group: 'Choosing', say: 'cancel', example: 'cancel', does: 'Drops the selection, the numbers and any list.', re: R('cancel(?: that)?|never ?mind|unselect|deselect|clear (?:the )?selection'), also: ['unselect'] },
   // Moving
-  { id: 'goEdge', group: 'Moving', say: 'go to the end · top', example: 'go to the end', does: 'Of the sheet; also “end of paragraph”.', re: R('go to (?:the )?(end|bottom|top|start|beginning)(?: of (?:the |this )?(sheet|chapter|text|document|paragraph|sentence))?') },
-  { id: 'step', group: 'Moving', say: 'next · previous paragraph', example: 'next paragraph', does: 'Also “sentence”.', re: R('(?:go to (?:the )?)?(next|previous) (paragraph|sentence)') },
+  { id: 'goEdge', group: 'Moving', say: 'go to the end · top', example: 'go to the end', does: 'Of the sheet; also “end of the paragraph”.', re: R('(?:go|jump|move) to (?:the )?(end|bottom|top|start|beginning)(?: of (?:the |this )?(sheet|chapter|text|document|paragraph|sentence|line))?|(?:the )?(end|start|beginning) of (?:the |this )?(paragraph|sentence|line)'), also: ['end of the paragraph', 'start of the sentence'] },
+  { id: 'step', group: 'Moving', say: 'next · previous paragraph', example: 'next paragraph', does: 'Also “sentence”, and “down a paragraph”.', re: R('(?:go to (?:the )?)?(next|previous|last) (paragraph|sentence)|(?:go |move )?(down|up) (?:a|one) (paragraph|sentence)'), also: ['next sentence', 'previous paragraph', 'down a paragraph'] },
   { id: 'goNear', group: 'Moving', say: 'go after ‹words› · go before ‹words›', example: 'go after the trees', does: 'Puts the cursor there.', re: R('(?:go|move|cursor) (after|before) (.+)') },
   { id: 'goTo', group: 'Moving', say: 'go to ‹heading or sheet›', example: 'go to the kitchen', does: 'Moves to that heading, or opens that sheet; typed as text if there is none.', re: R('go to (?!mark )(.+)') },
   { id: 'open', group: 'Moving', say: 'open ‹sheet›', example: 'open frost', does: 'Opens a sheet of the group by its title or number; typed as text if there is none.', re: R('open (?:the )?(?:sheet )?(.+)') },
   { id: 'showSheets', group: 'Moving', say: 'show sheets', example: 'show sheets', does: 'Numbers the group’s sheets; then a number opens one.', re: R('(?:show|list) (?:the )?sheets') },
-  { id: 'stepSheet', group: 'Moving', say: 'next sheet · previous sheet', example: 'next sheet', does: 'The one beside it in the list.', re: R('(next|previous) sheet') },
-  { id: 'newSheet', group: 'Moving', say: 'new sheet', example: 'new sheet', does: 'A new, empty sheet.', re: R('new sheet'), app: 'newSheet' },
+  { id: 'stepSheet', group: 'Moving', say: 'next sheet · previous sheet', example: 'next sheet', does: 'The one beside it in the list.', re: R('(next|previous) sheet'), exact: true },
+  { id: 'newSheet', group: 'Moving', say: 'new sheet', example: 'new sheet', does: 'A new, empty sheet.', re: R('new sheet'), app: 'newSheet', exact: true },
   { id: 'scroll', group: 'Moving', say: 'scroll down · up', example: 'scroll down', does: 'A screen at a time.', re: R('scroll (down|up)') },
   { id: 'zoom', group: 'Moving', say: 'bigger text · smaller text', example: 'bigger text', does: 'The text’s size.', re: R('(bigger|smaller|larger) text|zoom (in|out)') },
   // Editing
-  { id: 'deleteThat', group: 'Editing', say: 'delete that', example: 'delete that', does: 'What is selected, or what was just said. In Revision Mode it’s marked instead.', re: R(`delete ${THAT}`) },
+  { id: 'deleteThat', group: 'Editing', say: 'delete that', example: 'delete that', does: 'What is selected, or what was just said. In Revision Mode it’s marked instead.', re: R(`(?:delete|erase|remove) ${THAT}|delete what i (?:just )?said`), also: ['erase that', 'remove that'] },
   { id: 'deleteLast', group: 'Editing', say: 'delete last word · last sentence', example: 'delete last word', does: 'Before the cursor.', re: R('delete (?:the )?(?:last|previous) (word|sentence)') },
   { id: 'deletePhrase', group: 'Editing', say: 'delete ‹words› · strike ‹words›', example: 'strike already', does: '“strike” always marks them for deletion, as the pen does.', re: R('(delete|strike|cross out|remove) (.+)') },
   { id: 'replace', group: 'Editing', say: 'replace ‹words› with ‹words›', example: 'replace slanting with careful', does: 'In Revision Mode it’s kept as a change.', re: R('(?:replace|change) (.+?) (?:with|to|into) (.+)') },
   { id: 'insert', group: 'Editing', say: 'insert ‹words› after ‹words›', example: 'insert still after was', does: 'Also “before”. An insertion mark in Revision Mode.', re: R('(?:insert|add) (.+?) (after|before) (.+)') },
-  { id: 'format', group: 'Editing', say: 'bold · italicize · highlight that', example: 'highlight that', does: 'Also “bold ‹words›”, “mark ‹words›”.', re: R('(bold|italicize|italic|emphasize|highlight|mark) (.+)') },
-  { id: 'makeFormat', group: 'Editing', say: 'make that bold · italic · highlighted', example: 'make that bold', does: 'The same, in words recognizers hear better.', re: R(`make ${THAT} (bold|italic|italics|highlighted)`) },
-  { id: 'heading', group: 'Editing', say: 'make that a heading', example: 'make that a heading', does: 'The paragraph at the cursor; also “subheading”.', re: R(`(?:make ${THAT} (?:a )?)?(heading|subheading)`) },
+  { id: 'format', group: 'Editing', say: 'bold · italicize · highlight ‹words›', example: 'highlight the water tower', does: 'Also “mark ‹words›”.', re: R('(bold|embolden|italicize|italic|italics|emphasize|highlight|mark) (.+)') },
+  { id: 'makeFormat', group: 'Editing', say: 'bold · italicize · highlight that', example: 'highlight that', does: 'The selection, or what was just said. “Make that bold” is heard better.', re: R(`(?:make|turn|put) ${THAT} (?:in(?:to)? )?(bold|italic|italics|highlighted)|(bold|embolden|italicize|highlight|mark) (?:the selection|${THAT})`),
+    also: ['make that bold', 'make that italic', 'make that highlighted', 'bold that', 'italicize that', 'mark that'] },
+  { id: 'transform', group: 'Editing', say: 'capitalize · uppercase · lowercase that', example: 'capitalize that', does: 'The selection, or what was just said.', re: R(`(capitalize|uppercase|upper case|lowercase|lower case) (?:${THAT}|the selection|the word)`), also: ['uppercase that', 'lowercase that'] },
+  { id: 'quote', group: 'Editing', say: 'put that in quotes', example: 'put that in quotes', does: 'Quotation marks around it.', re: R(`(?:put )?${THAT} in quotes|quote ${THAT}|put quotes around ${THAT}`), also: ['quote that'] },
+  { id: 'list', group: 'Editing', say: 'make that a list', example: 'make that a list', does: 'Also “a numbered list”.', re: R(`(?:make|turn) ${THAT} (?:into )?(?:a )?(bulleted |bullet |numbered )?list|bullet ${THAT}`), also: ['make that a numbered list', 'bullet that'] },
+  { id: 'heading', group: 'Editing', say: 'make that a heading', example: 'make that a heading', does: 'The paragraph at the cursor; also “subheading”, “title”.', re: R(`(?:make|turn) ${THAT} (?:into )?(?:a )?(heading|subheading|title)|(heading|subheading)`), also: ['make that a subheading', 'make that a title'] },
   { id: 'move', group: 'Editing', say: 'move that after ‹words›', example: 'move that to the end', does: 'Also “before ‹words›” and “to the end”.', re: R(`move ${THAT} (?:(after|before) (.+)|to the (end|start|top))`) },
   { id: 'comment', group: 'Editing', say: 'comment ‹words›', example: 'comment who lit it?', does: 'A note on the selection, or on the sentence at the cursor.', re: R('(?:add (?:a )?)?comment (.+)') },
   // Revision
-  { id: 'revisionOn', group: 'Revision', say: 'revision mode', example: 'revision mode', does: 'Deletions become marks; dictation goes in as insertions.', re: R('(?:turn on |start )?revision mode(?: on)?|start revising'), app: 'revision' },
-  { id: 'revisionOff', group: 'Revision', say: 'stop revising', example: 'stop revising', does: 'Back to writing.', re: R('revision mode off|stop revising|leave revision mode|turn off revision mode'), app: 'revision' },
-  { id: 'acceptAll', group: 'Revision', say: 'accept all · reject all', example: 'accept all', does: 'Every insertion, deletion and change in the sheet.', re: R('(accept|reject) all(?: changes| marks)?') },
+  { id: 'revisionOn', group: 'Revision', say: 'revision mode', example: 'revision mode', does: 'Deletions become marks; dictation goes in as insertions.', re: R('(?:turn on |start )?revision mode(?: on)?|start revising|editing mode|edit mode|start editing'), app: 'revision', also: ['editing mode'] },
+  { id: 'revisionOff', group: 'Revision', say: 'stop revising', example: 'stop revising', does: 'Back to writing.', re: R('revision mode off|stop revising|leave revision mode|exit revision mode|turn off revision mode|done revising|writing mode|stop editing'), app: 'revision', also: ['writing mode', 'done revising'] },
+  { id: 'acceptAll', group: 'Revision', say: 'accept all · reject all', example: 'accept all', does: 'Every insertion, deletion and change in the sheet.', re: R('(accept|reject) all(?: changes| marks)?'), exact: true },
   { id: 'pickMark', group: 'Revision', say: 'mark ‹n›', example: 'mark 1', does: 'Selects that mark, in the order the Annotations view lists them.', re: R(`(?:go to )?mark ${NUM}`) },
   // Words
-  { id: 'synonyms', group: 'Words', say: 'synonyms (for ‹word›)', example: 'synonyms for cold', does: 'Numbered, in the dashboard; then “use 4”.', re: R('(?:synonyms|thesaurus|other words|another word)(?: for (.+))?|thesaurus (.+)') },
-  { id: 'define', group: 'Words', say: 'define ‹word›', example: 'define orchard', does: 'The definition, in the dashboard.', re: R('(?:define|look up|definition of|meaning of) (.+)|what does (.+) mean|define|definition') },
+  { id: 'synonyms', group: 'Words', say: 'synonyms (for ‹word›)', example: 'synonyms for cold', does: 'Numbered, in the dashboard; then “use 4”.', re: R("(?:synonyms?|thesaurus|other words|another word|a better word|a different word)(?: (?:for|instead of) (.+))?|thesaurus (.+)|what(?:'s| is) (?:another|a better|a different) word for (.+)"), also: ['another word'] },
+  { id: 'define', group: 'Words', say: 'define ‹word›', example: 'define orchard', does: 'The definition, in the dashboard.', re: R("(?:define|look up|definition of|meaning of) (.+)|what does (.+) mean|what(?:'s| is) the (?:meaning|definition) of (.+)|define|definition") },
   { id: 'correct', group: 'Words', say: 'correct ‹word›', example: 'correct cold', does: 'Words that sound like it, numbered.', re: R('correct (.+)') },
   { id: 'spell', group: 'Words', say: 'spell ‹letters›', example: 'spell a v n e r', does: 'Spells out the word being corrected, or the selection.', re: R('spell (?:that |it )?([a-z](?:[\\s.,-]*[a-z])*)') },
   { id: 'use', group: 'Words', say: 'use ‹n›', example: 'use 4', does: 'Picks from the numbered list; the number alone does too.', re: R(`use ${NUM}`), hidden: true },
   // Reading
-  { id: 'readThat', group: 'Reading', say: 'read that back', example: 'read that back', does: 'What is selected, or what was just said.', re: R(`read ${THAT}(?: back)?|read back`) },
+  { id: 'readThat', group: 'Reading', say: 'read that back', example: 'read that back', does: 'What is selected, or what was just said.', re: R(`read ${THAT}(?: back| again)?|read (?:it )?back|read what i (?:just )?said`), also: ['read it back'] },
   { id: 'readUnit', group: 'Reading', say: 'read this paragraph · this sentence', example: 'read this paragraph', does: 'Lighting each word as it goes.', re: R('read (?:this|the) (paragraph|sentence)') },
   { id: 'readNumbered', group: 'Reading', say: 'read sentence ‹n›', example: 'read sentence 2', does: 'Also “paragraph ‹n›”.', re: R(`read (sentence|paragraph) ${NUM}`) },
   { id: 'readFrom', group: 'Reading', say: 'read from here', example: 'read from here', does: 'To the end of the sheet.', re: R('read (?:from here|on|to the end)') },
-  { id: 'stopReading', group: 'Reading', say: 'stop reading', example: 'stop reading', does: 'Stops it.', re: R('stop reading') },
+  { id: 'stopReading', group: 'Reading', say: 'stop reading', example: 'stop reading', does: 'Stops it.', re: R('stop reading|stop talking'), also: ['stop talking'] },
   { id: 'stop', group: 'Reading', say: 'stop', example: 'stop', does: 'Only while it is reading; otherwise it’s a word.', re: R('stop|quiet'), when: 'reading', whyNot: 'Nothing was being read, so “stop” was typed.' },
   { id: 'wordCount', group: 'Reading', say: 'word count', example: 'word count', does: 'How many words the sheet has.', re: R('word count|how many words|count (?:the )?words') },
   // The app
-  { id: 'help', group: 'App', say: 'what can I say', example: 'what can I say', does: 'Suggestions for the moment, in the dashboard.', re: R('what can i say|show (?:the )?commands|help|commands') },
-  { id: 'dashboard', group: 'App', say: 'show · hide the dashboard', example: 'hide the dashboard', does: 'The pane on the right.', re: R('(show|hide|close|open) (?:the )?dashboard') },
+  { id: 'help', group: 'App', say: 'what can I say', example: 'what can I say', does: 'Suggestions for the moment, in the dashboard.', re: R('what can i say|what are the commands|show (?:the )?commands|help|commands'), also: ['show commands'] },
+  { id: 'dashboard', group: 'App', say: 'show · hide the dashboard', example: 'hide the dashboard', does: 'The pane on the right.', re: R('(show|hide|close|open) (?:the )?dashboard'), exact: true },
   { id: 'panel', group: 'App', say: 'show words · voice · annotations · outline', example: 'show annotations', does: 'That view of the dashboard.', re: R('show (?:the )?(words|voice|heard|marks|annotations|outline|overview|progress)') },
-  { id: 'focusMode', group: 'App', say: 'focus mode', example: 'focus mode', does: 'Only the page; again, and everything is back.', re: R('focus mode|hide (?:the )?interface|show (?:the )?interface'), app: 'hideInterface' },
-  { id: 'back', group: 'App', say: 'go back · go forward', example: 'go back', does: 'The sheets visited before and after.', re: R('go (back|forward)') },
-  { id: 'export', group: 'App', say: 'export', example: 'export', does: 'The Export window, for the open sheet.', re: R('export(?: (?:this|the) sheet)?'), app: 'export' },
-  { id: 'translation', group: 'App', say: 'translation mode', example: 'translation mode', does: 'The sheet and its translation side by side.', re: R('translation mode'), app: 'translation' },
-  { id: 'checkText', group: 'App', say: 'check text', example: 'check text', does: 'LanguageTool, when the server has it.', re: R('check (?:the )?text'), app: 'checkText' },
+  { id: 'focusMode', group: 'App', say: 'focus mode', example: 'focus mode', does: 'Only the page; again, and everything is back.', re: R('focus mode|hide (?:the )?interface|show (?:the )?interface'), app: 'hideInterface', exact: true },
+  { id: 'back', group: 'App', say: 'go back · go forward', example: 'go back', does: 'The sheets visited before and after.', re: R('go (back|forward)'), exact: true },
+  { id: 'export', group: 'App', say: 'export', example: 'export', does: 'The Export window, for the open sheet.', re: R('export(?: (?:this|the) sheet)?'), app: 'export', exact: true },
+  { id: 'translation', group: 'App', say: 'translation mode', example: 'translation mode', does: 'The sheet and its translation side by side.', re: R('translation mode'), app: 'translation', exact: true },
+  { id: 'checkText', group: 'App', say: 'check text', example: 'check text', does: 'LanguageTool, when the server has it.', re: R('check (?:the )?text'), app: 'checkText', exact: true },
 ];
 
 /** The commands' own words, for a recognizer that takes custom words: short commands ("highlight that")
  *  are what dictation mishears most, as something it expects more ("I like that"). */
 export function commandPhrases() {
-  const out = new Set(['bold that', 'italicize that', 'highlight that', 'show paragraph numbers']);
+  const out = new Set();
   for (const c of COMMANDS) {
     if (c.hidden) continue;
-    for (const part of [...c.say.replace(/\([^)]*\)/gu, '').split(' · '), c.example]) {
+    for (const part of [...c.say.replace(/\([^)]*\)/gu, '').split(' · '), c.example, ...(c.also || [])]) {
       const p = part.replace(/‹[^›]*›/gu, '').replace(/\s+/gu, ' ').trim().toLowerCase();
       // only what is a command as it stands, and not one that takes any words ("select ‹words›")
       const hit = p.includes(' ') && parse(p, { reading: true });
@@ -128,15 +140,35 @@ export function commandPhrases() {
 }
 
 let phrases = null;
-/** The command a short utterance sounds like, when it isn't one (“build that”: “bold that”), for the strip to
- *  say so. Never carried out: “I like that” may be meant. */
-export function soundsLike(said) {
+/**
+ * The command a short utterance comes close to, when it isn't one: “build that” is “bold that”, “scratch fat”
+ * “scratch that”. `act` when it's close enough to carry out (a quarter of its letters off, at most) and the
+ * command is one that may be guessed (not `exact`); otherwise only the strip names it. “I like that” is too
+ * far from “highlight that” for either: it may be meant.
+ * @returns {{phrase: string, act: boolean} | null}
+ */
+export function nearCommand(said) {
   const l = lite(said).toLowerCase(), letters = (s) => s.replace(/[^a-z]/gu, ''), w = letters(l);
-  if (l.split(' ').length > 4 || w.length < 4) return '';
+  if (l.split(' ').length > 4 || w.length < 4) return null;
   phrases ||= commandPhrases();
   let best = '', far = Infinity;
   for (const p of phrases) { const d = distance(w, letters(p)); if (d < far) { far = d; best = p; } }
-  return far > 0 && far / Math.max(w.length, letters(best).length) <= 0.35 ? best : '';
+  const ratio = far / Math.max(w.length, letters(best).length);
+  if (far === 0 || ratio > 0.35) return null;
+  const c = parse(best, { reading: true }).command;
+  return { phrase: best, act: ratio <= 0.25 && !!c && !c.exact };
+}
+/** Just the phrase a near miss sounds like, or ''. */
+export const soundsLike = (said) => (nearCommand(said) || {}).phrase || '';
+
+/** Among a recognizer's other guesses at an utterance, the first that is a command as it stands (or a
+ *  number, while a list is showing): Apple's dictation may put “highlight that” second to “I like that”. */
+export function commandAmong(alternatives, ctx = {}) {
+  for (const a of alternatives || []) {
+    const p = parse(a, ctx);
+    if (p.kind === 'choice' || (p.kind === 'command' && !p.command.exact && !p.command.re.source.includes('(.+'))) return a;
+  }
+  return '';
 }
 
 // the exact phrases are tried before those that take any words ("open the dashboard" before "open ‹sheet›")
@@ -151,7 +183,7 @@ export function fromSaid(said, words) {
 
 /** The words of a command, said inside a sentence: the strip says why that was typed. */
 const COMMANDY = /\b(delete that|scratch that|undo that|select that|new paragraph|go to sleep|bold that|read that back|wake up)\b/iu;
-const WAKE = R('wake up|start listening');
+const WAKE = R("wake up|start listening|resume listening|i'?m back|i am back");
 const CHOICE = new RegExp(`^(?:number |use |pick |choose |take |option |the )?${NUM}(?: please)?$`, 'iu');
 
 /**

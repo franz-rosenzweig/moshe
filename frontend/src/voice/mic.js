@@ -37,7 +37,10 @@ export const engine = () => (prefs.voice.engine === 'auto' || !prefs.voice.engin
 if (typeof window !== 'undefined') {
   window.mosheVoice = {
     partial: (text) => partial(text || ''),
-    final: (text, meta = {}) => { if (text) hear(text, { source: 'mic', how: meta.how || meta.engine || '' }); else partial(''); },
+    final: (text, meta = {}) => {
+      if (text) hear(text, { source: 'mic', how: meta.how || meta.engine || '', alternatives: Array.isArray(meta.alternatives) ? meta.alternatives.map(String) : [] });
+      else partial('');
+    },
     state: (s, pct) => set(s === 'error' ? 'error' : s, { pct }),
     level: (v) => { voice.level = Math.max(0, Math.min(1, Number(v) || 0)); },
   };
@@ -152,7 +155,7 @@ function startBrowser() {
       const r = e.results[i];
       if (r.isFinal) {
         const alts = [...r].map((a) => a.transcript.trim()).filter(Boolean);
-        if (alts[0]) hear(alts[0], { source: 'mic', how: `the browser's own${alts.length > 1 ? ` · also heard: ${alts.slice(1).join(' / ')}` : ''}` });
+        if (alts[0]) hear(alts[0], { source: 'mic', how: 'the browser’s own', alternatives: alts.slice(1) });
       } else guess += r[0].transcript;
     }
     if (guess.trim()) partial(guess.trim());

@@ -91,9 +91,9 @@ try {
   await ev(`(() => { if (!mosheMenuState().dashboardViews.some((v) => v.id === 'voice')) mosheCommand('voice'); mosheCommand('select', ${JSON.stringify(arrival.slice(0, arrival.lastIndexOf('/')))}); return 1; })()`);
   await sleep(600);
   const st = () => ev('__mosheVoice.state()');
-  const say = async (text) => {
+  const say = async (text, alternatives = []) => {
     const before = (await st()).count;
-    await ev(`(window.mosheVoice.final(${JSON.stringify(text)}, { how: 'e2e' }), 1)`);
+    await ev(`(window.mosheVoice.final(${JSON.stringify(text)}, { how: 'e2e', alternatives: ${JSON.stringify(alternatives)} }), 1)`);
     for (let i = 0; i < 120 && (await st()).count === before; i++) await sleep(50);
     await sleep(120);
   };
@@ -177,11 +177,35 @@ try {
       ['open the window', (c) => c.last.kind === 'text'],
       ['scratch that', (c) => !c.doc.includes('pen the window')],
       ['select the house found her first', (c) => c.picked === 'The house found her first'],
+      // fuzziness: a near miss done, a recognizer's other guess taken, an open-ended miss put right
+      ['Build that.', (c) => c.doc.includes('**The house found her first**') && /taken as “bold that”/u.test(c.last.why)],
+      ['scratch that', (c) => !c.doc.includes('**The house') && c.picked === 'The house found her first'],
+      [['I like that.', ['highlight that']], (c) => c.last.kind === 'command' && /took its other guess “highlight that”/u.test(c.last.how) && !c.doc.includes('I like that')],
+      ['scratch that', (c) => !c.doc.includes('====The house')],
+      ['Highlight dad', (c) => c.last.kind === 'command' && /taken as “highlight that”/u.test(c.last.why) && !c.doc.includes('dad')],
+      ['scratch that', (c) => !c.doc.includes('====The house')],
+      ['I like that.', (c) => c.last.kind === 'text' && c.doc.includes('I like that')],
+      ['scratch that', (c) => !c.doc.includes('I like that')],
+      ['select the house found her first', (c) => c.picked === 'The house found her first'],
+      ['Please capitalize that.', (c) => c.doc.includes('The House Found Her First')],
+      ['scratch that', (c) => c.doc.includes('==The house found her first==')],
+      ['select the house found her first', (c) => c.picked === 'The house found her first'],
+      ['put that in quotes', (c) => c.doc.includes('“The house found her first”')],
+      ['scratch that', (c) => !c.doc.includes('“The house found her first”')],
+      ['go to the kitchen', (c) => c.doc.slice(c.sel[1]).startsWith('Avner was not there')],
+      ['next sentence', (c) => c.doc.slice(c.sel[1]).startsWith('On the table')],
+      ['do that again', (c) => /^Again/u.test(c.last.msg) && !c.doc.slice(c.sel[1]).startsWith('On the table')],
+      ['go to the end of the paragraph', (c) => c.last.kind === 'command'],
+      ['new paragraph', (c) => c.last.kind === 'command'],
+      ['Okay, so the night came on.', (c) => c.doc.includes('so the night came on')],
+      ['undo two times', (c) => !c.doc.includes('so the night came on') && /Undone 2 steps/u.test(c.last.msg)],
+      ['select the house found her first', (c) => c.picked === 'The house found her first'],
       ['synonyms', (c) => c.s.words.kind === 'syn' && c.s.words.word === 'first'],   // more than a word selected: the one at the cursor
       ['cancel', (c) => !c.s.choice],
     ];
-    for (const [said, ok] of STEPS) {
-      await say(said);
+    for (const [step, ok] of STEPS) {
+      const [said, alternatives] = Array.isArray(step) ? step : [step, []];
+      await say(said, alternatives);
       const c = await ctx();
       let pass = false;
       try { pass = !!ok(c); } catch { pass = false; }

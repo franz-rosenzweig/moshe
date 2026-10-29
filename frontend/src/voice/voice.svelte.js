@@ -6,7 +6,7 @@
 import { undo, redo, isolateHistory } from '@codemirror/commands';
 import { EditorSelection } from '@codemirror/state';
 import {
-  parse, soundsLike, fromSaid, numberOf, cleanDictation, placeDictation, phraseRanges, nearest, proseLines, sentenceRanges, wordAt, headingsOf,
+  parse, nearCommand, commandAmong, lite, fromSaid, numberOf, cleanDictation, placeDictation, phraseRanges, nearest, proseLines, sentenceRanges, wordAt, headingsOf,
   marksOf, spokenText, snapNames, namesIn, alternatesFor, settleChanges,
 } from '@engine/voice.js';
 import { strikeChanges, insertChanges, commentChanges, fitToMarkup } from '@engine/pen.js';
@@ -67,22 +67,32 @@ let chain = Promise.resolve();
 /**
  * An utterance, from the microphone side (or typed, to try it): carried out in turn.
  * @param {string} said
- * @param {{source?: 'mic' | 'typed', how?: string}} [meta]  how: the engine and its timing, for the strip
+ * @param {{source?: 'mic' | 'typed', how?: string, alternatives?: string[]}} [meta]  how: the engine and its timing,
+ *   for the strip; alternatives: the recognizer's other guesses at the same words
  */
 export function hear(said, meta = {}) {
   chain = chain.then(() => run(String(said || ''), meta)).catch((e) => { console.error(e); report(said, 'fail', `That went wrong: ${e.message}`, '', meta); });
   return chain;
 }
 
+const context = () => ({ asleep: voice.asleep, choosing: !!voice.choice, reading: voice.reading });
+const join = (...parts) => parts.filter(Boolean).join(' · ');
+let lastDone = '';      // the last command carried out, for "do that again"
+
 async function run(said, meta) {
   partial('');
   let how = meta.how || '';
   if (meta.source === 'mic' && prefs.voice.names !== false && voice.names.length) {
     const s = snapNames(said, voice.names);
-    if (s.fixed.length) { said = s.text; how = [how, `names put right: ${s.fixed.join(', ')}`].filter(Boolean).join(' · '); }
+    if (s.fixed.length) { said = s.text; how = join(how, `names put right: ${s.fixed.join(', ')}`); }
   }
   meta = { ...meta, how };
-  const p = parse(said, { asleep: voice.asleep, choosing: !!voice.choice, reading: voice.reading });
+  let p = parse(said, context());
+  // the recognizer's other guesses: one of them may be the command ("I like that", or else "highlight that")
+  if (p.kind === 'text' && meta.alternatives && meta.alternatives.length) {
+    const alt = commandAmong(meta.alternatives, context());
+    if (alt) { meta = { ...meta, how: join(meta.how, `heard “${said}”, took its other guess “${alt}”`) }; said = alt; p = parse(alt, context()); }
+  }
   if (p.kind === 'empty') return;
   if (p.kind === 'ignored') { report(said, 'ignored', 'Asleep · only “wake up” works', '', meta); return; }
   // what's being read aloud comes back in through the microphone: while it reads, only stopping counts
@@ -92,19 +102,48 @@ async function run(said, meta) {
   }
   if (p.kind === 'choice') { pick(p.n, said, meta); return; }
   if (p.kind === 'text') {
-    const near = !p.why && soundsLike(said);
-    dictate(said, { why: p.why || (near ? `Sounds like “${near}”: “scratch that”, then say it again.` : ''), meta });
+    // a near miss of a command: done when it's close and may be guessed, else only named on the strip
+    const near = !p.why && nearCommand(said);
+    if (near && near.act && (await guess(near.phrase, said, meta))) return;
+    dictate(said, { why: p.why || (near ? `Sounds like “${near.phrase}”: “scratch that”, then say it again.` : ''), meta });
     return;
   }
-  const v = view();
-  const fn = DO[p.id] || (p.command.app && (() => { command(p.command.app); return { msg: p.command.say }; }));
-  if (!fn) { report(said, 'fail', 'Not done yet', '', meta); return; }
-  if (NEEDS_TEXT.has(p.command.group) && !v) { report(said, 'fail', 'Open a sheet first', '', meta); tone('fail'); return; }
-  const r = (await fn(p.groups, said, v)) || {};
+  const r = await carryOut(p, said);
+  // an open-ended command that found nothing ("highlight dad") may be a near miss of an exact one ("highlight that")
+  if (r.fail && /^Not found/u.test(r.fail)) { const near = nearCommand(said); if (near && near.act && (await guess(near.phrase, said, meta))) return; }
   if (r.decline) { dictate(said, { why: r.decline, meta }); return; }
   if (r.dictate != null) { dictate(r.dictate, { why: r.why, meta, literal: true, said }); return; }
   report(said, r.fail ? 'fail' : 'command', r.fail || r.msg || p.command.say, r.why, meta);
   tone(r.fail ? 'fail' : 'command');
+}
+
+/** A command, done: what its DO returns ({msg} | {fail} | {decline} | {dictate}), not yet reported. */
+async function carryOut(p, said) {
+  if (p.id === 'repeat') {
+    const q = lastDone && parse(lastDone, context());
+    if (!q || q.kind !== 'command') return { fail: 'Nothing to do again' };
+    const r = await carryOut(q, lastDone);
+    return r.fail ? r : { ...r, msg: `Again · ${r.msg || q.command.say}` };
+  }
+  const v = view();
+  const fn = DO[p.id] || (p.command.app && (() => { command(p.command.app); return { msg: p.command.say }; }));
+  if (!fn) return { fail: 'Not done yet' };
+  if (NEEDS_TEXT.has(p.command.group) && !v) return { fail: 'Open a sheet first' };
+  const r = (await fn(p.groups, said, v)) || {};
+  if (!r.fail && !r.decline && r.dictate == null && !['undo', 'redo', 'undoMany', 'help', 'wordCount'].includes(p.id)) lastDone = said;
+  return r;
+}
+
+/** A near miss carried out as the command it came close to. False, and nothing done, when that can't be done:
+ *  then the words are typed after all. */
+async function guess(phrase, said, meta) {
+  const q = parse(phrase, context());
+  if (q.kind !== 'command') return false;
+  const r = await carryOut(q, phrase);
+  if (r.fail || r.decline || r.dictate != null) return false;
+  report(said, 'command', r.msg || q.command.say, `Heard “${lite(said)}”, taken as “${phrase}”.`, meta);
+  tone('command');
+  return true;
 }
 
 function report(said, kind, msg, why = '', meta = {}) {
@@ -281,20 +320,30 @@ const DO = {
     return { msg: 'New paragraph' };
   },
   punctuation(g, said, v) {
-    const mark = { period: '.', 'full stop': '.', comma: ',', 'question mark': '?', colon: ':', semicolon: ';' }[g[0].toLowerCase()] || '!';
-    const doc = textOf(v), s = v.state.selection.main;
+    const mark = { period: '.', 'full stop': '.', comma: ',', 'question mark': '?', colon: ':', semicolon: ';', dash: '—', hyphen: '-',
+      ellipsis: '…', 'dot dot dot': '…', 'open quote': '“', 'close quote': '”', 'end quote': '”', unquote: '”' }[g[0].toLowerCase()] || '!';
+    const doc = textOf(v), s = v.state.selection.main, opens = mark === '“';
     let from = s.from;
-    while (from > 0 && doc[from - 1] === ' ') from--;
-    apply(v, { from, to: s.to, insert: mark }, { cursor: from + 1 });
+    if (!opens) while (from > 0 && doc[from - 1] === ' ') from--;
+    const insert = opens && from > 0 && !/[\s(]/u.test(doc[from - 1]) ? ` ${mark}` : mark;
+    apply(v, { from, to: s.to, insert }, { cursor: from + insert.length });
     return { msg: `“${mark}”` };
   },
   undo(g, said, v) { closeChoice(v); if (voice.words && voice.words.used) voice.words = { ...voice.words, used: null }; return undo(v) ? { msg: 'Undone' } : { fail: 'Nothing to undo' }; },
   redo(g, said, v) { return redo(v) ? { msg: 'Redone' } : { fail: 'Nothing to redo' }; },
+  undoMany(g, said, v) {
+    closeChoice(v);
+    const n = Math.min(20, numberOf(g[0] || g[1]) || 0);
+    let k = 0;
+    while (k < n && undo(v)) k++;
+    return k ? { msg: `Undone ${k} step${k > 1 ? 's' : ''}` } : { fail: 'Nothing to undo' };
+  },
 
   selectThat(g, said, v) { const r = thatRange(v); return r ? select(v, r) : { fail: 'Nothing said yet to select' }; },
   selectAll(g, said, v) { const L = proseLines(textOf(v)); return L.length ? select(v, [L[0][0], L[L.length - 1][1]], 'Selected all') : { fail: 'The sheet is empty' }; },
   selectUnit(g, said, v) {
-    const which = { current: 'this', previous: 'last' }[g[0].toLowerCase()] || g[0].toLowerCase(), kind = g[1].toLowerCase();
+    const w = (g[0] || 'this').toLowerCase(), which = { current: 'this', previous: 'last' }[w] || w;
+    const kind = g[1].toLowerCase() === 'line' ? 'paragraph' : g[1].toLowerCase();
     const doc = textOf(v), head = v.state.selection.main.head;
     let r = null;
     if (kind === 'word') r = which === 'next' ? (doc.slice(head).match(/[\p{L}\p{N}]/u) ? wordAt(doc, head + doc.slice(head).search(/[\p{L}\p{N}]/u) + 1) : null) : wordAt(doc, head);
@@ -327,7 +376,8 @@ const DO = {
   },
 
   goEdge(g, said, v) {
-    const toEnd = /end|bottom/iu.test(g[0]), where = (g[1] || 'sheet').toLowerCase(), doc = textOf(v), head = v.state.selection.main.head;
+    const toEnd = /end|bottom/iu.test(g[0] || g[2]), doc = textOf(v), head = v.state.selection.main.head;
+    const where = { line: 'paragraph' }[(g[1] || g[3] || '').toLowerCase()] || (g[1] || g[3] || 'sheet').toLowerCase();
     let r;
     if (where === 'paragraph') { const L = v.state.doc.lineAt(head); r = [L.from, L.to]; }
     else if (where === 'sentence') r = sentenceRanges(doc).find((x) => x[0] <= head && head <= x[1]);
@@ -336,9 +386,10 @@ const DO = {
     return moveTo(v, toEnd ? r[1] : r[0], `To the ${toEnd ? 'end' : 'start'} of the ${['paragraph', 'sentence'].includes(where) ? where : 'sheet'}`);
   },
   step(g, said, v) {
-    const head = v.state.selection.main.head, list = units(v, g[1].toLowerCase()), next = /next/iu.test(g[0]);
+    const next = g[0] ? /next/iu.test(g[0]) : /down/iu.test(g[2]), kind = (g[1] || g[3]).toLowerCase(), dir = next ? 'next' : 'previous';
+    const head = v.state.selection.main.head, list = units(v, kind);
     const r = next ? list.find((x) => x[0] > head) : list.filter((x) => x[1] < head).pop();
-    return r ? moveTo(v, r[0], `The ${g[0].toLowerCase()} ${g[1].toLowerCase()}`) : { fail: `No ${g[0].toLowerCase()} ${g[1].toLowerCase()}` };
+    return r ? moveTo(v, r[0], `The ${dir} ${kind}`) : { fail: `No ${dir} ${kind}` };
   },
   goNear: (g, said, v) => (v ? withPhrase(v, g[1], (r) => moveTo(v, /after/iu.test(g[0]) ? r[1] : r[0], `Cursor ${g[0].toLowerCase()} “${g[1]}”`), true) : { fail: 'Open a sheet first' }),
   goTo(g, said, v) {
@@ -396,8 +447,37 @@ const DO = {
     if (/^(that|it|this)$/iu.test(g[1])) { const r = thatRange(v); return r ? go(r) : { fail: 'Nothing selected' }; }
     return withPhrase(v, g[1], go, true);
   },
-  makeFormat(g, said, v) { return DO.format([{ bold: 'bold', italic: 'italicize', italics: 'italicize' }[g[0].toLowerCase()] || 'highlight', 'that'], said, v); },
-  heading(g) { editorRun('heading', /sub/iu.test(g[0]) ? 3 : 2); return { msg: /sub/iu.test(g[0]) ? 'Subheading' : 'Heading' }; },
+  makeFormat(g, said, v) {
+    const verb = (g[0] || g[1]).toLowerCase();
+    return DO.format([{ bold: 'bold', embolden: 'bold', italic: 'italicize', italics: 'italicize', italicize: 'italicize' }[verb] || 'highlight', 'that'], said, v);
+  },
+  transform(g, said, v) {
+    const r = thatRange(v);
+    if (!r) return { fail: 'Nothing selected' };
+    const how = g[0].toLowerCase().replace(' ', ''), t = textOf(v).slice(r[0], r[1]);
+    const out = how === 'uppercase' ? t.toUpperCase() : how === 'lowercase' ? t.toLowerCase() : t.replace(/(^|[\s“"(])(\p{Ll})/gu, (m, a, b) => a + b.toUpperCase());
+    if (out === t) return { msg: 'Already so' };
+    apply(v, { from: r[0], to: r[1], insert: out }, { select: [r[0], r[0] + out.length], last: [r[0], r[0] + out.length] });
+    return { msg: { uppercase: 'Uppercase', lowercase: 'Lowercase' }[how] || 'Capitalized' };
+  },
+  quote(g, said, v) {
+    const r = thatRange(v);
+    if (!r) return { fail: 'Nothing selected' };
+    const t = textOf(v).slice(r[0], r[1]);
+    apply(v, { from: r[0], to: r[1], insert: `“${t}”` }, { cursor: r[0] + t.length + 2, last: [r[0], r[0] + t.length + 2] });
+    return { msg: 'In quotes' };
+  },
+  list(g, said, v) {
+    const r = thatRange(v), numbered = /numbered/iu.test(g[0] || '');
+    if (r) select(v, r);
+    editorRun(numbered ? 'numberedList' : 'dashedList');
+    return { msg: numbered ? 'Numbered list' : 'List' };
+  },
+  heading(g) {
+    const kind = (g[0] || g[1]).toLowerCase(), level = { title: 1, heading: 2, subheading: 3 }[kind];
+    editorRun('heading', level);
+    return { msg: cap(kind) };
+  },
   move(g, said, v) {
     const r = thatRange(v);
     if (!r) return { fail: 'Nothing selected to move' };
@@ -442,7 +522,7 @@ const DO = {
   },
 
   async synonyms(g, said, v) {
-    const phrase = g[0] || g[1] || '', r = targetWord(v, phrase);
+    const phrase = g.find(Boolean) || '', r = targetWord(v, phrase);
     const word = r ? textOf(v).slice(r[0], r[1]).replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '') : phrase;
     if (!word) return { fail: 'Which word?' };
     const entry = await lookup(word), list = entry ? synonymList(entry) : [];
@@ -460,7 +540,7 @@ const DO = {
     return { msg: `${list.length} synonyms · say “use” and a number` };
   },
   async define(g, said, v) {
-    const phrase = g[0] || g[1] || '', r = !phrase || /^(that|it|this)$/iu.test(phrase) ? targetWord(v, '') : null;
+    const phrase = g.find(Boolean) || '', r = !phrase || /^(that|it|this)$/iu.test(phrase) ? targetWord(v, '') : null;
     const word = r ? textOf(v).slice(r[0], r[1]) : phrase;
     const entry = await lookup(word);
     voice.words = { kind: 'def', word, entry };

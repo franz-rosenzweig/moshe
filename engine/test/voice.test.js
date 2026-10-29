@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   COMMANDS, parse, lite, fromSaid, numberOf, cleanDictation, placeDictation, phraseRanges, nearest, proseLines, sentenceRanges,
   wordAt, headingsOf, marksOf, spokenText, soundex, snapNames, namesIn, alternatesFor, settleChanges, commandPhrases, soundsLike,
+  nearCommand, commandAmong,
 } from '../src/voice.js';
 
 const CHAPTER = `## Two: Arrival
@@ -24,10 +25,52 @@ test('every command is said by its own example', () => {
   for (const c of COMMANDS) {
     assert.ok(!ids.has(c.id), `one ${c.id}`);
     ids.add(c.id);
-    const p = parse(c.example, { reading: c.id === 'stop' });
-    assert.equal(p.kind, 'command', `“${c.example}” is a command`);
-    assert.equal(p.id, c.id, `“${c.example}” is ${c.id}, not ${p.id}`);
+    for (const said of [c.example, ...(c.also || [])]) {
+      const p = parse(said, { reading: c.id === 'stop' });
+      assert.equal(p.kind, 'command', `“${said}” is a command`);
+      assert.equal(p.id, c.id, `“${said}” is ${c.id}, not ${p.id}`);
+    }
   }
+});
+
+test('a command said politely, or with a filler, is still the command', () => {
+  for (const [said, id] of [['Please select the water tower.', 'selectPhrase'], ['Okay, new paragraph.', 'newParagraph'], ['Can you make that bold for me?', 'makeFormat'],
+    ['Could you scratch that, please?', 'undo'], ['Um, okay, go to sleep.', 'sleep'], ['Moshe, read that back', 'readThat'], ['Two, please.', null]]) {
+    const p = parse(said, { choosing: id === null });
+    if (id === null) assert.equal(p.kind, 'choice', said); else assert.equal(p.id, id, said);
+  }
+  // what a writer may well dictate stays text
+  for (const said of ['Listen.', 'The end.', 'Again.', 'Enough.', 'Forget it.', "I'm back.", 'Please, she said.', 'Okay.', 'So it went.']) assert.equal(parse(said).kind, 'text', said);
+  assert.equal(parse("I'm back.", { asleep: true }).id, 'wake', 'but while asleep, “I’m back” wakes it');
+});
+
+test('more ways to say things', () => {
+  for (const [said, id, groups] of [
+    ['select the paragraph', 'selectUnit', ['', 'paragraph']], ['end of the paragraph', 'goEdge', ['', '', 'end', 'paragraph']],
+    ['down a paragraph', 'step', ['', '', 'down', 'paragraph']], ["what's another word for cold", 'synonyms', ['', '', 'cold']],
+    ['undo three times', 'undoMany', ['three', '']], ['make that a numbered list', 'list', ['numbered ']], ['turn that into a title', 'heading', ['title', '']],
+    ['erase that', 'deleteThat', []], ['dash', 'punctuation', ['dash']], ['open quote', 'punctuation', ['open quote']],
+  ]) { const p = parse(said); assert.equal(p.id, id, said); assert.deepEqual(p.groups, groups, said); }
+});
+
+test('near misses: close ones are done, others only named, the big ones never guessed', () => {
+  assert.deepEqual(nearCommand('Build that.'), { phrase: 'bold that', act: true });
+  assert.deepEqual(nearCommand('High like that.'), { phrase: 'highlight that', act: true });
+  assert.deepEqual(nearCommand('Scratch fat'), { phrase: 'scratch that', act: true });
+  assert.equal(nearCommand('Highlight dad').phrase, 'highlight that');
+  assert.equal(nearCommand('I like that.'), null, 'too far: it may be meant');
+  assert.equal(nearCommand('the frost came early that year'), null, 'too long to be a command');
+  const accept = nearCommand('accept awl');
+  assert.ok(accept && accept.phrase === 'accept all' && !accept.act, 'accept all is never done on a guess');
+  assert.ok(!nearCommand('new sheep') || !nearCommand('new sheep').act, 'nor a new sheet');
+});
+
+test('the recognizer’s other guesses', () => {
+  assert.equal(commandAmong(['highlight that', 'I like that']), 'highlight that');
+  assert.equal(commandAmong(['high light that', 'I liked that']), '');
+  assert.equal(commandAmong(['select the trees'], {}), '', 'not one that takes any words: those are too easy to make up');
+  assert.equal(commandAmong(['accept all']), '', 'nor a big one');
+  assert.equal(commandAmong(['too', 'two'], { choosing: true }), 'too', 'a number, while a list is showing');
 });
 
 test('the words of the commands, for a recognizer to expect', () => {
@@ -47,7 +90,7 @@ test('a short utterance that sounds like a command is typed, with a hint', () =>
   for (const s of ['I liked that.', 'the frost came early', 'She sat.', 'scratch that', 'It rained for three days and nights.']) assert.equal(soundsLike(s), '', s);
   assert.equal(parse('build that').kind, 'text', 'only a hint: never carried out');
   assert.equal(parse('make that bold').id, 'makeFormat');
-  assert.equal(parse('mark that').id, 'format');
+  assert.equal(parse('mark that').id, 'makeFormat');
   assert.equal(parse('mark 2').id, 'pickMark');
 });
 
