@@ -58,6 +58,14 @@ the few things a page cannot do well. C# and WinUI 3, with the page in WebView2.
   shown from it (`https://moshe-app.example/_library/…`).
 - **Spelling**: Windows' spell checker, underlined as you type, with suggestions on
   a right-click.
+- **Writing by voice** (docs/VOICE.md, Windows): `mosheShell.voice`, with Whisper
+  through whisper.cpp on this PC and offline. The microphone's sound goes through
+  the Mac's pause gate, ported line for line; at each pause, Whisper writes the
+  utterance down, with the project's names and the commands as its prompt, and
+  the page carries it out. base.en is built in; View › Voice Model fetches
+  small.en once. View › Voice and View › Start Listening (Ctrl+Alt+L) are there
+  too. The microphone goes to the app's own page only, for its own Whisper when
+  Settings › Voice chooses it. Reading aloud is the page's own, with Windows' voices.
 
 The page needs nothing of its own for Windows: it already speaks Android's
 transport (`window.MosheStorage.request(id, json)`, answered by
@@ -74,8 +82,14 @@ On a Windows PC with Node 22, the .NET 10 SDK, Python, and (for the installer)
 Inno Setup 6:
 
 ```powershell
-windows\build.ps1            # build\Moshe is the app; build\out the installer
+windows\build.ps1               # build\Moshe is the app; build\out the installer
+windows\build.ps1 -SmallModel   # with Whisper small.en built in as well (488 MB more)
 ```
+
+`windows\tools\get-models.ps1` fetches Whisper's models from Hugging Face into
+`build\models` and checks each against its SHA-256; the build copies them in as
+`Models\`. Without one there, the app builds without its own recognizer, and
+voice uses the page's Whisper.
 
 The installer is for one person and needs no administrator: it copies the app to
 `%LOCALAPPDATA%\Programs\Moshe`. Settings and the page's own storage are in
@@ -92,11 +106,16 @@ windows\selftest.ps1                   # the built app on a scratch library
 The tests run every op of docs/BRIDGE.md on a scratch folder, the Windows edges
 (the names, a junction out, a file held open, a read-only file, renames by case),
 and a list of messages through both `FolderFiles` and the reference, answer for
-answer. The self-test runs the real app with `--selftest` on a scratch library,
+answer, and the pause gate on made-up sound: where an utterance starts and ends,
+a click, a breath, the 15 s limit, and Whisper's prompt. The self-test runs the
+real app with `--selftest` on a scratch library,
 with no dialog for anyone to answer: the bridge's conformance checks in the page,
 `/_library/`, a file written from outside reaching the page, a PDF on A5, saving,
 sharing, links out, and the menus' state. The PDF it made is kept with the
-workflow's run.
+workflow's run. Then voice: the Mac's nine sentences, spoken by Windows' own
+voice into a file (`tools\speak.ps1`) that the app hears instead of the
+microphone (`--voice-file`), and what the sheet became; Ctrl+Alt+L; the
+microphone for the page; reading aloud, word by word.
 
 ## The pieces
 
@@ -111,9 +130,13 @@ workflow's run.
 | `Moshe/ShellServices.cs`, `PdfMaker.cs` | `window.mosheShell`: PDF, save, share, clipboard, links |
 | `Moshe/Scripts.cs` | what goes into the page before its own scripts |
 | `Moshe/SelfTest.cs` | the self-test |
+| `Moshe/Voice.cs` | `mosheShell.voice`: the microphone, Whisper, the models |
+| `Moshe.Core/PauseGate.cs`, `Utterances.cs` | the pause gate, and the utterances it cuts; what Whisper is given and what it wrote |
 | `Moshe.Core/FolderFiles.cs` | every op of docs/BRIDGE.md on the Windows file system |
 | `Moshe.Core/ShellHttp.cs` | the bridge's `http` op, for the page's WebDAV sync |
-| `Tests/Program.cs` | the folder code's tests |
+| `Tests/Program.cs` | the folder code's and the pause gate's tests |
+| `tools/get-models.ps1`, `tools/speak.ps1` | Whisper's models, fetched and checked; sentences spoken into a WAV for the tests |
 
 Later: signing, so Windows knows the publisher; an ARM64 build; updates from the
-releases; Moshe in the Share sheet as a target.
+releases; Moshe in the Share sheet as a target; Whisper on the graphics chip
+(whisper.cpp's Vulkan build); a multilingual model for Hebrew.

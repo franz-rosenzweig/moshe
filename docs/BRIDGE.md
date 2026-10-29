@@ -175,6 +175,15 @@ Report them in the user agent or by defining the object before the page
 loads (`WKUserScript` at document start; `addJavascriptInterface` + a small
 injected wrapper on Android).
 
+**Windows** defines it in a document-created script (`windows/Moshe/Scripts.cs`),
+each call a web message with a reply: `savePdf` and `sharePdf` print the HTML
+in a hidden WebView2 (`Page.printToPDF`, the `@page` size and its margin boxes
+drawn by Chromium itself), `saveFile` has a save dialog, `share` Windows' share
+sheet, `copy` both kinds of clipboard. Print… stays the page's own, in WebView2's
+print dialog. Where a Whisper model is on the PC, it adds `mosheShell.voice`
+([VOICE.md](VOICE.md), Windows), and it lets the page have the microphone, on the
+app's own origin only, for the page's own Whisper.
+
 ## Checking a shell
 
 1. Folder mode on a **copy** of the library or an empty folder.

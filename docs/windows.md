@@ -39,7 +39,7 @@ The title bar has five menus, with everything the Mac app's eight have and **Ctr
 - **File**: new sheets and groups (**New ▸**), **Open Quickly…**, what you can do to a sheet (**Sheet ▸**: favorites, material, keywords, a goal, glue, merge, duplicate), **Export…**, **Print…**, **Share…**, the library folder and the server, windows, and **Settings**.
 - **Edit**: undo, the clipboard (with **Copy As ▸** and **Paste As ▸** Markdown, HTML and Rich Text), finding, moving a line or a sheet, splitting, attaching.
 - **Format**: what the Mac calls Markup and Insert: **Strong**, **Emphasis**, **Link**, **Mark ▸**, **Heading ▸**, lists, blocks, **Insert ▸** (images, footnotes, tables, equations…), and **Clear Markup**.
-- **View**: the library and the second editor, the dashboard, the sheet list's order, the side **Panels ▸**, **Go To ▸** your groups and projects, translation, revision and focus modes, the text's counter and highlighting, **Zoom ▸**, the appearance and the theme, and full screen.
+- **View**: the library and the second editor, the dashboard, the sheet list's order, the side **Panels ▸**, **Go To ▸** your groups and projects, translation, revision and focus modes, voice (**Voice**, **Start Listening**, **Voice Model ▸**), the text's counter and highlighting, **Zoom ▸**, the appearance and the theme, and full screen.
 - **Help**.
 
 **Alt** and a menu's letter opens it, as in any Windows app: **Alt+F** File, **Alt+E** Edit, **Alt+O** Format, **Alt+V** View, **Alt+H** Help; **Alt** alone moves to the menu bar. Each item does what the same key does in the page, then hands the keyboard back to your sheet. Ticks and changing titles (**Show Library** and **Hide Library**, **Add to Favorites** and **Remove from Favorites**) show what's true right now, and the submenus are built from your library: **View › Go To › Notes** and **Projects** list your groups and projects, **View › Theme** your themes. The Mac's few keys that use both ⌃ and ⌘ have no Windows key, so on Windows those are in the menus only: **Add to Favorites**, **Mark as Material**, **New › Filter…**, **Move Line Up** and **Down**. The whole list, the Mac's way, is in [MENUS.md](MENUS.md).
@@ -52,6 +52,15 @@ The title bar has five menus, with everything the Mac app's eight have and **Ctr
 - **Saving and sharing.** The other exports get a save dialog, and **File › Share…** hands the file to Windows' share sheet, a PDF too.
 - **Pictures.** A picture you paste or drop into a sheet is saved in the library folder, beside the sheet.
 - **Spelling.** Besides Moshe's own checks, Windows' spell checker underlines as you type, with suggestions when you right-click.
+
+## Writing by voice
+
+Turn it on in **Settings › Voice**, or **View › Voice**, then **Ctrl+Alt+L** or **View › Start Listening** starts and stops listening. What voice can do, and the rule it follows, is in [Voice](VOICE.md). On Windows, Moshe listens with Whisper on your PC: nothing you say leaves it, and it works offline from the first time. It writes each sentence down about half a second after you pause.
+
+- **View › Voice Model** chooses between **Whisper base.en**, built in and quicker, and **Whisper small.en**, which hears more exactly and takes about four times as long. The first time you choose small.en, Moshe fetches it (488 MB) from Hugging Face.
+- Moshe's own Whisper hears English. For Hebrew, choose **Whisper, on This Computer** in **Settings › Voice**: Moshe's page has a multilingual model.
+- Moshe uses the microphone Windows' sound settings choose. If Windows keeps it from desktop apps, the strip under the text says so: allow it in **Settings › Privacy & security › Microphone**.
+- Reading aloud ("read that back") uses Windows' own voices.
 
 ## Backups and Check Text
 
