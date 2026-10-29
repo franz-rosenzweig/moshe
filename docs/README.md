@@ -28,6 +28,7 @@ These pages explain Moshe the way I'd explain it to a friend sitting next to me:
 
 ### Devices and sync
 - [The Mac app](mac.md) — the window, the menu bar, and a folder on the Mac
+- [The Windows app](windows.md) — installing it, the menu bar, and a folder on the PC
 - [The Android app](android.md) — where the library lives on the phone, sharing into Moshe
 - [WebDAV sync](webdav.md) — a device without Syncthing, kept in step with the server
 - [Backups](backups.md) — hourly, daily and weekly, and getting a sheet back
@@ -40,10 +41,11 @@ These pages explain Moshe the way I'd explain it to a friend sitting next to me:
 
 ### Under the hood
 - [The library on disk](FORMAT.md) — the folder format, key by key
-- [The folder bridge](BRIDGE.md) — how the Mac and Android apps give the page a folder
+- [The folder bridge](BRIDGE.md) — how the Mac, Windows and Android apps give the page a folder
 - [The menus](MENUS.md) — the menu bar, item for item, and what each calls in the page
 - [Voice](VOICE.md) — writing and editing by voice: the rule, the pieces, a native app's recognizer
 - [Developing Moshe](DEVELOPING.md) — the pieces, running it, the API, the checkers and the tests
 - [Moshe for macOS](../mac/README.md) — building and testing the Mac app
+- [Moshe for Windows](../windows/README.md) — building and testing the Windows app
 - [Moshe for Android](../android/README.md) — building, signing and checking the Android app
 - [LanguageTool for Check Text](../languagetool/README.md) — running LanguageTool on demand beside the server
