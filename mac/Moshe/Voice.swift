@@ -73,7 +73,7 @@ final class PauseGate: @unchecked Sendable {
     private var noise: Float = 0.004, speaking = false, voiced = 0, quiet = 0.0, spoken = 0.0, ticks = 0
     private(set) var time = 0.0            // seconds of audio seen
     var pauseMs = 700.0
-    let minMs = 250.0, maxMs = 15000.0
+    let minMs = 150.0, maxMs = 15000.0    // less speech than this is a click; a quick "two" is about 0.2 s
 
     /// Samples of one channel; returns what happened in them.
     func take(_ samples: UnsafeBufferPointer<Float>, rate: Double) -> [Event] {
