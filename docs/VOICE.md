@@ -184,7 +184,7 @@ as one piece, since they are guesses at all of it.
 - **Other guesses:** whisper.cpp gives one, so `alternatives` is empty; near misses still work.
 - **Hebrew:** base.en and small.en are English only. Starting in Hebrew is refused, with the reason on the strip: Settings › Voice › "Whisper, on This Computer" uses the page's multilingual model. Switching to Hebrew while listening stops listening.
 - **The microphone:** the default recording device, through WaveIn. If Windows' privacy settings keep the microphone from desktop apps, the strip says where to allow it. The page's own Whisper (when Settings › Voice chooses it) gets the microphone too, on the app's own page only.
-- **Reading aloud:** WebView2 has `speechSynthesis` with Windows' own voices, three on a Windows 11 PC, and it marks each word as it reads it, so it needs no `voice.speak`. Edge's online "natural" voices aren't in WebView2.
+- **Reading aloud:** WebView2 has `speechSynthesis` with Windows' own voices, three on a Windows 11 PC, and it marks each word as it reads it, so it needs no `voice.speak`. Edge's online "natural" voices aren't in WebView2. With no speakers (GitHub's Windows machines) it has the voices but fails at once (`synthesis-failed`), and the self-test says so rather than failing.
 - **Menus:** View › Voice, View › Start Listening (Ctrl+Alt+L, which the page hears itself) and View › Voice Model.
 - **Self-test:** `windows/selftest.ps1` speaks the Mac's nine sentences with Windows' own voice (System.Speech, `windows/tools/speak.ps1`) into a file, then "Two." on its own and "Scratch that.". The app hears the file instead of the microphone (`--voice-file`), and the self-test checks the sheet. base.en writes each one down 0.4–0.5 s after its pause.
 

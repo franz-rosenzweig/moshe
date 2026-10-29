@@ -232,8 +232,12 @@ static class SelfTest
               if (voices().length) go(); else { speechSynthesis.onvoiceschanged = () => { speechSynthesis.onvoiceschanged = null; go(); }; setTimeout(go, 3000); }
             })
             """);
+        // a PC with no speakers (GitHub's Windows machines) has the voices but nothing to play them on
+        var speakers = NAudio.Wave.WaveOut.DeviceCount;
+        var silent = speakers == 0 && J.Text(read?["error"]) is "synthesis-failed" or "audio-hardware";
         Add("voice: reading aloud speaks, and says each word as it reads it",
-            J.Int(read?["voices"]) > 0 && J.Bool(read?["ended"]) && J.Int(read?["words"]) >= 5, read?.ToJsonString() ?? "");
+            J.Int(read?["voices"]) > 0 && (silent || (J.Bool(read?["ended"]) && J.Int(read?["words"]) >= 5)),
+            silent ? $"no speakers on this PC: {J.Int(read?["voices"])} voices, nothing to play them on" : read?.ToJsonString() ?? "");
     }
 
     /// <summary>The expression's value once it is truthy, or its last value when the time runs out.</summary>
