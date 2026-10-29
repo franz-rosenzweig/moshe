@@ -2,13 +2,16 @@
 // demo's sample library, saying things to it and checking what the text became.
 //
 //   node tools/voice-e2e.mjs APP_DIR             what's said is handed over as if heard (window.mosheVoice.final)
-//   node tools/voice-e2e.mjs APP_DIR --audio     spoken by the Mac's `say` into the fake microphone, heard by Whisper
+//   node tools/voice-e2e.mjs APP_DIR --audio     spoken by the Mac's `say` (on Windows, its own voice) into the fake microphone, heard by Whisper
 //   … --gpu (Whisper on the graphics chip), --shot FILE.png (a picture at the end), --keep (print every step)
 //
 // APP_DIR is the demo build with its library and the word files beside it:
 //   (cd frontend && MOSHE_DEMO_OUT=/tmp/d npx vite build --config ../demo/vite.config.mjs) && node demo/make-library.mjs --json /tmp/d/library.json
 //   cp -R frontend/public/words /tmp/d/
-// Needs Chromium or Chrome (CHROME=path), and for --audio a Mac and the network (Whisper's first download).
+// On Windows, in PowerShell, with $d a new folder:
+//   $env:MOSHE_DEMO_OUT = $d; cd frontend; npx vite build --config ../demo/vite.config.mjs; cd ..; node demo/make-library.mjs --json $d\library.json
+//   Copy-Item -Recurse frontend\public\words $d
+// Needs Chromium, Chrome or Edge (CHROME=path), and for --audio a Mac or Windows and the network (Whisper's first download).
 import { spawn, execFileSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { readFileSync, writeFileSync, mkdtempSync, existsSync } from 'node:fs';
@@ -21,7 +24,8 @@ const dir = resolve(args.find((a) => !a.startsWith('--') && !/\.png$/u.test(a)) 
 const flag = (f) => args.includes(f);
 const shotAt = args.includes('--shot') ? args[args.indexOf('--shot') + 1] : null;
 if (!existsSync(join(dir, 'app.html'))) { console.error('usage: node tools/voice-e2e.mjs APP_DIR [--audio] [--gpu] [--shot FILE.png]'); process.exit(2); }
-const CHROME = process.env.CHROME || ['/Applications/Chromium.app/Contents/MacOS/Chromium', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/chromium', '/usr/bin/google-chrome'].find(existsSync);
+const CHROME = process.env.CHROME || ['/Applications/Chromium.app/Contents/MacOS/Chromium', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/chromium', '/usr/bin/google-chrome',
+  'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe', 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'].find(existsSync);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const tmp = mkdtempSync(join(process.env.TMPDIR || tmpdir(), 'moshe-voice-'));
 
@@ -43,10 +47,21 @@ const SPOKEN = ['Go to the kitchen.', 'Select the water tower.', 'Two.', 'Synony
   'Go to the end of the paragraph.', 'New paragraph.', "Avner's truck was not in the yard."];
 function speakToWav() {
   const rate = 48000, parts = [Buffer.alloc(rate * 2 * 1.5)];
-  for (const [i, u] of SPOKEN.entries()) {
-    const aiff = join(tmp, `u${i}.aiff`), wav = join(tmp, `u${i}.wav`);
-    execFileSync('say', ['-o', aiff, u]);
-    execFileSync('afconvert', ['-f', 'WAVE', '-d', `LEI16@${rate}`, '-c', '1', aiff, wav]);
+  const wavs = SPOKEN.map((_, i) => join(tmp, `u${i}.wav`));
+  if (process.platform === 'win32') {
+    // Windows' own voice (System.Speech, in Windows PowerShell), one WAV each, 16-bit mono at the same rate
+    const ps = 'Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; '
+      + `$f = New-Object System.Speech.AudioFormat.SpeechAudioFormatInfo(${rate}, ([System.Speech.AudioFormat.AudioBitsPerSample]::Sixteen), ([System.Speech.AudioFormat.AudioChannel]::Mono)); `
+      + 'foreach ($u in ($env:MOSHE_SAY | ConvertFrom-Json)) { $s.SetOutputToWaveFile($u.wav, $f); $s.Speak($u.text); $s.SetOutputToNull() }';
+    execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ps], { env: { ...process.env, MOSHE_SAY: JSON.stringify(SPOKEN.map((text, i) => ({ text, wav: wavs[i] }))) } });
+  } else {
+    for (const [i, u] of SPOKEN.entries()) {
+      const aiff = join(tmp, `u${i}.aiff`);
+      execFileSync('say', ['-o', aiff, u]);
+      execFileSync('afconvert', ['-f', 'WAVE', '-d', `LEI16@${rate}`, '-c', '1', aiff, wavs[i]]);
+    }
+  }
+  for (const wav of wavs) {
     const b = readFileSync(wav);
     parts.push(b.subarray(b.indexOf('data') + 8), Buffer.alloc(rate * 2 * 2.2));
   }

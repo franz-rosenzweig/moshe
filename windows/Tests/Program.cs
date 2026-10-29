@@ -254,6 +254,8 @@ void Voice()
         "what Whisper makes up from noise is dropped");
     Check(Utterances.Clean(" \"Delete that.\"") == "Delete that." && Utterances.Clean("  Scratch   that. ") == "Scratch that.", "quotes round the whole of it and spaces go");
     Check(Utterances.Clean("la la la la la la la") == "", "a loop on noise is dropped");
+    Check(Utterances.Clean(" . Go to the kitchen.") == "Go to the kitchen." && Utterances.Clean("... and then") == "and then",
+        "the stop Whisper starts with after a prompt goes");
 
     var phrases = Enumerable.Range(0, 90).Select(i => $"command number {i}").ToList();
     var prompt = Utterances.Prompt(["Avner", "Miriam", .. phrases, "Avner"]);

@@ -136,14 +136,20 @@ sealed class Listener(VoiceService service)
         service.Send("state", "loading", 0);
         var factory = await Task.Run(() => VoiceModels.Factory(path));
         service.Send("state", "loading", 100);
-        var builder = factory.CreateBuilder()
-            .WithLanguage("en")
-            .WithNoContext()                                   // each utterance on its own, with the prompt alone before it
-            .WithThreads(Math.Clamp(Environment.ProcessorCount / 2, 2, 8));
         var prompt = Utterances.Prompt(words);
-        if (prompt.Length > 0) builder = builder.WithPrompt(prompt);
-        var processor = builder.Build();
-        _ = Task.Run(() => Write(processor));
+        WhisperProcessor Processor(int context)
+        {
+            var builder = factory.CreateBuilder()
+                .WithLanguage("en")
+                .WithNoContext()                               // each utterance on its own, with the prompt alone before it
+                .WithThreads(Math.Clamp(Environment.ProcessorCount / 2, 2, 8));
+            if (context > 0) builder = builder.WithAudioContextSize(context);
+            if (prompt.Length > 0) builder = builder.WithPrompt(prompt);
+            return builder.Build();
+        }
+        // the quick one for all but the longest utterances, the whole 30 s window for those
+        var (quick, whole) = (Processor(Utterances.QuickContext), Processor(0));
+        _ = Task.Run(() => Write(quick, whole));
         if (App.Options.VoiceFile is { } file)
         {
             label += ", from a file";
@@ -199,7 +205,7 @@ sealed class Listener(VoiceService service)
     }
 
     /// <summary>Whisper, one utterance after another: what it wrote, cleaned, to the page.</summary>
-    async Task Write(WhisperProcessor processor)
+    async Task Write(WhisperProcessor quick, WhisperProcessor whole)
     {
         try
         {
@@ -207,10 +213,12 @@ sealed class Listener(VoiceService service)
             {
                 var clock = Stopwatch.StartNew();
                 var parts = new List<string>();
+                var padded = Utterances.ForWhisper(sound);
                 try
                 {
                     // never cancelled half-way: whisper.cpp finishes the utterance, and a stopped listener drops it
-                    await foreach (var segment in processor.ProcessAsync(Utterances.ForWhisper(sound))) parts.Add(segment.Text);
+                    var processor = padded.Length <= Utterances.QuickSamples ? quick : whole;
+                    await foreach (var segment in processor.ProcessAsync(padded)) parts.Add(segment.Text);
                 }
                 catch (Exception e) { Log.Write($"voice: Whisper: {e.Message}"); }
                 Interlocked.Decrement(ref pending);
@@ -224,7 +232,8 @@ sealed class Listener(VoiceService service)
         }
         finally
         {
-            await processor.DisposeAsync();
+            await quick.DisposeAsync();
+            await whole.DisposeAsync();
         }
     }
 

@@ -78,16 +78,28 @@ public sealed class Utterances
         return padded;
     }
 
+    /// <summary>
+    /// What whisper.cpp's encoder is given (audio_ctx, 50 to the second): 512 rather than
+    /// the 1500 of a whole 30 s window, which is two or three times quicker for what fits
+    /// in it, and heard as well (docs/VOICE.md, Windows). Longer utterances get the whole.
+    /// </summary>
+    public const int QuickContext = 512;
+    public const int QuickSamples = Rate * 10;
+
     static readonly Regex Asides = new(@"\[[^\]]*\]|\([^)]*\)|♪", RegexOptions.Compiled);
+    static readonly Regex Leading = new(@"^[\s.,;:!?…-]+", RegexOptions.Compiled);
     static readonly Regex Spaces = new(@"\s+", RegexOptions.Compiled);
     static readonly Regex Noise = new(@"^(?:you|thank you|thanks for watching|bye)[.!]*$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
     static readonly Regex Looping = new(@"(\p{L}{1,12})(?:[\s,-]+\1){5,}", RegexOptions.IgnoreCase | RegexOptions.Compiled);
     static readonly Regex Quoted = new(@"^[""“](.*)[""”]$", RegexOptions.Compiled);
 
-    /// <summary>What Whisper wrote, without what it makes up from noise: the page's own clean() in frontend/src/voice/mic.js.</summary>
+    /// <summary>
+    /// What Whisper wrote, without what it makes up from noise: the page's own clean() in
+    /// frontend/src/voice/mic.js, and the stop whisper.cpp starts with after a prompt (". Go to the kitchen.").
+    /// </summary>
     public static string Clean(string? text)
     {
-        var t = Spaces.Replace(Asides.Replace(text ?? "", ""), " ").Trim();
+        var t = Leading.Replace(Spaces.Replace(Asides.Replace(text ?? "", ""), " ").Trim(), "");
         if (!t.Any(c => char.IsLetterOrDigit(c)) || Noise.IsMatch(t)) return "";
         if (Looping.IsMatch(t)) return "";                     // “buh-buh-buh…”: looping on noise
         var q = Quoted.Match(t);

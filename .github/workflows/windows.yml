@@ -5,7 +5,7 @@
 name: Windows
 on:
   push:
-    branches: [master, 'windows*']
+    branches: [master, 'windows*', 'voice-windows']
     tags: ['windows-v*']
     paths: ['windows/**', 'frontend/**', 'engine/**', 'tools/bridge_sim.py', '.github/workflows/windows.yml']
   pull_request:
@@ -18,7 +18,7 @@ permissions:
 jobs:
   windows:
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
 
@@ -40,16 +40,25 @@ jobs:
                else { ([xml](Get-Content windows/Moshe/Moshe.csproj)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1 }
           "version=$v" >> $env:GITHUB_OUTPUT
 
-      - name: The web app builds
+      - name: The web app builds, with voice's word files
         working-directory: frontend
-        run: npm ci && npx vite build
+        run: npm ci && npm run build
 
-      - name: The folder code's tests
+      - name: The folder code's and voice's tests
         run: dotnet run --project windows/Tests -c Release -- --repo "${{ github.workspace }}"
 
       - name: The icon
         shell: powershell
         run: windows/tools/make-icon.ps1
+
+      # Whisper's base.en, built in (windows/tools/get-models.ps1 checks it), kept between runs
+      - uses: actions/cache@v4
+        with:
+          path: build/models
+          key: whisper-models-${{ hashFiles('windows/tools/get-models.ps1') }}
+      - name: Whisper's model
+        shell: pwsh
+        run: windows/tools/get-models.ps1 -Models base.en
 
       - name: The app builds
         run: dotnet publish windows/Moshe/Moshe.csproj -c Release -r win-x64 -p:Platform=x64 -p:Version=${{ steps.version.outputs.version }} -o build/Moshe
