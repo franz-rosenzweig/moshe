@@ -25,8 +25,10 @@ import java.util.regex.Pattern;
  * `window.mosheShell` (docs/BRIDGE.md, 5), as window.MosheShellNative plus a
  * small script the page gets before its own (SCRIPT, served by MainActivity):
  * the print system for a PDF, a create-document for the other exports, the
- * share sheet, and the browser for a link. Each call answers the page's promise
- * through window.__mosheShellReply(id, ok, value).
+ * share sheet, and the browser for a link. Also `voice` (docs/VOICE.md), from
+ * window.MosheVoiceNative (Voice): reading aloud always, and listening where the
+ * phone can. Each call answers the page's promise through
+ * window.__mosheShellReply(id, ok, value).
  */
 final class ShellServices {
     /** Put in the page before its own scripts (MainActivity adds it to index.html). */
@@ -35,8 +37,19 @@ final class ShellServices {
             + "  if (!native) return;\n"
             + "  let next = 1; const waiting = new Map();\n"
             + "  window.__mosheShellReply = (id, ok, value) => { const w = waiting.get(id); if (!w) return; waiting.delete(id); ok ? w.resolve(value) : w.reject(new Error(value)); };\n"
-            + "  const call = (fn, ...args) => new Promise((resolve, reject) => { const id = next++; waiting.set(id, { resolve, reject });\n"
-            + "    try { native[fn](id, ...args.map((a) => String(a ?? ''))); } catch (e) { waiting.delete(id); reject(e); } });\n"
+            + "  const callOn = (to, fn, ...args) => new Promise((resolve, reject) => { const id = next++; waiting.set(id, { resolve, reject });\n"
+            + "    try { to[fn](id, ...args.map((a) => String(a ?? ''))); } catch (e) { waiting.delete(id); reject(e); } });\n"
+            + "  const call = (fn, ...args) => callOn(native, fn, ...args);\n"
+            + "  const v = window.MosheVoiceNative;\n"
+            + "  const voice = v && Object.freeze({\n"
+            + "    speak: (text, lang, rate) => callOn(v, 'speak', text, lang || 'en', Number(rate) || 1),\n"
+            + "    stopSpeaking: () => callOn(v, 'stopSpeaking'),\n"
+            + "    ...(v.canListen() ? {\n"
+            + "      start: (o) => callOn(v, 'start', JSON.stringify({ lang: String((o && o.lang) || 'en'), words: Array.isArray(o && o.words) ? o.words.map(String).slice(0, 300) : [], pause: Number(o && o.pause) || 700 })),\n"
+            + "      stop: () => callOn(v, 'stop'),\n"
+            + "      language: (lang) => callOn(v, 'language', lang),\n"
+            + "    } : {}),\n"
+            + "  });\n"
             + "  window.mosheShell = Object.freeze({\n"
             + "    savePdf: (html, fileName) => call('savePdf', html, fileName || 'Export.pdf'),\n"
             + "    saveFile: (fileName, base64, mime) => call('saveFile', fileName, base64, mime),\n"
@@ -44,6 +57,7 @@ final class ShellServices {
             + "    openExternal: (url) => call('openExternal', url),\n"
             + "    copy: (what) => call('copy', (what && what.text) || '', (what && what.html) || ''),\n"
             + "    print: (html, fileName) => call('print', html, fileName || 'Print'),\n"
+            + "    ...(voice ? { voice } : {}),\n"
             + "  });\n"
             + "})();\n";
 
@@ -58,6 +72,11 @@ final class ShellServices {
     }
 
     void reply(int id, boolean ok, Object value) {
+        reply(web, id, ok, value);
+    }
+
+    /** Settles the page's promise for call `id`. */
+    static void reply(WebView web, int id, boolean ok, Object value) {
         String v = value instanceof String ? JSONObject.quote((String) value) : String.valueOf(value);
         web.post(() -> web.evaluateJavascript("window.__mosheShellReply && window.__mosheShellReply(" + id + "," + ok + "," + v + ")", null));
     }
