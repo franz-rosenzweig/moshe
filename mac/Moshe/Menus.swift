@@ -344,6 +344,9 @@ enum Menus {
         page(m, "Translation Mode", "translation", "t", [.command, .shift], tick: ("translation", "true"))
         page(m, "Revision Mode", "revision", "e", [.command, .shift], tick: ("revision", "true"))
         m.addItem(.separator())
+        page(m, "Voice", "voice", tick: ("voice", "true"))
+        page(m, "Start Listening", "listen", "l", [.command, .option], toggle: ("listening", "Stop Listening"))
+        m.addItem(.separator())
         page(m, "Zoom In", "zoomIn", "+")
         page(m, "Zoom In", "zoomIn", "=", hidden: true)       // ⌘= is where ⌘+ is without a plus key
         page(m, "Zoom Out", "zoomOut", "-")

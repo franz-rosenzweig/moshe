@@ -24,6 +24,10 @@ that and left" is typed. The pause is 0.7 s.
 The strip always shows what was heard and whether it was taken as text or as a
 command. It also shows why, when that isn't obvious.
 
+A short utterance that sounds like a command but isn't one ("build that") is
+still typed. The strip names the command it sounds like (`soundsLike`), so she
+can say "scratch that" and try again. Nothing is ever carried out on a guess.
+
 ## The pieces
 
 | | |
@@ -110,7 +114,7 @@ page loads.
 
 | The page calls | The app |
 | --- | --- |
-| `voice.start({lang, words, pause})` | Starts listening. `lang` is `en` or `he`. `words` are the project's names, for the recognizer's custom words. `pause` is in ms. |
+| `voice.start({lang, words, pause})` | Starts listening. `lang` is `en` or `he`. `words` are the recognizer's custom words: the project's names, and the commands' own words (`commandPhrases`). `pause` is in ms. |
 | `voice.stop()` | Stops. |
 | `voice.language(lang)` | Goes on listening, in the other language. |
 
@@ -123,10 +127,33 @@ The app tells the page what it hears through `window.mosheVoice`:
 | `mosheVoice.state(s, pct)` | `listening`, `loading` (with a percentage), `error`, `off`. |
 | `mosheVoice.level(v)` | How loud, 0–1, a few times a second, for the meter. |
 
-The plan is Apple's on-device speech on the Mac and Android's recognizer on
-Android. On Windows, which has no app yet, it would be Whisper (whisper.cpp).
-The Android WebView has no `speechSynthesis`, so reading aloud there will need
-a `voice.speak` from the app.
+### The Mac
+
+`mac/Moshe/Voice.swift`, on macOS 26 and later.
+
+- **Recognizer:** Apple's on-device dictation (`DictationTranscriber`), with punctuation. The system downloads its model once.
+- **Pauses:** the microphone's sound goes through a pause detector, the same rule as the page's. At each pause the app asks the analyzer to finalize the text up to there (`finalize(through:)`). It hands that over as one utterance, 0.1–0.3 s after the pause, and sends the guess so far as partials.
+- **Custom words:** they go to the analyzer as contextual strings.
+- **"New paragraph":** Apple's dictation writes it as the break itself; the app hands the page the words instead.
+- **Older Macs:** macOS 14 and 15 have no `mosheShell.voice`, so the page listens with Whisper. The app lets the page have the microphone for that.
+- **Menus:** View › Voice and View › Start Listening (⌥⌘L).
+- **Self-test:** `mac/selftest.sh voice` speaks nine sentences with `say` into a file, which the app hears instead of the microphone (`-SelfTestVoiceFile`). It checks the sheet afterwards.
+
+What testing showed: dictation mishears short commands, even with the commands as
+custom words. Spoken by the Mac's own voices:
+
+- "highlight that" came out as "I like that", "High like that" and "Highlight dad";
+- "bold that" came out as "call dad" and "build that";
+- "make that italic" came out as "make that metallic";
+- "italicize that" and "make that bold" came through every time.
+
+Hence the longer forms ("make that bold") and the hint above.
+
+### Android and Windows
+
+Android's recognizer comes next. Windows has no app yet; it would use Whisper
+(whisper.cpp). The Android WebView has no `speechSynthesis`, so reading aloud
+there will need a `voice.speak` from the app.
 
 ## Tests
 
@@ -144,8 +171,7 @@ Chromium, a Mac and the network (Whisper's first download).
 
 ## Not yet
 
-- **The native apps' recognizers,** described above.
-- **Voice in the Mac's menu bar** ([MENUS.md](MENUS.md)): Start Listening, Voice.
+- **Android's recognizer, and a Windows app,** described above.
 - **Hebrew:** commands, and a thesaurus.
 - **Starting to listen when Moshe opens.**
 - **A build of Moshe with voice on from the start,** under its own name.

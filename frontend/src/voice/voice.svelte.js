@@ -6,7 +6,7 @@
 import { undo, redo, isolateHistory } from '@codemirror/commands';
 import { EditorSelection } from '@codemirror/state';
 import {
-  parse, fromSaid, numberOf, cleanDictation, placeDictation, phraseRanges, nearest, proseLines, sentenceRanges, wordAt, headingsOf,
+  parse, soundsLike, fromSaid, numberOf, cleanDictation, placeDictation, phraseRanges, nearest, proseLines, sentenceRanges, wordAt, headingsOf,
   marksOf, spokenText, snapNames, namesIn, alternatesFor, settleChanges,
 } from '@engine/voice.js';
 import { strikeChanges, insertChanges, commentChanges, fitToMarkup } from '@engine/pen.js';
@@ -91,7 +91,11 @@ async function run(said, meta) {
     return;
   }
   if (p.kind === 'choice') { pick(p.n, said, meta); return; }
-  if (p.kind === 'text') { dictate(said, { why: p.why, meta }); return; }
+  if (p.kind === 'text') {
+    const near = !p.why && soundsLike(said);
+    dictate(said, { why: p.why || (near ? `Sounds like “${near}”: “scratch that”, then say it again.` : ''), meta });
+    return;
+  }
   const v = view();
   const fn = DO[p.id] || (p.command.app && (() => { command(p.command.app); return { msg: p.command.say }; }));
   if (!fn) { report(said, 'fail', 'Not done yet', '', meta); return; }
@@ -392,6 +396,7 @@ const DO = {
     if (/^(that|it|this)$/iu.test(g[1])) { const r = thatRange(v); return r ? go(r) : { fail: 'Nothing selected' }; }
     return withPhrase(v, g[1], go, true);
   },
+  makeFormat(g, said, v) { return DO.format([{ bold: 'bold', italic: 'italicize', italics: 'italicize' }[g[0].toLowerCase()] || 'highlight', 'that'], said, v); },
   heading(g) { editorRun('heading', /sub/iu.test(g[0]) ? 3 : 2); return { msg: /sub/iu.test(g[0]) ? 'Subheading' : 'Heading' }; },
   move(g, said, v) {
     const r = thatRange(v);

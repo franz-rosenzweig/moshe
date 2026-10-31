@@ -6,6 +6,7 @@
 // is, it reports through the same window.mosheVoice the native apps call.
 import vadUrl from './vad-worklet.js?url&no-inline';
 import { voice, hear, partial, onLanguage } from './voice.svelte.js';
+import { commandPhrases } from '@engine/voice.js';
 import { prefs } from '../lib/state.svelte.js';
 
 const LIB = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1';
@@ -176,7 +177,8 @@ export async function startListening() {
   try {
     const how = engine();
     if (how === 'app') {
-      shell().start({ lang: voice.lang, words: [...voice.names], pause: PAUSE_MS });
+      // the project's names, and the commands' own words: what a recognizer mishears most
+      await shell().start({ lang: voice.lang, words: [...voice.names, ...commandPhrases()], pause: PAUSE_MS });
     } else if (how === 'browser') {
       if (!SR) throw Object.assign(new Error('This browser has no speech recognition of its own. Choose Whisper in Settings › Voice.'), { name: 'NoRecognizer' });
       await openMic(false);
@@ -197,7 +199,7 @@ export async function startListening() {
 export function stopListening(keepCaption = false) {
   const was = running;
   running = false; recWanted = false; speaking = false;
-  try { if (shell() && was && engine() === 'app') shell().stop(); } catch { /* the app stopped already */ }
+  if (shell() && was && engine() === 'app') Promise.resolve(shell().stop()).catch(() => {});
   try { if (rec) rec.stop(); } catch { /* stopped */ }
   try { if (node) node.port.onmessage = null; if (src) src.disconnect(); if (node) node.disconnect(); } catch { /* gone */ }
   try { if (stream) stream.getTracks().forEach((t) => t.stop()); } catch { /* gone */ }
@@ -212,7 +214,7 @@ export const toggleListening = () => (running ? stopListening() : startListening
 // a new language: the recognizer starts over in it
 onLanguage((lang) => {
   if (!running) return;
-  if (engine() === 'app') { try { shell().language(lang); } catch { /* the app hasn't that yet */ } }
+  if (engine() === 'app') Promise.resolve(shell().language(lang)).catch(() => {});
   else if (rec) { try { rec.stop(); } catch { /* restarts */ } }
   else getModel(modelKey()).catch(() => {});
 });
