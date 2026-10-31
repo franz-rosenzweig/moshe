@@ -21,8 +21,8 @@ targets:
       base:
         PRODUCT_NAME: Moshe
         PRODUCT_BUNDLE_IDENTIFIER: xyz.tiresia.moshe
-        MARKETING_VERSION: "0.4.2"
-        CURRENT_PROJECT_VERSION: "9"
+        MARKETING_VERSION: "0.5.0"
+        CURRENT_PROJECT_VERSION: "10"
         SWIFT_VERSION: "5.9"
         ENABLE_HARDENED_RUNTIME: YES
         # Local-only app: signing to run on this Mac is enough.
