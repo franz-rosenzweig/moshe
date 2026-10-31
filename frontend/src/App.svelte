@@ -13,6 +13,9 @@
   import QuickOpen from './components/QuickOpen.svelte';
   import Login from './components/Login.svelte';
   import MarkupBar from './components/MarkupBar.svelte';
+  import VoiceStrip from './components/VoiceStrip.svelte';
+  import { connect as connectVoice } from './voice/voice.svelte.js';
+  import { toggleListening } from './voice/mic.js';
   import { app, prefs, store, start, back, forward, setPanes, persist, openSheet, openProject, closeProject, toast, select } from './lib/state.svelte.js';
   import { ui, menuUnder, openDialog, confirm } from './lib/ui.svelte.js';
   import { newSheet, newHandwrittenSheet, newGroup, trashSheets, newProject, newFilter, targetGroup, goalFor, glue } from './lib/actions.js';
@@ -92,6 +95,8 @@
     select: (path) => goTo(path),
     previousSheet: () => stepSheet(-1), nextSheet: () => stepSheet(1),
     panel: (kind) => { if (kind === 'export') exportCurrent(); else if (kind === 'statistics') COMMANDS.dashboardView('progress'); else if (kind === 'navigation') COMMANDS.dashboardView('outline'); else if (kind === 'markup') editorRun('markupPanel'); },
+    // voice (docs/VOICE.md): on and off in Settings › Voice; listening started and stopped here
+    voice: () => { prefs.voice.on = !prefs.voice.on; persist(); }, listen: () => { if (prefs.voice.on) toggleListening(); },
     checkText: () => { const v = pane && pane.activeView(); if (!v || !app.sheet) return; app.revision = true; app.dashboard = true; app.dashboardView = 'annotations'; import('./lib/check.svelte.js').then((m) => m.checkText(app.sheet, v.state.doc.toString())); },
   };
   /** The sheets a Sheet command acts on: those picked in the list, or the open one. */
@@ -205,7 +210,7 @@
       canUndo: inField() || !!(ev && undoDepth(ev.state)), canRedo: inField() || !!(ev && redoDepth(ev.state)),
       library: app.panes === 3,
       dashboard: !!app.dashboard, dashboardView: app.dashboardView || 'overview',
-      dashboardViews: [['overview', 'Overview'], ['progress', 'Progress'], ['outline', 'Outline'], ['attachments', 'Attachments'], ['annotations', 'Annotations']].map(([id, name]) => ({ id, name })),
+      dashboardViews: [['overview', 'Overview'], ['progress', 'Progress'], ['outline', 'Outline'], ['attachments', 'Attachments'], ['annotations', 'Annotations'], ...(prefs.voice.on ? [['voice', 'Voice'], ['words', 'Words']] : [])].map(([id, name]) => ({ id, name })),
       secondEditor: !!app.second, translation: !!app.translation, revision: !!app.revision, interfaceHidden: !!app.interfaceHidden,
       favorite: !!(one && one.favorite), material: !!(one && one.material), glued: !!(one && one.glued),
       counter: !!prefs.showCounter, paragraphNumbers: !!prefs.paragraphNumbers, lineMarker: !!app.typewriter.marker, sheetDates: !!prefs.sheetListDates,
@@ -236,6 +241,7 @@
 
   onMount(() => {
     start();
+    connectVoice({ view: () => pane && pane.activeView(), command: (name, arg) => COMMANDS[name] && COMMANDS[name](arg), editor: (name, arg) => editorRun(name, arg) });
     const onFocus = () => pane && pane.focus();
     window.addEventListener('moshe:focus-editor', onFocus);
     const mq = matchMedia('(max-width: 760px)'), coarse = matchMedia('(pointer: coarse)');
@@ -306,6 +312,7 @@
     if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && e.altKey && inEditor && pane && pane.switchEditor && pane.switchEditor()) { e.preventDefault(); return; }
     if (k === 'i' && e.shiftKey) { e.preventDefault(); import('./lib/importer.js').then((m) => m.chooseAndImport()); return; }
     if (k === 'e' && e.shiftKey) { e.preventDefault(); COMMANDS.revision(); return; }
+    if (e.code === 'KeyL' && e.altKey && !e.shiftKey && !ctrlCmd && prefs.voice.on) { e.preventDefault(); toggleListening(); return; }
   }
 
   /** Sheets one place up or down in their group, where it is sorted by hand. */
@@ -468,6 +475,7 @@
         <div class="editor-body">
           <EditorPane bind:this={pane} />
         </div>
+        {#if prefs.voice.on}<VoiceStrip />{/if}
       </div>
     {/if}
     {#if app.dashboard && showEditor}

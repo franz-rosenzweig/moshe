@@ -25,4 +25,4 @@ jobs:
         run: node --test test/*.test.js
       - name: The web app builds
         working-directory: frontend
-        run: npm ci && npx vite build
+        run: npm ci && npm run words && npx vite build
