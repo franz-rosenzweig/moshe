@@ -25,3 +25,8 @@ frontend/dist-demo/
 tools/release.env
 # WordNet for the voice's thesaurus: written by tools/wordnet.mjs (npm run words)
 frontend/public/words/
+# Windows shell: .NET's output, the icon made from the web app's, and what windows/build.ps1 makes
+windows/**/bin/
+windows/**/obj/
+windows/Moshe/Assets/Moshe.ico
+/build/

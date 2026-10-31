@@ -1,6 +1,6 @@
 # The folder bridge
 
-How a native shell (the Mac app, the Android app) gives the page a folder to
+How a native shell (the Mac app, the Windows app, the Android app) gives the page a folder to
 keep the library in. It is **Dvarim's bridge** (`dvarim/docs/BRIDGE.md`), with
 Moshe's names, without Dvarim's calendar ops, and with a few shell services a
 writing app needs (§5). The page's half is `engine/src/storage-bridge.js`.
@@ -42,6 +42,7 @@ Serve the build (`frontend/dist`, made by `npm ci && npm run build` in
 | --- | --- | --- |
 | macOS | `moshe-app://app` | a `WKURLSchemeHandler` registered for `moshe-app` |
 | Android | `https://appassets.androidplatform.net` | `shouldInterceptRequest` answering from `assets/web/` |
+| Windows | `https://moshe-app.example` | WebView2's `WebResourceRequested`, answering from `web/` beside the app |
 
 - A path that names a file in the build returns that file with its MIME type
   (`.js` is `text/javascript`, `.css`, `.svg`, `.png`, `.webmanifest`,
@@ -54,7 +55,7 @@ Serve the build (`frontend/dist`, made by `npm ci && npm run build` in
 - No service worker inside a shell.
 - **User agent**: add `Moshe/<version> (macOS shell)` on the Mac (the page
   leaves room for the traffic lights when it sees it), `Moshe/<version>
-  (Android shell)` on Android.
+  (Android shell)` on Android, `Moshe/<version> (Windows shell)` on Windows.
 
 ## 2. The messages
 
@@ -83,6 +84,13 @@ web.post(() -> web.evaluateJavascript("window.__mosheStorageReply(" + id + "," +
 Replies may arrive in any order; the page matches them by `id`. Add the
 interface only in the folder-mode activity, and only ever load the app's own
 origin there.
+
+**Windows.** Android's transport, carried over WebView2's web messages: a
+document-start script defines `window.MosheStorage.request(id, json)`, which
+posts `{channel: 'storage', id, json}`; the shell answers with
+`PostWebMessageAsJson({channel: 'storage', id, reply})`, and the script hands
+`reply` to `window.__mosheStorageReply`. Check the message's `Source`: it must
+be the app's origin. (`windows/Moshe/Scripts.cs`, `FolderBridge.cs`.)
 
 ### Messages and replies
 
@@ -131,7 +139,8 @@ read of the same file must read the new text.
 
 Obsidian, Syncthing and iCloud Drive all write to the same folder. When the
 shell notices a change it did not make, it calls `window.__mosheFilesChanged()`.
-Mac: `FSEventStream` on the folder, ~0.3 s latency. Android: `pollSeconds`.
+Mac: `FSEventStream` on the folder, ~0.3 s latency. Windows: a
+`FileSystemWatcher` on it, the same. Android: `pollSeconds`.
 Too often is harmless: the page debounces and compares contents. It also
 rescans when the window comes to the front.
 
@@ -165,6 +174,15 @@ optional, and the page has a browser fallback for all of them.
 Report them in the user agent or by defining the object before the page
 loads (`WKUserScript` at document start; `addJavascriptInterface` + a small
 injected wrapper on Android).
+
+**Windows** defines it in a document-created script (`windows/Moshe/Scripts.cs`),
+each call a web message with a reply: `savePdf` and `sharePdf` print the HTML
+in a hidden WebView2 (`Page.printToPDF`, the `@page` size and its margin boxes
+drawn by Chromium itself), `saveFile` has a save dialog, `share` Windows' share
+sheet, `copy` both kinds of clipboard. Print… stays the page's own, in WebView2's
+print dialog. Where a Whisper model is on the PC, it adds `mosheShell.voice`
+([VOICE.md](VOICE.md), Windows), and it lets the page have the microphone, on the
+app's own origin only, for the page's own Whisper.
 
 ## Checking a shell
 

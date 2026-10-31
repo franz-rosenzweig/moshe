@@ -7,7 +7,7 @@ class MosheVad extends AudioWorkletProcessor {
   constructor(o) {
     super();
     const p = o.processorOptions || {};
-    this.vad = p.vad !== false; this.pause = p.pause || 700; this.max = p.max || 15000; this.min = p.min || 250;
+    this.vad = p.vad !== false; this.pause = p.pause || 700; this.max = p.max || 15000; this.min = p.min || 150;
     this.ratio = sampleRate / 16000; this.n = Math.round(sampleRate * 0.02); this.ms = (this.n / sampleRate) * 1000;   // 20 ms blocks
     this.acc = new Float32Array(this.n); this.k = 0;
     this.noise = 0.004; this.speaking = false; this.voiced = 0; this.quiet = 0; this.spoken = 0; this.pre = []; this.buf = []; this.tick = 0;

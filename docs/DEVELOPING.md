@@ -16,6 +16,7 @@ repository's root.
 | `frontend/` | the app: Svelte 5 and CodeMirror 6, built to static files. It runs the engine itself; its storage is the server's folder (the web app), or a folder on the device through the native shell's bridge ([BRIDGE.md](BRIDGE.md)) |
 | `server/` | Node, no dependencies: serves the app and the library folder to it, keeps backups (hourly, daily, weekly), offers the folder over WebDAV to devices with no Syncthing, and asks for the password |
 | `mac/`, `android/` | the native shells — design notes in each `NEXT.md` |
+| `windows/` | the Windows shell: C# and WinUI 3 around the page in WebView2, with Whisper (whisper.cpp) for voice ([windows/README.md](../windows/README.md)) |
 | `tools/` | the browser tests (`e2e.py`), screenshots (`shot.py`), a sample library, the shell simulator, auto-deploy |
 | `demo/` | the taste on stuffs.tiresia.xyz/moshe/: the web app running in the browser on a made-up library (`library.mjs`) kept in IndexedDB, built by `tools/build_demo.py OUT_DIR` |
 
@@ -77,6 +78,26 @@ every push to master and every pull request (`.github/workflows/test.yml`).
 The browser tests need Docker and a headless Chrome, so they run where Moshe
 is deployed.
 
+### On Windows
+
+With Node 22, the .NET 10 SDK and Python on the PATH (no Visual Studio: WinUI
+builds from its NuGet package), in PowerShell from the repository's root:
+
+```powershell
+windows\build.ps1                                # the web app, the tests, Whisper's model, the app, its self-test
+build\Moshe\Moshe.exe                            # the app, as built
+dotnet run --project windows\Tests -c Release    # the folder code and the pause gate
+windows\selftest.ps1                             # the built app on a scratch library, voice included
+cd engine; node --test test/voice.test.js test/words.test.js
+$env:CHROME = "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe"
+node tools/voice-e2e.mjs APP_DIR [--audio]       # in Edge; --audio speaks with Windows' own voice
+```
+
+`build.ps1 -SmallModel` builds Whisper small.en in too. The Windows workflow
+(`.github/workflows/windows.yml`) does the same on GitHub's Windows machines and
+keeps the installer and a portable zip with the run. Neither is signed, so
+Windows' SmartScreen warns the first time: More info › Run anyway.
+
 ## Release it
 
 `tools/release.sh X.Y.Z "notes"` raises the version (Android's versionCode, and the
@@ -94,8 +115,9 @@ so is anything contributed to it.
 ## More
 
 - [The library on disk](FORMAT.md): the folder format, every key.
-- [The folder bridge](BRIDGE.md): how the Mac and Android apps give the page a folder.
+- [The folder bridge](BRIDGE.md): how the Mac, Windows and Android apps give the page a folder.
 - [The menus](MENUS.md): the menu bar, item for item, and what each calls in the page.
-- [Moshe for macOS](../mac/README.md) and [Moshe for Android](../android/README.md): building and checking the apps.
+- [Voice](VOICE.md): writing and editing by voice, and each app's own recognizer.
+- [Moshe for macOS](../mac/README.md), [Moshe for Windows](../windows/README.md) and [Moshe for Android](../android/README.md): building and checking the apps.
 
 <sub>Next: [Moshe for macOS](../mac/README.md) →</sub>
