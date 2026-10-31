@@ -3,6 +3,20 @@
 
     <!-- the page's sync with the server (op http), and the server fallback -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- writing by voice: the app's own listening (Voice.java), or Whisper in the page -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- without it the WebView offers the page no microphone at all -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
+    <!-- the phone's speech recognizer and text-to-speech, which Android 11 and later hide from apps that don't ask -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
 
     <application
         android:label="@string/app_name"

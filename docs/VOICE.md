@@ -113,8 +113,10 @@ quick "two", picking from a list, is about 0.2 s. It runs on the audio thread,
 so nothing the page does can drop a word.
 
 Reading aloud ("read that back", "read this paragraph", "read sentence 4") uses
-the system's voices (`speechSynthesis`) and lights each word as it's read. The
-speakers feed back into the microphone, so while it reads, only "stop" counts.
+the system's voices (`speechSynthesis`) and lights each word as it's read. A
+native app that reads aloud itself (`voice.speak`, below) is used instead: the
+Android WebView has no `speechSynthesis`. The speakers feed back into the
+microphone, so while it reads, only "stop" counts.
 
 ## A native app's recognizer
 
@@ -127,6 +129,11 @@ page loads.
 | `voice.start({lang, words, pause})` | Starts listening. `lang` is `en` or `he`. `words` are the recognizer's custom words: the project's names, and the commands' own words (`commandPhrases`). `pause` is in ms. |
 | `voice.stop()` | Stops. |
 | `voice.language(lang)` | Goes on listening, in the other language. |
+| `voice.speak(text, lang, rate)` | Optional: reads `text` aloud. The promise settles when the reading ends: `true` read to the end, `false` stopped. |
+| `voice.stopSpeaking()` | Stops reading. |
+
+An app may offer reading aloud without listening (`speak` but no `start`). The
+page then listens with Whisper and reads with the app.
 
 The app tells the page what it hears through `window.mosheVoice`:
 
@@ -134,8 +141,9 @@ The app tells the page what it hears through `window.mosheVoice`:
 | --- | --- |
 | `mosheVoice.partial(text)` | The guess so far, shown grey at the cursor. |
 | `mosheVoice.final(text, {how, alternatives})` | At each pause: one utterance. `how` is shown on the strip, e.g. "Apple's speech · 0.3 s". `alternatives` are the recognizer's other guesses at the whole of it, if any. |
-| `mosheVoice.state(s, pct)` | `listening`, `loading` (with a percentage), `error`, `off`. |
+| `mosheVoice.state(s, pct, caption)` | `listening`, `hearing`, `loading` (with a percentage), `error`, `off`. `caption`, optional, says why on the strip; an `error` stops listening. |
 | `mosheVoice.level(v)` | How loud, 0–1, a few times a second, for the meter. |
+| `mosheVoice.spoken(start, end)` | While `voice.speak` reads: the word being read, as offsets in the text given. |
 
 ### The Mac
 
@@ -169,6 +177,75 @@ The app sends the recognizer's alternatives with each utterance (`alternatives` 
 `mosheVoice.final`'s second argument). It sends them only for an utterance heard
 as one piece, since they are guesses at all of it.
 
+### Android
+
+`android/app/src/main/java/xyz/tiresia/moshe/Voice.java`, on Android 13 and later.
+
+- **Recognizer:** Android's `SpeechRecognizer`. The on-device one
+  (`createOnDeviceSpeechRecognizer`) when the phone has it and it has the
+  language; otherwise the phone's default one, asked to prefer working offline.
+- **Pauses:** the app records the microphone itself (16 kHz, `VOICE_RECOGNITION`)
+  and runs the same pause detector as the page and the Mac (`PauseGate.java`).
+  Each utterance is one recognizer session, its sound handed over through a pipe
+  (`EXTRA_AUDIO_SOURCE`, Android 13). At the pause the pipe closes and the
+  recognizer gives its words. So an utterance is cut exactly where the page would
+  cut it, and the recognizer's own end-of-speech never decides. One session at a
+  time, in order; what's said meanwhile waits its turn. The level comes from the
+  app's own recording.
+- **Custom words:** `EXTRA_BIASING_STRINGS` (Android 13).
+- **Punctuation:** `EXTRA_ENABLE_FORMATTING` (Android 14), so the words come
+  punctuated as Apple's do. Offensive words are not masked: they're the writer's.
+- **A missing language:** Android's own dialog asks whether to download it, once,
+  and the strip shows the download. If she says no, the default recognizer takes
+  over. If no recognizer has the language, the strip says so.
+- **Google's recognizers** send the finished words as a partial result marked
+  `final_result`, and `onResults` then comes empty. The app takes those.
+- **In the background** Android gives an app no microphone, so listening pauses
+  and goes on when Moshe is back in front.
+- **Reading aloud:** `voice.speak`, with the phone's `TextToSpeech`
+  (`Speaker.java`). Each word's place comes from `onRangeStart` as
+  `mosheVoice.spoken`.
+- **Before Android 13,** or with no recognizer, there's no `voice.start`. The page
+  listens with Whisper, and the app lets its page have the microphone for that.
+- **Menus and keys:** none. The strip's microphone button starts and stops listening.
+- **Self-test:** `android/check.sh voice` speaks the Mac's nine sentences with
+  `say` into a 16 kHz file. The test build hears it instead of the microphone
+  (`moshe.voiceFile`). It checks the sheet, then reads a paragraph aloud.
+
+What testing showed, with `check.sh voice`:
+
+| | Recognizer | Nine utterances | Words after the pause | Reading aloud |
+| --- | --- | --- | --- | --- |
+| Emulator, Android 16 | on-device (Android System Intelligence) | all, one per pause | 0.0–0.4 s | each word lit |
+| Galaxy S24+, Android 17 | default (Speech Services by Google, offline) | all, one per pause | 0.0–0.1 s | each word lit |
+| Galaxy Tab S10 FE, Android 16, without Google's apps | on-device (Android System Intelligence) | all, one per pause | 0.1 s | each word lit |
+
+- **The Galaxy S24+'s on-device recognizer can't be reached by apps.** Binding to
+  it fails and it never answers. After 2.5 s the app takes the default one,
+  which runs offline anyway.
+- **The tablet without Google's apps** still has Speech Services by Google and
+  Android System Intelligence, and that's all voice needs.
+- **"The West":** Google's recognizers write "the storm came in from the West".
+  The page keeps capitals inside an utterance, so the sheet has it too.
+- **Asking what's installed** (`checkRecognitionSupport`) is no help on its own.
+  Android System Intelligence answers with empty lists until a language is
+  installed, and the default recognizer won't answer at all. So the app tries,
+  and asks for the language only when a session says it's missing (error 13).
+  Asking up front showed Android's download dialog on every start.
+- **Hebrew:** none of the three recognizes it. Android System Intelligence has
+  no Hebrew pack, and Speech Services by Google says Hebrew isn't supported. The
+  strip says so, and Whisper (multilingual base) is the way. Reading Hebrew
+  aloud worked on the tablet. On the S24+ its Hebrew voice works over the
+  network, and timed out there.
+- **The WebView** has no `speechSynthesis` at all. It gives the page a microphone
+  only with `MODIFY_AUDIO_SETTINGS` as well as `RECORD_AUDIO`.
+- **The self-test never listens to a real microphone.** A Galaxy reopens an app
+  on its own after an update, without the test's file, so the app takes the file
+  from a new intent too, and `check.py` asks the app first (`hearsFile`).
+
+Not tested yet: speech through a real microphone, in a real room; Whisper in the
+WebView; Android 13–15; the download dialog on a phone (only on the emulator).
+
 ### Windows
 
 `windows/Moshe/Voice.cs`, on any 64-bit Windows 10 or 11 PC.
@@ -193,15 +270,10 @@ the threshold. The rule used to let go of anything under 0.25 s of speech, so
 the page's detector and the gates alike dropped it as a click, and
 `tools/voice-e2e.mjs --audio` heard 8 of its 9 utterances. A person saying a
 quick "two" is near the same line. The rule's least is 0.15 s now, in the page
-(`mic.js`, `vad-worklet.js`), on the Mac and on Windows; a click of 0.1 s is
+(`mic.js`, `vad-worklet.js`), on the Mac, on Android and on Windows; a click of 0.1 s is
 still let go.
 With it, the e2e hears all nine, in Edge; on the e2e's sentences the app's own
 base.en got 9 of 9, 0.6 s each on average.
-
-### Android
-
-Android's recognizer comes next. The Android WebView has no `speechSynthesis`,
-so reading aloud there will need a `voice.speak` from the app.
 
 ## Tests
 
@@ -224,7 +296,6 @@ in `dotnet run --project windows/Tests`.
 
 ## Not yet
 
-- **Android's recognizer,** described above.
 - **Hebrew:** commands, and a thesaurus; on Windows, a multilingual Whisper for the app's own recognizer.
 - **Whisper on the graphics chip on Windows** (whisper.cpp's Vulkan build).
 - **Starting to listen when Moshe opens.**
