@@ -44,11 +44,21 @@ else
     echo "no web build: only the server's page will open (cd ../frontend && npm ci && npm run build)" >&2
 fi
 
-# The icon: the web app's, a white camel on yellow, with the margin the
-# macOS icon grid leaves round the shape (its rounded square fills 824 of 1024;
-# in icon-1024.png it fills 896).
+# The icon: the web app's, a white camel on yellow. With Xcode's actool, layered
+# as Icon Composer makes them (AppIcon.icon: the camel's parts from icon.svg over
+# the yellow), so macOS 26 draws it as it draws its own, light, dark (a yellow
+# camel), tinted and clear; actool also writes the .icns. Without it, the PNG with
+# the margin the macOS icon grid leaves round the shape (its rounded square fills
+# 824 of 1024; in icon-1024.png it fills 896).
 SRC=../frontend/public/icons/icon-1024.png
-if [[ -f $SRC ]]; then
+if xcrun -f actool >/dev/null 2>&1; then
+    # full paths: actool hands the work to a helper that may still be running from another build's folder
+    xcrun actool "$PWD/AppIcon.icon" --compile "${APP:a}/Contents/Resources" --app-icon AppIcon --platform macosx \
+        --minimum-deployment-target $MACOS --output-partial-info-plist "${OUT:a}/icon-partial.plist" >/dev/null
+    rm -f $OUT/icon-partial.plist
+    plutil -replace CFBundleIconFile -string AppIcon $APP/Contents/Info.plist
+    plutil -replace CFBundleIconName -string AppIcon $APP/Contents/Info.plist
+elif [[ -f $SRC ]]; then
     SET=$OUT/AppIcon.iconset && rm -rf $SET && mkdir -p $SET
     sips -p 1113 1113 $SRC --out $OUT/icon-grid.png >/dev/null
     for s in 16 32 128 256 512; do
