@@ -14,7 +14,7 @@
 #   MOSHE_APK_SIGNING=<keystore.properties on the Mac, absolute>
 #   MOSHE_SIGN=<the Mac signing certificate's SHA-1>  MOSHE_SIGN_NAME=<its common name>
 #   MOSHE_KEYCHAIN=<the keychain it's in>  MOSHE_KEYCHAIN_PASS=<a file on the Mac holding that keychain's password>
-#   MOSHE_PRIVATE='words|that|must|not|be|in|a|release'   (looked for, case-blind, in both apps)
+#   MOSHE_PRIVATE='words|that|must|not|be|in|a|release'   (looked for, case-blind, in both apps, but for WordNet's word files)
 # The APK is signed with the same key every time, or phones can't update. The
 # Mac app is signed with the same certificate every time, so macOS sees the
 # same app from one version to the next and keeps its permissions; and never
@@ -59,15 +59,18 @@ mac "export PATH=/opt/homebrew/bin:\$PATH; security unlock-keychain -p \"\$(cat 
   || { mac "tail -20 /tmp/moshe-release.log"; echo "the Mac app didn't build" >&2; exit 1; }
 
 # nothing personal in either: the Mac signature names only the certificate,
-# no word on the list is anywhere in them, no home folder in the program
+# no word on the list is anywhere in them, no home folder in the program.
+# Not searched: the thesaurus and dictionary (web/words), WordNet's English made
+# in the clone by `npm run words`. A word on the list can be in an ordinary
+# definition there, and stopped 0.5.0.
 APP="$W/mac/build/Moshe.app" APK="$W/android/Moshe-$V.apk"
 [[ $(mac "codesign -dvv $APP 2>&1 | grep '^Authority='") == "Authority=$MOSHE_SIGN_NAME" ]] || { echo "the Mac app isn't signed by $MOSHE_SIGN_NAME alone" >&2; exit 1; }
 mac "codesign --verify --strict $APP" || { echo "the Mac app's signature doesn't verify" >&2; exit 1; }
-[[ -z $(mac "grep -r -l -a -i -E '$MOSHE_PRIVATE' $APP; strings $APP/Contents/MacOS/Moshe | grep /Users/; /usr/libexec/PlistBuddy -c 'Print :MosheDefaultServer' $APP/Contents/Info.plist") ]] \
+[[ -z $(mac "find $APP -path $APP/Contents/Resources/web/words -prune -o -type f -exec grep -l -a -i -E '$MOSHE_PRIVATE' {} +; strings $APP/Contents/MacOS/Moshe | grep /Users/; /usr/libexec/PlistBuddy -c 'Print :MosheDefaultServer' $APP/Contents/Info.plist") ]] \
   || { echo "something personal is in the Mac app" >&2; exit 1; }
 # every file in the APK read straight out of it (unpacked, two whose names differ only in case,
 # as a library's shrunk resources can, don't both land on a Mac's disk, and one went unread)
-[[ $(mac "unzip -p $APK | grep -a -i -c -E '$MOSHE_PRIVATE' || true") == 0 ]] \
+[[ $(mac "unzip -p $APK -x 'assets/web/words/*' | grep -a -i -c -E '$MOSHE_PRIVATE' || true") == 0 ]] \
   || { echo "something personal is in the APK" >&2; exit 1; }
 say "both built and signed, with nothing personal in them"
 
