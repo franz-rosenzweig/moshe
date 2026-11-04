@@ -19,9 +19,9 @@ next, is a command. "Delete that" said on its own deletes. "She said delete
 that and left" is typed. The pause is 0.7 s.
 
 - **"type" in front** types a command's words: "type new paragraph".
-- **Some commands need their target to exist.** "Go to the kitchen" moves to that heading, or opens that sheet. With no such place it's typed, and the strip says why. "Open ‹sheet›" works the same way.
-- **"stop" is a command only while Moshe is reading aloud.** Otherwise it's a word.
-- **Asleep** ("go to sleep"): nothing counts but "wake up".
+- **Some commands need their target to exist.** "Go to the kitchen" moves to that heading, or opens that sheet. With no such place it's typed, and the strip says why. "Open ‹sheet›" works the same way, and so do the commands that name words in the sheet (`TYPED_IF_MISSING`: select, delete, replace, insert, format, go after): "Add salt before serving" is typed when there's no "serving", since it may well be a sentence.
+- **"stop" and "quiet" are commands only while Moshe is reading aloud.** Otherwise they're words.
+- **Asleep** ("go to sleep", "stop listening"): nothing counts but "wake up", and "microphone off". The microphone stays on, so waking needs no hands. "Microphone off" stops it, and then only a key or the strip's button starts it.
 - **A numbered list showing:** a number picks from it. "Two", "to", "too", "2" and "use two" all mean 2. That's how recognizers write it.
 - **Undo:** every command and every dictated sentence is one step of the editor's own undo. "Scratch that" is undo.
 
@@ -36,7 +36,7 @@ three layers, from the safest:
 - **More ways to say each command.** "Please", "okay,", "can you…" and "…for me" around a command are ignored, as are "um" and "uh" before it. Most commands also take other words: "erase that", "make that bold", "bold the selection", "end of the paragraph", "down a paragraph", "what's another word for cold". Each command's other phrasings are in its `also`, and a test checks that each one parses to its command. Words a writer may well dictate on their own stay text: "Listen.", "The end.", "Again.", "Enough.", "Forget it.".
 - **The recognizer's other guesses.** When the words as heard are text but one of the recognizer's alternatives is an exact command, the command is taken (`commandAmong`), and the strip says so. This never takes a command that is open-ended ("select ‹words›") or big.
 - **Near misses.** A short utterance whose letters are within a quarter of an exact command's is carried out as that command (`nearCommand`): "build that" is "bold that", "Highlight dad" is "highlight that". The strip says "Heard … taken as …". Within a third, it is still typed, and the strip names the command it sounds like, so she can say "scratch that" and try again.
-  - **Commands marked `exact`** are never done on a guess: "accept all", "new sheet", "export", "type…", the language, "go back", the next sheet, "undo three times", "do that again".
+  - **Commands marked `exact`** are never done on a guess: "accept all", "new sheet", "export", "type…", the language, "go back", the next sheet, "undo three times", "do that again", "microphone off", showing or hiding the dashboard, focus mode, translation mode and "check text".
   - **A guess that can't be carried out** does nothing, and the words are typed with the hint.
   - **"I like that"** is too far from "highlight that" to guess: it may be meant.
 
@@ -68,8 +68,10 @@ table.
   - dictation → `{++…++}`
 - **"accept all" and "reject all"** settle every insertion, deletion and change (`settleChanges`).
 
-Dictation is cleaned, never reworded. "Um" and "uh" go, and so do spoken
-commas and full stops. The words are then placed with a space either side as needed:
+Dictation is cleaned, never reworded. "Um" and "uh" go, and spoken commas and
+full stops become marks, but not after "a", "the", "his" and the like, or before
+"of": "a period of calm" stays as said. The words are then placed with a space
+either side as needed:
 
 - **Capitals:** a capital at the start of a sentence; mid-sentence, the capital recognizers add is dropped, except for "I" and the project's names.
 - **Full stops:** the closing stop is dropped where the sentence goes on, and added to a finished sentence at the end of a paragraph.

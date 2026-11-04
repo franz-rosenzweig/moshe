@@ -99,7 +99,7 @@
     // voice (docs/VOICE.md): on and off in Settings › Voice; listening started and stopped here
     // their keys (voice/keys.js) too; 'on' is a key pressed in another app, which only ever starts
     voice: (how) => { if (how === 'on' || !prefs.voice.on) voiceOn(); else { prefs.voice.on = false; persist(); } },
-    listen: (how) => { if (!prefs.voice.on || how === 'on') voiceOn(); else toggleListening(); },
+    listen: (how) => { if (how === 'off') { if (isListening()) stopListening(); } else if (!prefs.voice.on || how === 'on') voiceOn(); else toggleListening(); },
     checkText: () => { const v = pane && pane.activeView(); if (!v || !app.sheet) return; app.revision = true; app.dashboard = true; app.dashboardView = 'annotations'; import('./lib/check.svelte.js').then((m) => m.checkText(app.sheet, v.state.doc.toString())); },
   };
   /** The sheets a Sheet command acts on: those picked in the list, or the open one. */

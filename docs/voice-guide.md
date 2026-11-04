@@ -43,7 +43,7 @@ Moshe tidies what you dictate, but it never changes your words.
 
 - A sentence starts with a capital, and a finished sentence at the end of a paragraph gets its full stop. In the middle of a sentence, the capital a recognizer puts in anyway is taken out, except for "I" and the names in your project.
 - "Um" and "uh" are left out, and the strip says how many.
-- Say "comma", "period", "question mark", "exclamation mark", "colon" or "semicolon" as you go, and you get the mark (in English).
+- Say "comma", "period", "question mark", "exclamation mark", "colon" or "semicolon" as you go, and you get the mark (in English). After "a", "the", "his" and the like, or before "of", the name stays a word: "a period of calm", "the Oxford comma".
 - Whatever is selected is replaced by what you dictate next.
 - In Revision Mode, what you dictate goes in as an insertion, and over a selection as a change.
 
@@ -89,9 +89,9 @@ That's most of it. Whenever you're not sure what to say, say "what can I say".
 
 "Type" in front types the words, command or not: "type new paragraph", "type help".
 
-It's also the way for a sentence that happens to start like a command. Said on its own, "Change came to the village" is read as "change ‹words› to ‹words›", and "Add salt before serving" as "add ‹words› before ‹words›". When a command like that can't find its words in the sheet, nothing happens and the strip says **Not found**: say it again with "type" in front. If it did find them, say "scratch that" first. "Literally" at the start works the same as "type", so for a sentence that begins with that word, say "type literally…".
+It's also the way for a sentence that happens to start like a command. Said on its own, "Add salt before serving" reads as "add ‹words› before ‹words›", and "Change came to the village" as "change ‹words› to ‹words›". When the words it names aren't in the sheet, Moshe types the sentence, and the strip says No "serving" in the sheet. When they are, it's done as a command: say "scratch that", then say it again with "type" in front.
 
-In dictation, "comma", "period", "colon" and the other marks' names become the marks. To write the word itself, as in "a period of calm", say "type" in front.
+In dictation, a mark's name becomes the mark unless it's plainly the word (see [What gets typed](#what-gets-typed)). Where Moshe gets it wrong, say "type" in front.
 
 A few commands are a single word, and said all on their own they're commands, not text: "help", "heading", "English", "cancel", "undo", "export", "synonyms", "define", and the marks, like "period" and "dash". In a sentence they're just words, and most short lines are always typed: "Listen.", "The end.", "Again.", "Enough." "Stop" is a command only while Moshe is reading aloud, and a number only while a numbered list is showing.
 
@@ -111,7 +111,7 @@ The longer forms come through best: "make that bold" is heard right more often t
 
 ### Places that aren't there
 
-"Go to ‹heading or sheet›" and "open ‹sheet›" type your words when there's no heading or sheet by that name, and the strip says so, since "go to the market" may just be a sentence. The other commands that name words, like "select ‹words›", do nothing when the words aren't in the sheet, and the strip says **Not found**.
+"Go to ‹heading or sheet›" and "open ‹sheet›" type your words when there's no heading or sheet by that name, and the strip says so, since "go to the market" may just be a sentence. So do the commands that name words in the sheet ("select", "delete", "replace", "insert", "bold", "go after"): when the words aren't there, your words are typed, and the strip says No "…" in the sheet. If you meant the command, say "scratch that" and try again.
 
 ### A word heard wrong
 
@@ -128,7 +128,7 @@ Say "what can I say" whenever you're stuck. The dashboard's **Voice** view opens
 Voice is meant to be enough on its own, and a few habits make it so.
 
 - **One key, from anywhere.** Choose a key you can press easily (an F-key alone, if that's easiest) for **Voice On and Off** in **Settings › Voice**. From any app, it brings Moshe forward listening.
-- **Leave it listening.** Starting to listen takes a key or a click, and Moshe doesn't start listening by itself when it opens. So once it's listening, leave it on. Say "go to sleep" when the phone rings or someone comes in: nothing you say is typed or done, and the strip says **Asleep**. Say "wake up" when you're back. ("Stop listening" puts it to sleep too, rather than turning the microphone off.)
+- **Leave it listening.** Starting to listen takes a key or a click, and Moshe doesn't start listening by itself when it opens. So once it's listening, leave it on. Say "go to sleep" when the phone rings or someone comes in: nothing you say is typed or done, and the strip says **Asleep**. Say "wake up" when you're back. "Stop listening" puts it to sleep too. Only "microphone off" turns the microphone off, and then it takes a key or the strip's button to start again.
 - **Point with numbers.** Rather than naming words, say "show numbers", and every sentence gets a number. "Sentence 4" selects that one, and "read sentence 4" reads it. "Show paragraph numbers" and "paragraph 2" do the same with paragraphs, and "hide numbers" takes the numbers away. Say "sentence" or "paragraph" with the number: a number on its own is typed.
 - **Pick from lists by number.** When "select ‹words›" finds the words in more than one place, each place gets a number in the text (and in the dashboard's **Voice** view). Synonyms, other guesses and "show sheets" are numbered too. Say the number any way it comes out: "two", "2", "to" and "too" all mean 2, and so do "use two", "number two" and "pick two". A number that isn't on the list does nothing, and the strip says which numbers there are. "Cancel" closes the list.
 - **Listen instead of reading.** "Read that back" reads what you just said, "read this paragraph" the paragraph you're in, and "read from here" goes to the end of the sheet, lighting each word as it goes. The speakers carry Moshe's voice back into the microphone, so while it reads, it listens only for "stop" (and "stop reading", or "go to sleep"). **Settings › Voice › Reading Aloud** sets how fast it reads.
@@ -150,9 +150,10 @@ How to read the tables:
 
 | Say | What it does | Or say |
 | --- | --- | --- |
-| **go to sleep** | Moshe stops taking in what you say. Only "wake up" works until then. | "stop listening", "pause listening" |
+| **go to sleep** | Moshe stops taking in what you say. Only "wake up" works until then. The microphone stays on, so waking needs no hands. | "stop listening", "pause listening" |
+| **microphone off** | Turns the microphone off. A key or the strip's button turns it on again. It works while Moshe is asleep too. *Never guessed.* | "mic off", "turn the microphone off" |
 | **wake up** | Moshe listens again. | "start listening", "I'm back" |
-| **type ‹words›** | Types the words, even when they sound like a command. *Never guessed.* | "literally ‹words›" |
+| **type ‹words›** | Types the words, even when they sound like a command. *Never guessed.* | |
 | **switch to Hebrew · English** | Changes the language you dictate in. Commands are in English, so in Hebrew, say "אנגלית" to come back. *Never guessed.* | "dictate in Hebrew", "English", "אנגלית" |
 
 ### Writing
@@ -206,7 +207,7 @@ How to read the tables:
 | **insert ‹words› after ‹words›** | Adds words at that place. Also "before". In Revision Mode it's an insertion mark. | "insert ‹words› before ‹words›", "add ‹words› after ‹words›" |
 | **bold · italicize · highlight ‹words›** | Makes those words bold, italic or highlighted. | "mark ‹words›", "emphasize ‹words›" |
 | **bold · italicize · highlight that** | The same, for what's selected or what you just said. "Make that bold" is heard better. | "make that bold", "make that italic", "mark that" |
-| **capitalize · uppercase · lowercase that** | Changes the case of what's selected, or what you just said. | "uppercase that", "lowercase that" |
+| **capitalize · uppercase · lowercase that** | Changes the case of what's selected, or what you just said. "The word" instead of "that" is the word at the cursor. | "uppercase that", "lowercase that", "capitalize the word" |
 | **put that in quotes** | Puts quotation marks around it. | "quote that", "put quotes around that" |
 | **make that a list** | Makes a list of it. Also "a numbered list". | "make that a numbered list", "bullet that" |
 | **make that a heading** | Makes the paragraph the cursor is in a heading. Also "subheading" and "title". | "make that a subheading", "make that a title" |
@@ -251,7 +252,7 @@ How to read the tables:
 | **what can I say** | Suggestions for the moment, in the dashboard's **Voice** view. | "show commands", "help" |
 | **show · hide the dashboard** | Shows or hides the pane on the right. *Never guessed.* | "open the dashboard", "close the dashboard" |
 | **show words · voice · annotations · outline** | Opens that view of the dashboard. | "show marks", "show overview", "show progress" |
-| **focus mode** | Only the page. Say it again, and everything is back. *Never guessed.* | |
+| **focus mode** | Only the page. Say it again, and everything is back. "Hide the interface" only hides, and "show the interface" only shows. *Never guessed.* | "hide the interface", "show the interface", "leave focus mode" |
 | **go back · go forward** | The sheets you were in before and after. *Never guessed.* | |
 | **export** | Opens the Export window for the sheet. *Never guessed.* | "export this sheet" |
 | **translation mode** | The sheet and its translation, side by side. Say it again to leave. *Never guessed.* | |
