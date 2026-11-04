@@ -2,6 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { COMMANDS, parse } from '../src/voice.js';
+import { VOICE_SHEET, GETTING_STARTED, addVoiceGuide } from '../src/welcome.js';
+import { Store } from '../src/store.js';
+import { MemoryStorage } from '../src/storage.js';
 
 // docs/voice-guide.md, the writer's guide to voice: its tables (those headed “Say”) are the
 // commands, one row each, so the guide can't drift from COMMANDS without a test saying so.
@@ -50,4 +53,30 @@ test('the other ways the guide gives to say a command are that command', () => {
       assert.equal(p.id, c.id, `“${a}” is ${c.id}, not ${p.id}`);
     }
   }
+});
+
+// The voice sheet in Getting Started (src/welcome.js), the short guide inside Moshe: what it
+// tells you to say is a command, apart from the sentences it shows being typed.
+const SAID_AS_TEXT = ['She said delete that and left', 'the frost came early that year'];
+const NAMED = ['type'];   // a word it's talking about, said only in front of others
+
+test('what the voice sheet tells you to say does what it says', () => {
+  const said = [...VOICE_SHEET.matchAll(/"([^"]+)"/gu)].map((m) => m[1]);
+  assert.ok(said.length >= 15, 'the sheet has its phrases in "quotes"');
+  for (const s of said.filter((x) => !NAMED.includes(x))) {
+    const p = parse(s, { reading: s === 'stop', asleep: s === 'wake up' });
+    assert.equal(p.kind, SAID_AS_TEXT.includes(s) ? 'text' : 'command', `“${s}” in the voice sheet is ${SAID_AS_TEXT.includes(s) ? 'typed' : 'a command'}`);
+  }
+});
+
+test('the voice sheet is in Getting Started, and Settings › Voice adds it to the Inbox once', async () => {
+  assert.ok(GETTING_STARTED.includes(VOICE_SHEET));
+  assert.match(GETTING_STARTED[0], /\*\*Writing by voice\*\*/u, 'the welcome sheet names it');
+  const store = await Store.open(new MemoryStorage({ 'Notes/a.md': 'A note\n' }), { now: () => 0 });
+  const p = addVoiceGuide(store);
+  assert.equal(p, 'Notes/Writing by voice.md');
+  assert.ok(store.text(p).startsWith('# Writing by voice\n'), 'a heading of its own, outside the group');
+  store.saveSheet(p, `${store.text(p)}\nThe frost came late that year.\n`);
+  assert.equal(addVoiceGuide(store), p, 'pressed again, the one already there, practice and all');
+  assert.equal(store.sheetsIn('Notes').length, 2);
 });

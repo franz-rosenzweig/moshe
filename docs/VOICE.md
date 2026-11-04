@@ -10,7 +10,9 @@ appears under the text, and the dashboard gains two views, **Voice** and
 microphone button. Both keys can be changed, and work from any app (below).
 
 This page is how it works. How to use it, with every command, is
-[Writing by voice](voice-guide.md).
+[Writing by voice](voice-guide.md). A short version is a sheet inside Moshe
+(`VOICE_SHEET` in engine/src/welcome.js), in the Getting Started group, and
+**Settings › Voice › Writing by Voice** adds it to the Inbox on its own.
 
 ## The rule
 

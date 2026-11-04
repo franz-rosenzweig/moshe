@@ -79,6 +79,8 @@ Before you've said anything, the strip says: Say "what can I say". The dashboard
 
 That's most of it. Whenever you're not sure what to say, say "what can I say".
 
+A shorter walk-through, to read and try inside Moshe, is the sheet **Writing by voice** in the Getting Started group. **Settings › Voice › Writing by Voice** adds it to your Inbox.
+
 ## When it mishears
 
 ### Taking it back
