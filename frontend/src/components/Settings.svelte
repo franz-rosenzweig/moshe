@@ -215,6 +215,8 @@
             </span>
             <label for="s-vr">Reading Aloud:</label>
             <span><input id="s-vr" type="range" min="0.6" max="1.6" step="0.1" bind:value={prefs.voice.rate} /> <em>{Number(prefs.voice.rate).toFixed(1)}×</em></span>
+            <span class="lbl gap">Writing by Voice:</span>
+            <span class="gap"><button class="btn" onclick={() => window.mosheCommand('voiceGuide')}>Add to the Inbox</button> <em>A sheet on how it works, to read and try</em></span>
           </div>
 
         {:else if app.settingsOpen === 'sidebar'}

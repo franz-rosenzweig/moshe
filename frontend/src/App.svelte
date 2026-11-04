@@ -17,13 +17,13 @@
   import { connect as connectVoice, voice } from './voice/voice.svelte.js';
   import { toggleListening, isListening, startListening, stopListening } from './voice/mic.js';
   import { voiceKeys, matches as isKey, label as keyLabel } from './voice/keys.js';
-  import { app, prefs, store, start, back, forward, setPanes, persist, openSheet, openProject, closeProject, toast, select } from './lib/state.svelte.js';
+  import { app, prefs, store, start, back, forward, setPanes, persist, openSheet, openProject, closeProject, toast, select, revealSheet } from './lib/state.svelte.js';
   import { ui, menuUnder, openDialog, confirm } from './lib/ui.svelte.js';
   import { newSheet, newHandwrittenSheet, newGroup, trashSheets, newProject, newFilter, targetGroup, goalFor, glue } from './lib/actions.js';
   import { THEMES, THEME_ORDER, customThemes } from './lib/themes.js';
   import { startTranslation, translationPair } from './lib/translation.js';
   import { undoDepth, redoDepth } from '@codemirror/commands';
-  import { addGettingStarted } from '@engine/welcome.js';
+  import { addGettingStarted, addVoiceGuide } from '@engine/welcome.js';
 
   let pane;
   let filtering = $state(false);
@@ -69,7 +69,8 @@
     glue: () => { const p = picked(); if (p.length > 1) glue(p); else if (p.length === 1 && store.sheetInfo(p[0]).glued) store.setGlued(p[0], false); },
     merge: async () => { const p = picked(); if (p.length > 1 && (await confirm('Merge these sheets?', 'Their text becomes one sheet, in this order; the others go to the Trash.', 'Merge'))) openSheet(store.mergeSheets(p)); },
     share: () => exportCurrent({ share: true }), print: () => exportCurrent({ print: true }),
-    browseBackups: () => openDialog('backups'), gettingStarted: () => { app.settingsOpen = null; select(addGettingStarted(store)); }, keywordManager: () => openDialog('keywordManager'),
+    browseBackups: () => openDialog('backups'), gettingStarted: () => { app.settingsOpen = null; select(addGettingStarted(store)); },
+    voiceGuide: () => { app.settingsOpen = null; const p = addVoiceGuide(store); openSheet(p); revealSheet(p); app.phone = 'editor'; }, keywordManager: () => openDialog('keywordManager'),
     // Edit, Markup, Insert: the text's own (Editor.svelte's run)
     copyAs: (k) => editorRun('copyAs', k), pasteAs: (a) => editorRun('pasteAs', a), pasteFrom: (a) => editorRun('pasteFrom', a), split: () => editorRun('split'),
     code: () => editorRun('code'), markDelete: () => editorRun('markDelete'), markInsert: () => editorRun('markInsert'), annotate: () => editorRun('annotate'),

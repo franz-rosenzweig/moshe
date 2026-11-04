@@ -259,6 +259,37 @@ try {
       try { pass = !!ok(c); } catch { pass = false; }
       check(`“${said}” → ${c.last.kind} · ${c.last.msg}`, pass, `${c.last.why || ''} | picked: ${JSON.stringify(c.picked.slice(0, 60))} | near: ${JSON.stringify(c.doc.slice(Math.max(0, c.sel[0] - 50), c.sel[0] + 30))}`);
     }
+
+    // ---- the voice sheet: Settings › Voice adds it, and its "Try it" works as it says
+    await ev(`(async () => {
+      const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+      mosheCommand('settings'); await wait(300);
+      [...document.querySelectorAll('.tabs button')].find((b) => b.textContent.includes('Voice')).click(); await wait(200);
+      [...document.querySelectorAll('.form button')].find((b) => b.textContent === 'Add to the Inbox').click(); await wait(400);
+      return 1;
+    })()`);
+    const guide = await ev('__mosheVoice.text()');
+    check('Settings › Voice opens the voice sheet', guide.startsWith('# Writing by voice\n') && !(await ev("[...document.querySelectorAll('.tabs button')].some((b) => b.textContent.includes('Voice'))")), JSON.stringify(guide.slice(0, 40)));
+    const listed = (d) => (s) => d.includes(`"${s}"`);
+    const TRY = [
+      ['new sheet', (c) => c.doc === '' && c.last.kind === 'command'],
+      ['the frost came early that year', (c) => /^The frost came early that year\.?\s*$/u.test(c.doc)],
+      ['replace early with late', (c) => c.doc.includes('came late that year') && /early → late/u.test(c.last.msg)],
+      ['bold the frost', (c) => c.doc.includes('**The frost**')],
+      ['scratch that', (c) => !c.doc.includes('**')],
+      ['synonyms for late', (c) => c.s.choice && c.s.choice.kind === 'syn' && c.s.words.list.length > 2],
+      ['two', (c) => c.doc.includes(`came ${c.s.words.list[1]} that year`)],
+      ['read this paragraph', (c) => c.last.msg === 'Reading'],
+      ['stop', (c) => c.s.reading === false && c.last.kind === 'command'],
+      ['go back', (c) => c.doc.startsWith('# Writing by voice')],
+    ];
+    for (const [said, ok] of TRY) {
+      await say(said);
+      const c = await ctx();
+      let pass = false;
+      try { pass = !!ok(c) && (said === 'two' || listed(guide)(said)); } catch { pass = false; }
+      check(`voice sheet: “${said}” → ${c.last.kind} · ${c.last.msg}`, pass, `${c.last.why || ''} | ${JSON.stringify(c.doc.slice(0, 80))}`);
+    }
   }
   check('no errors on the page', !errors.length, errors.slice(0, 5).join('\n    '));
   if (shotAt) { const shot = await send('Page.captureScreenshot', { format: 'png' }); writeFileSync(shotAt, Buffer.from(shot.result.data, 'base64')); }

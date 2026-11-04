@@ -47,3 +47,11 @@ test('the keys as set: the defaults where nothing usable is', () => {
   const same = voiceKeys({ voice: 'F6', listen: 'F6' }, true);
   assert.notEqual(same.voice, same.listen, 'never one key for both');
 });
+
+test('the voice sheet in Getting Started names the default keys', async () => {
+  const { VOICE_SHEET } = await import('../../engine/src/welcome.js');
+  for (const mac of [true, false]) for (const which of ['voice', 'listen']) {
+    const k = label(DEFAULTS[mac ? 'mac' : 'other'][which], mac);
+    assert.ok(VOICE_SHEET.includes(k), `the sheet says ${k}`);
+  }
+});

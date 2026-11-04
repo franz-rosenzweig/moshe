@@ -1,7 +1,36 @@
 // What a new library can start with: a Getting Started group of real
 // sheets to read and type in, written as a letter to the new writer.
 // Settings › General, the sample library and an empty library's welcome all
-// use it.
+// use it. Settings › Voice adds the voice sheet on its own (addVoiceGuide).
+
+// Writing by voice, short: the whole of it is docs/voice-guide.md. Every phrase
+// in quotes is checked against the commands (engine/test/voice-guide.test.js),
+// and the keys against the defaults (frontend/tests/keys.test.js).
+export const VOICE_SHEET = `## Writing by voice
+
+Moshe can type what you say and do what you ask, so you can write and edit a whole chapter without the keyboard or the mouse. You talk, you pause, and at each pause Moshe either types what you said or does it.
+
+**Turning it on.** Press ⌥⇧⌘L on a Mac, or Ctrl+Alt+Shift+L anywhere else. A strip appears under the text, and when it says Listening, just talk. The same key turns voice off again, and in the Mac and Windows apps it works from any other app too, bringing Moshe forward. ⌥⌘L (Ctrl+Alt+L) starts and stops listening on its own. You can choose your own keys in Settings › Voice, even an F-key by itself. On an Android phone or tablet, touch and hold Moshe's icon and choose Start Listening.
+
+**The one rule.** Everything you say is typed, unless the whole of it, from one pause to the next, is a command. Say "delete that" on its own, and Moshe deletes what you just said. Say "She said delete that and left", and it's all typed. So say a command in one go, and then pause.
+
+**Try it.** Start listening, and say each of these, with a pause after each one:
+
+1. "new sheet" opens an empty sheet to practice in.
+2. "the frost came early that year" is typed, with a capital and a full stop.
+3. "replace early with late" changes the word, and the strip shows early → late.
+4. "bold the frost" makes it bold, and "scratch that" takes it back.
+5. "synonyms for late" lists other words. Say the number of the one you like, or "cancel".
+6. "read this paragraph" reads it aloud, and "stop" stops it.
+7. "go back" brings you back to this sheet.
+
+**What the strip says.** Under the text, the strip shows what Moshe heard and what it did with it: Text when it was typed, Command when it was done, and in red, why a command couldn't be done. When a command can't be done, nothing changes.
+
+**When it gets it wrong.** "Scratch that" takes back the last thing, typed or done, and saying it again goes further back. Put "type" in front of words to type them even when they sound like a command, like "type new paragraph". When someone comes in, say "go to sleep", and nothing you say counts until you say "wake up".
+
+**When you're stuck,** say "what can I say". The dashboard's Voice view opens with what makes sense right then, and every command is listed under All Commands. The whole guide, with every command and all the ways to say it, is [Writing by voice](https://github.com/franz-rosenzweig/moshe/blob/master/docs/voice-guide.md) in Moshe's docs. Settings › Voice adds this sheet to your Inbox whenever you want it back.
+`;
+
 export const GETTING_STARTED = [
   `# Welcome to Moshe
 
@@ -16,6 +45,8 @@ These are real sheets, so type in them, try things out and don't worry about bre
 **Sheets and groups** is about keeping a long text in order, and what that looks like in the folder.
 
 **Checking and translating** covers spelling, grammar, and putting a text beside its translation.
+
+**Writing by voice** is about writing and editing by talking, without the keyboard or the mouse.
 
 **Where your writing lives** covers syncing, backups, and exporting.
 
@@ -57,6 +88,7 @@ If you translate, put the two texts in groups named "Original" and "Translation"
 
 And when you're revising, Revision Mode (⇧⌘E) quiets the text and brings out your comments, marks, deletions, and insertions, with a list of all of them in the dashboard.
 `,
+  VOICE_SHEET,
   `## Where your writing lives
 
 Your library is a folder with Notes and Projects inside it, and Moshe reads and writes it as you go. There's no Save button, because every change is saved within a second.
@@ -76,4 +108,11 @@ export function addGettingStarted(store, parent = 'Notes') {
   const dir = store.createGroup(parent, 'Getting Started');
   for (const text of GETTING_STARTED) store.createSheet(dir, { text });
   return dir;
+}
+
+/** The voice sheet on its own, in the Inbox: the one already there if there is one (it may have been practised on). → its path */
+export function addVoiceGuide(store, dir = 'Notes') {
+  const text = VOICE_SHEET.replace(/^## /u, '# ');
+  const title = text.split('\n')[0].slice(2);
+  return store.sheetsIn(dir).find((p) => store.sheetInfo(p).title === title) || store.createSheet(dir, { text });
 }
