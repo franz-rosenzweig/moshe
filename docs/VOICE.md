@@ -5,8 +5,12 @@
 Writing and editing by voice, for writers who can't use their hands much, or
 would rather not. It's off until **Settings › Voice** turns it on. Then a strip
 appears under the text, and the dashboard gains two views, **Voice** and
-**Words**. **⌥⌘L** (**Ctrl+Alt+L** on Windows) starts and stops listening, and
-so does the strip's microphone button.
+**Words**. **⌥⇧⌘L** (**Ctrl+Alt+Shift+L** on Windows) turns voice on and off,
+**⌥⌘L** (**Ctrl+Alt+L**) starts and stops listening, and so does the strip's
+microphone button. Both keys can be changed, and work from any app (below).
+
+This page is how it works. How to use it, with every command, is
+[Writing by voice](voice-guide.md).
 
 ## The rule
 
@@ -118,6 +122,22 @@ native app that reads aloud itself (`voice.speak`, below) is used instead: the
 Android WebView has no `speechSynthesis`. The speakers feed back into the
 microphone, so while it reads, only "stop" counts.
 
+## The keys
+
+Two, each chosen in **Settings › Voice** (`voice/keys.js`, `KeyField.svelte`):
+**Voice On and Off** (`voice`) and **Listening** (`listen`), the same names as
+the page's commands and the View menu's items.
+
+- **Written as** the modifiers and `KeyboardEvent.code`: `Alt+Shift+Meta+KeyL`, `F6`. The code is where the key is, so it's the same key in any layout. Kept in `prefs.voice.keys`; `''` is no key, and a missing or unusable one is the default.
+- **What can be one:** an F-key alone, or a key with ⌘ or ⌃ on a Mac (⌥ alone types letters there, and macOS won't register ⌥ alone from any app), Ctrl or Alt elsewhere. Not the keys every app needs (⌘C, Ctrl+V, ⌘Q, Alt+Tab…), and never one key for both.
+- **What they do:** `voice` off is voice on and listening; on, it's voice off, and listening off with it. `listen` turns voice on and listens if it's off, otherwise it starts or stops listening. With `'on'` (a key pressed in another app) either only switches on.
+- **The page** hears them first, in the capture phase, before the editor. While Settings waits for a new key, the page and the apps hold none.
+- **From any app** (`prefs.voice.anyApp`, on by default): the page hands its keys to the app, `mosheShell.voiceKeys({voice, listen, menu, labels})`, where `voice` and `listen` are the keys to register with the system (`''` for none), `menu` the keys for the View menu, and `labels` the same as text. It answers `{voice, listen}`: which it holds. The system then gives a held key to Moshe alone, so the page never hears it twice. A press brings Moshe's window forward and calls `mosheCommand(name, 'on')`, or `mosheCommand(name)` when Moshe was already in front.
+  - **The Mac:** `RegisterEventHotKey`, which asks for no permission (`mac/Moshe/VoiceKeys.swift`).
+  - **Windows:** `RegisterHotKey`, on a message-only window (`windows/Moshe/VoiceKeys.cs`). A letter's scan code goes through `MapVirtualKey`, so it's the key in that place in any layout.
+  - **Android** can't: an app hears keys only while it's in front. A keyboard plugged in has the page's keys, and touching and holding the icon offers **Start Listening**, which opens Moshe with `?listen` (or calls `mosheCommand('listen', 'on')` when it's open).
+  - **The web** has the page's keys only.
+
 ## A native app's recognizer
 
 A native app offers its own recognizer the way it offers its other services
@@ -154,7 +174,8 @@ The app tells the page what it hears through `window.mosheVoice`:
 - **Custom words:** they go to the analyzer as contextual strings.
 - **"New paragraph":** Apple's dictation writes it as the break itself; the app hands the page the words instead.
 - **Older Macs:** macOS 14 and 15 have no `mosheShell.voice`, so the page listens with Whisper. The app lets the page have the microphone for that.
-- **Menus:** View › Voice and View › Start Listening (⌥⌘L).
+- **Menus:** View › Voice (⌥⇧⌘L) and View › Start Listening (⌥⌘L), with the keys the page has chosen.
+- **The keys from any app:** `VoiceKeys.swift`. The self-test's `voicekeys` checks they're held, on the menu, chosen in Settings (⌘C refused, F6 taken), let go while Settings waits and with From Any App off, and put back by Default.
 - **Self-test:** `mac/selftest.sh voice` speaks nine sentences with `say` into a file, which the app hears instead of the microphone (`-SelfTestVoiceFile`). It checks the sheet afterwards.
 
 What testing showed: dictation mishears short commands, even with the commands as
@@ -207,7 +228,7 @@ as one piece, since they are guesses at all of it.
   `mosheVoice.spoken`.
 - **Before Android 13,** or with no recognizer, there's no `voice.start`. The page
   listens with Whisper, and the app lets its page have the microphone for that.
-- **Menus and keys:** none. The strip's microphone button starts and stops listening.
+- **Menus and keys:** no menus. A keyboard plugged in has the page's keys. Touch and hold the icon for **Start Listening** (`MainActivity`, `moshe.listen`).
 - **Self-test:** `android/check.sh voice` speaks the Mac's nine sentences with
   `say` into a 16 kHz file. The test build hears it instead of the microphone
   (`moshe.voiceFile`). It checks the sheet, then reads a paragraph aloud.
@@ -262,7 +283,7 @@ WebView; Android 13–15; the download dialog on a phone (only on the emulator).
 - **Hebrew:** base.en and small.en are English only. Starting in Hebrew is refused, with the reason on the strip: Settings › Voice › "Whisper, on This Computer" uses the page's multilingual model. Switching to Hebrew while listening stops listening.
 - **The microphone:** the default recording device, through WaveIn. If Windows' privacy settings keep the microphone from desktop apps, the strip says where to allow it. The page's own Whisper (when Settings › Voice chooses it) gets the microphone too, on the app's own page only.
 - **Reading aloud:** WebView2 has `speechSynthesis` with Windows' own voices, three on a Windows 11 PC, and it marks each word as it reads it, so it needs no `voice.speak`. Edge's online "natural" voices aren't in WebView2. With no speakers (GitHub's Windows machines) it has the voices but fails at once (`synthesis-failed`), and the self-test says so rather than failing.
-- **Menus:** View › Voice, View › Start Listening (Ctrl+Alt+L, which the page hears itself) and View › Voice Model.
+- **Menus:** View › Voice (Ctrl+Alt+Shift+L), View › Start Listening (Ctrl+Alt+L) and View › Voice Model. The keys are the page's to choose; Windows hands them to Moshe from any app (`VoiceKeys.cs`), and the page hears them itself when that's off.
 - **Self-test:** `windows/selftest.ps1` speaks the Mac's nine sentences with Windows' own voice (System.Speech, `windows/tools/speak.ps1`) into a file, then "Two." on its own and "Scratch that.". The app hears the file instead of the microphone (`--voice-file`), and the self-test checks the sheet. base.en writes each one down 0.4–0.5 s after its pause.
 
 What testing showed: Windows' own voice says "Two." in 0.24 s of sound above

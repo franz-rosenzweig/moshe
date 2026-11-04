@@ -103,7 +103,18 @@ try {
   // voice on, the dashboard's Voice view, and Late Apples' second chapter open
   const lib = JSON.parse(readFileSync(join(dir, 'library.json'), 'utf8'));
   const arrival = Object.keys(lib.files).find((p) => lib.files[p].includes('## Two: Arrival'));
-  await ev(`(() => { if (!mosheMenuState().dashboardViews.some((v) => v.id === 'voice')) mosheCommand('voice'); mosheCommand('select', ${JSON.stringify(arrival.slice(0, arrival.lastIndexOf('/')))}); return 1; })()`);
+  // voice on without listening yet, as Settings › Voice does it (View › Voice and its key listen at once)
+  await ev(`(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    if (!mosheMenuState().voice) {
+      mosheCommand('settings'); await wait(300);
+      [...document.querySelectorAll('.tabs button')].find((b) => b.textContent.includes('Voice')).click(); await wait(200);
+      document.querySelector('.form input[type=checkbox]').click(); await wait(100);
+      document.querySelector('.close').click();
+    }
+    mosheCommand('select', ${JSON.stringify(arrival.slice(0, arrival.lastIndexOf('/')))});
+    return 1;
+  })()`);
   await sleep(600);
   const st = () => ev('__mosheVoice.state()');
   const say = async (text, alternatives = []) => {

@@ -6,17 +6,20 @@ Moshe can write down what you say and do what you ask, so you can write and edit
 
 ## Turning it on
 
-Voice is off until you turn it on with **Settings › Voice › Write and Edit by Voice** (in the Mac and Windows apps, **View › Voice** does the same). A strip appears under the text, and the dashboard gets two more views, **Voice** and **Words**.
-
-Then start listening:
+Voice is off until you turn it on. A strip appears under the text, and the dashboard gets two more views, **Voice** and **Words**. Two keys do it all:
 
 | | Mac | Windows |
 | --- | --- | --- |
+| Voice on and off | **⌥⇧⌘L** | **Ctrl+Alt+Shift+L** |
 | Start or stop listening | **⌥⌘L** | **Ctrl+Alt+L** |
 
-The microphone button at the left of the strip does the same, and on Android it's the way to do it.
+- **Voice on** starts listening too, since that's what you turned it on for. **Voice off** stops listening and puts the strip away. **View › Voice** in the menu bar does the same, and **Settings › Voice › Write and Edit by Voice** turns voice on without listening yet.
+- **Start listening** turns voice on first, if it's off.
+- **From any app.** In the Mac and Windows apps, the keys work while another app is in front: they bring Moshe forward and switch on, and pressed again in Moshe, they switch off. **Settings › Voice › From Any App** keeps them to Moshe's own window instead.
+- **Your own keys.** In **Settings › Voice**, click a key and press the one you'd like instead. A key on its own works if it's an F-key, which suits a one-handed keyboard or a switch that sends one: F6 alone can start and stop listening. Otherwise the key needs ⌘ or ⌃ on a Mac, Ctrl or Alt elsewhere, so it can't be typed by accident. **Delete** leaves an action with no key, and **Default** puts the usual one back.
+- **On Android,** a keyboard plugged into the phone or tablet has the same keys (**Ctrl+Alt+L**). Without one, touch and hold Moshe's icon and choose **Start Listening**.
 
-Being built now: a second key, **⌥⇧⌘L** (**Ctrl+Alt+Shift+L** on Windows), that turns voice itself on and off, and a choice of both keys in **Settings › Voice**.
+The microphone button at the left of the strip starts and stops listening too.
 
 **Listen With**, in the same settings, chooses what hears you. Start with the first choice: the app's own recognizer where the app has one, and otherwise Whisper, which runs on your computer, so your voice never leaves it. Whisper downloads its model the first time, and the strip counts up while it does. **The Browser's Own** sends your voice to Google (in Chrome) or Apple (in Safari).
 
@@ -62,7 +65,7 @@ Before you've said anything, the strip says: Say "what can I say". The dashboard
 
 ## A first five minutes
 
-1. Start listening (**⌥⌘L**, or the strip's microphone button). The strip says **Listening**.
+1. Turn voice on and start listening (**⌥⇧⌘L**, or **Ctrl+Alt+Shift+L** on Windows). The strip says **Listening**.
 2. Say "new sheet", and pause. A new, empty sheet opens, and the strip says **Command**.
 3. Say "the frost came early that year", and pause. It's typed with a capital and a full stop, and the strip says **Text**.
 4. Say "nobody in the village had a coat warm enough", and pause. It follows on as the next sentence.
@@ -124,7 +127,8 @@ Say "what can I say" whenever you're stuck. The dashboard's **Voice** view opens
 
 Voice is meant to be enough on its own, and a few habits make it so.
 
-- **Leave it listening.** Starting to listen takes a key or a click, and Moshe doesn't yet start listening by itself when it opens. So once it's listening, leave it on. Say "go to sleep" when the phone rings or someone comes in: nothing you say is typed or done, and the strip says **Asleep**. Say "wake up" when you're back. ("Stop listening" puts it to sleep too, rather than turning the microphone off.)
+- **One key, from anywhere.** Choose a key you can press easily (an F-key alone, if that's easiest) for **Voice On and Off** in **Settings › Voice**. From any app, it brings Moshe forward listening.
+- **Leave it listening.** Starting to listen takes a key or a click, and Moshe doesn't start listening by itself when it opens. So once it's listening, leave it on. Say "go to sleep" when the phone rings or someone comes in: nothing you say is typed or done, and the strip says **Asleep**. Say "wake up" when you're back. ("Stop listening" puts it to sleep too, rather than turning the microphone off.)
 - **Point with numbers.** Rather than naming words, say "show numbers", and every sentence gets a number. "Sentence 4" selects that one, and "read sentence 4" reads it. "Show paragraph numbers" and "paragraph 2" do the same with paragraphs, and "hide numbers" takes the numbers away. Say "sentence" or "paragraph" with the number: a number on its own is typed.
 - **Pick from lists by number.** When "select ‹words›" finds the words in more than one place, each place gets a number in the text (and in the dashboard's **Voice** view). Synonyms, other guesses and "show sheets" are numbered too. Say the number any way it comes out: "two", "2", "to" and "too" all mean 2, and so do "use two", "number two" and "pick two". A number that isn't on the list does nothing, and the strip says which numbers there are. "Cancel" closes the list.
 - **Listen instead of reading.** "Read that back" reads what you just said, "read this paragraph" the paragraph you're in, and "read from here" goes to the end of the sheet, lighting each word as it goes. The speakers carry Moshe's voice back into the microphone, so while it reads, it listens only for "stop" (and "stop reading", or "go to sleep"). **Settings › Voice › Reading Aloud** sets how fast it reads.

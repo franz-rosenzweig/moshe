@@ -116,10 +116,10 @@ async def voice(js):
         # never the real microphone: on a phone someone may be talking
         check(False, "voice: the test build hears the file check.sh gave it, not the microphone")
     else:
-        await js("(mosheMenuState().voice || mosheCommand('voice'), 1)")
         await new_sheet(js)
         before = await js("__mosheVoice.state().count")
-        await js("(mosheCommand('listen'), 1)")
+        # voice on and listening, as its key does
+        await js("(mosheMenuState().voice ? mosheCommand('listen') : mosheCommand('voice'), 1)")
         heard_all = False
         for _ in range(240):
             if await js("__mosheVoice.state().count") >= before + 9:

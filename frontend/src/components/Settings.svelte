@@ -3,6 +3,7 @@
   // Backup, Sync, Styles.
   import Icon from './Icon.svelte';
   import MarkupPane from './MarkupPane.svelte';
+  import KeyField from './KeyField.svelte';
   import { app, prefs, store, persist, toast, signOut, bump, backupKeeper } from '../lib/state.svelte.js';
   import { openDialog } from '../lib/ui.svelte.js';
   import { applyTheme, setCustomThemes } from '../lib/themes.js';
@@ -21,8 +22,11 @@
   import { theStorage } from '../lib/state.svelte.js';
   import { voice } from '../voice/voice.svelte.js';
   import { MODELS, browserCanListen, checkGpu } from '../voice/mic.js';
+  import { onMac } from '../voice/keys.js';
   // Voice: whether the app has its own recognizer, and the sizes of Whisper's models here (the graphics chip's are bigger)
   const appListens = typeof window !== 'undefined' && !!(window.mosheShell && window.mosheShell.voice);
+  // the voice keys from another app: where the app can register them with the system
+  const anyAppHere = typeof window !== 'undefined' && !!(window.mosheShell && window.mosheShell.voiceKeys);
   let gpu = $state(false);
   $effect(() => { if (app.settingsOpen === 'voice') checkGpu().then((d) => { gpu = d === 'webgpu'; }); });
   const cfg0 = loadConfig();
@@ -186,7 +190,15 @@
           <div class="form">
             <span class="lbl">Voice:</span>
             <span class="checks"><label><input type="checkbox" bind:checked={prefs.voice.on} /> Write and Edit by Voice</label>
-              <em>A strip under the text, and Voice and Words in the dashboard. ⌥⌘L starts and stops listening.</em></span>
+              <em>A strip under the text, and Voice and Words in the dashboard</em></span>
+            <span class="lbl gap">Voice On and Off:</span>
+            <span class="gap"><KeyField which="voice" mac={onMac()} /></span>
+            <span class="lbl">Listening:</span>
+            <span><KeyField which="listen" mac={onMac()} /></span>
+            {#if anyAppHere}
+              <span></span>
+              <span class="checks"><label><input type="checkbox" checked={prefs.voice.anyApp !== false} onchange={(e) => { prefs.voice.anyApp = e.target.checked; persist(); }} /> From Any App</label></span>
+            {/if}
             <span class="lbl gap">Listen With:</span>
             <span class="gap radios">
               <label><input type="radio" bind:group={prefs.voice.engine} value="auto" /> {appListens ? 'This App’s Own Recognizer' : 'Whisper, on This Computer'}</label>

@@ -101,8 +101,8 @@ not read it itself from a menu).
 | Show Paragraph Numbers | | `toggleParagraphNumbers` | `paragraphNumbers` |
 | Sheet List ▸ (sort orders, Show Dates) | | `sheetSort`, arg; `toggleSheetDates` | `sheetSort`, `sheetSorts`, `sheetDates` |
 | Translation Mode · Revision Mode | ⇧⌘T · ⇧⌘E | `translation` · `revision` | `translation`, `revision` |
-| Voice ([VOICE.md](VOICE.md)) | | `voice` | `voice` |
-| Start Listening / Stop Listening | ⌥⌘L | `listen` | `listening` |
+| Voice ([VOICE.md](VOICE.md)) | ⌥⇧⌘L, or as chosen | `voice` | `voice` |
+| Start Listening / Stop Listening | ⌥⌘L, or as chosen | `listen` | `listening` |
 | Zoom In · Zoom Out · Default Size | ⌘+ · ⌘− · ⌘0 | `zoomIn` · `zoomOut` · `zoomReset` | |
 | Show Line Marker | | `toggleLineMarker` | `lineMarker` |
 | Highlight ▸ Off · Line · Sentence · Paragraph | | `highlight`, arg | `highlight` |

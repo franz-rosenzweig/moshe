@@ -42,6 +42,15 @@ enum Menus {
         }
     }
 
+    /// View › Voice and Start Listening: their keys are the page's to choose (VoiceKeys).
+    private static var voiceItem: PageItem?, listenItem: PageItem?
+    static func voiceKeys(voice: VoiceKeys.Key?, listen: VoiceKeys.Key?) {
+        for (item, key) in [(voiceItem, voice), (listenItem, listen)] {
+            item?.keyEquivalent = key?.equivalent ?? ""
+            item?.keyEquivalentModifierMask = key?.flags ?? []
+        }
+    }
+
     // Arrow keys, as a menu item's key equivalent.
     static let up = "\u{F700}", down = "\u{F701}", left = "\u{F702}", right = "\u{F703}"
 
@@ -344,8 +353,8 @@ enum Menus {
         page(m, "Translation Mode", "translation", "t", [.command, .shift], tick: ("translation", "true"))
         page(m, "Revision Mode", "revision", "e", [.command, .shift], tick: ("revision", "true"))
         m.addItem(.separator())
-        page(m, "Voice", "voice", tick: ("voice", "true"))
-        page(m, "Start Listening", "listen", "l", [.command, .option], toggle: ("listening", "Stop Listening"))
+        voiceItem = page(m, "Voice", "voice", "l", [.command, .option, .shift], tick: ("voice", "true"))
+        listenItem = page(m, "Start Listening", "listen", "l", [.command, .option], toggle: ("listening", "Stop Listening"))
         m.addItem(.separator())
         page(m, "Zoom In", "zoomIn", "+")
         page(m, "Zoom In", "zoomIn", "=", hidden: true)       // ⌘= is where ⌘+ is without a plus key

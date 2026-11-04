@@ -20,6 +20,9 @@ jobs:
       - name: The engine's tests
         working-directory: engine
         run: node --test test/*.test.js
+      - name: The page's tests
+        working-directory: frontend
+        run: node --test tests/*.test.js
       - name: The server's tests
         working-directory: server
         run: node --test test/*.test.js

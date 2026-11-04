@@ -31,6 +31,7 @@ export const voice = $state({
   names: [],           // the project's names, given to the recognizer and put right after it
   words: null,         // the Words view: {kind: syn | def | fix, word, entry?, list?, used?}
   count: 0,            // utterances handled so far (what the self-tests wait on)
+  recordingKey: null,  // Settings › Voice waiting for a new key: voice | listen
 });
 
 let host = null;        // what the app lends: {view(), command(name, arg), editor(name, arg)}

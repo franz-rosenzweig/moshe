@@ -65,6 +65,7 @@ enum SelfTest {
         if wants("settings") { await settings(first) }
         if wants("panes") { await panes(first) }
         if wants("reload") { await reload(first) }
+        if wants("voicekeys") { await voiceKeys(first) }
         if wants("voice") { await voice(first) }
         finish()
     }
@@ -829,12 +830,15 @@ enum SelfTest {
             return check(false, "voice: the spoken file is there", "no say?")
         }
         check(await js(web, "window.mosheShell && window.mosheShell.voice ? 'yes' : 'no'") == "yes", "voice: the shell offers its recognizer")
-        await js(web, "mosheMenuState().voice || mosheCommand('voice'), mosheCommand('newSheet'), 1")
+        await js(web, "mosheCommand('newSheet'), 1")
         await pause(0.8)
         let before = Int(await js(web, "__mosheVoice.state().count")) ?? 0
-        await js(web, "mosheCommand('listen'), 1")
+        // voice on and listening, as its key does
+        await js(web, "mosheMenuState().voice ? mosheCommand('listen') : mosheCommand('voice'), 1")
         let all = await until(90) { Int(await js(web, "__mosheVoice.state().count")) ?? 0 >= before + 9 }
-        await js(web, "mosheCommand('listen'), 1")                         // stop
+        await js(web, "mosheCommand('voice'), 1")                          // voice off, and listening with it
+        let off = await until(3) { await js(web, "JSON.stringify([mosheMenuState().voice, mosheMenuState().listening])") == "[false,false]" }
+        check(off, "voice: turning voice off stops listening")
         let heard = await js(web, "JSON.stringify(__mosheVoice.state().heard.slice(0, 9).reverse().map((h) => [h.said, h.kind, h.msg, h.how]))")
         for line in heard.components(separatedBy: "],[") { log("INFO  voice heard " + line.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))) }
         check(all, "voice: nine utterances heard, one at each pause", heard)
@@ -844,6 +848,63 @@ enum SelfTest {
         check(text == "The storm came in from the west.\n\nIt rained for three days.", "voice: the sheet says what was said", text)
         check(heard.contains("Apple’s dictation"), "voice: heard by Apple's dictation")
         await snapPage(web, "voice")
+    }
+
+    /// The voice keys (VoiceKeys.swift): held with the system, so they work from another app;
+    /// on the View menu; chosen in Settings › Voice, none held while it waits for the new key.
+    static func voiceKeys(_ c: MosheWindowController) async {
+        let web = c.webView!
+        let holds = await until(5) { VoiceKeys.holding == ["voice", "listen"] }
+        check(holds, "voice keys: both held with the system", "\(VoiceKeys.holding)")
+        func menuKey(_ command: String) -> String {
+            func items(_ m: NSMenu) -> [NSMenuItem] { m.items.flatMap { [$0] + ($0.submenu.map(items) ?? []) } }
+            guard let item = (NSApp.mainMenu.map(items) ?? []).first(where: { ($0 as? PageItem)?.command == command }) else { return "none" }
+            let m = item.keyEquivalentModifierMask
+            return (m.contains(.control) ? "⌃" : "") + (m.contains(.option) ? "⌥" : "") + (m.contains(.shift) ? "⇧" : "") + (m.contains(.command) ? "⌘" : "")
+                + (item.keyEquivalent.unicodeScalars.first.map { $0.value == UInt32(NSF6FunctionKey) ? "F6" : item.keyEquivalent.uppercased() } ?? "")
+        }
+        check(menuKey("voice") == "⌥⇧⌘L" && menuKey("listen") == "⌥⌘L", "voice keys: on View › Voice and Start Listening",
+              "\(menuKey("voice")) \(menuKey("listen"))")
+
+        // a press runs the page's command of the same name; from another app it only ever switches on
+        await js(web, "window.__keyCalls = []; window.__realCommand = window.mosheCommand; window.mosheCommand = (n, a) => { __keyCalls.push([n, a === undefined ? null : a]); return true; }; 1")
+        VoiceKeys.pressed("voice")
+        VoiceKeys.pressed("listen")
+        let calls = await js(web, "JSON.stringify(__keyCalls)")
+        check(calls == "[[\"voice\",null],[\"listen\",null]]" || calls == "[[\"voice\",\"on\"],[\"listen\",null]]",
+              "voice keys: a press runs Voice or Listening in the page", calls)
+        await js(web, "window.mosheCommand = window.__realCommand; 1")
+
+        // Settings › Voice: a new key for listening, F6 alone
+        c.command("settings")
+        _ = await until(3) { await js(web, "!!document.querySelector('.win')") == "1" }
+        await js(web, "[...document.querySelectorAll('.tabs button')].find((b) => b.textContent.includes('Voice')).click(), 1")
+        _ = await until(3) { await js(web, "document.querySelectorAll('.keyfield .key').length") == "2" }
+        await js(web, "document.querySelectorAll('.keyfield .key')[1].click(), 1")
+        let freed = await until(3) { VoiceKeys.holding.isEmpty }
+        check(freed, "voice keys: none held while Settings waits for a key", "\(VoiceKeys.holding)")
+        await js(web, "window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyC', key: 'c', metaKey: true, bubbles: true })), 1")
+        let refused = await js(web, "document.querySelector('.keyfield em') ? document.querySelector('.keyfield em').textContent : ''")
+        check(refused == "⌘C is Copy", "voice keys: a key every app needs is refused", refused)
+        await js(web, "window.dispatchEvent(new KeyboardEvent('keydown', { code: 'F6', key: 'F6', bubbles: true })), 1")
+        let f6 = await until(3) { VoiceKeys.holding == ["voice", "listen"] && menuKey("listen") == "F6" }
+        let shown = await js(web, "document.querySelectorAll('.keyfield .key')[1].textContent.trim()")
+        check(f6 && shown == "F6", "voice keys: F6 chosen, held and on the menu", "\(shown) \(menuKey("listen"))")
+        await snapPage(web, "voice-keys")
+
+        // From Any App off: the page's keys only, none held
+        let box = "[...document.querySelectorAll('.checks label')].find((l) => l.textContent.includes('From Any App')).querySelector('input')"
+        await js(web, "\(box).click(), 1")
+        let local = await until(3) { VoiceKeys.holding.isEmpty }
+        check(local && menuKey("listen") == "F6", "voice keys: From Any App off holds none, the menu keeps them", "\(VoiceKeys.holding)")
+        await js(web, "\(box).click(), 1")
+        _ = await until(3) { VoiceKeys.holding.count == 2 }
+
+        // back to the default
+        await js(web, "[...document.querySelectorAll('.keyfield .btn')].find((b) => b.textContent.trim() === 'Default').click(), 1")
+        let back = await until(3) { menuKey("listen") == "⌥⌘L" }
+        check(back, "voice keys: Default puts ⌥⌘L back", menuKey("listen"))
+        await js(web, "document.querySelector('.close') && document.querySelector('.close').click(); true")
     }
 
     static func reload(_ c: MosheWindowController) async {

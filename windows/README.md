@@ -63,8 +63,9 @@ the few things a page cannot do well. C# and WinUI 3, with the page in WebView2.
   the Mac's pause gate, ported line for line; at each pause, Whisper writes the
   utterance down, with the project's names and the commands as its prompt, and
   the page carries it out. base.en is built in; View › Voice Model fetches
-  small.en once. View › Voice and View › Start Listening (Ctrl+Alt+L) are there
-  too. The microphone goes to the app's own page only, for its own Whisper when
+  small.en once. View › Voice (Ctrl+Alt+Shift+L) and View › Start Listening
+  (Ctrl+Alt+L) are there too, and their keys, the page's to choose, work from any
+  app (VoiceKeys.cs, RegisterHotKey). The microphone goes to the app's own page only, for its own Whisper when
   Settings › Voice chooses it. Reading aloud is the page's own, with Windows' voices.
 
 The page needs nothing of its own for Windows: it already speaks Android's
@@ -114,7 +115,8 @@ with no dialog for anyone to answer: the bridge's conformance checks in the page
 sharing, links out, and the menus' state. The PDF it made is kept with the
 workflow's run. Then voice: the Mac's nine sentences, spoken by Windows' own
 voice into a file (`tools\speak.ps1`) that the app hears instead of the
-microphone (`--voice-file`), and what the sheet became; Ctrl+Alt+L; the
+microphone (`--voice-file`), and what the sheet became; the voice keys held
+with Windows; Ctrl+Alt+L; the
 microphone for the page; reading aloud, word by word.
 
 ## The pieces

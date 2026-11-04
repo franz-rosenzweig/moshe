@@ -5,13 +5,15 @@
   import Icon from './Icon.svelte';
   import { voice, hear, refreshNames } from '../voice/voice.svelte.js';
   import { toggleListening, isListening } from '../voice/mic.js';
-  import { app } from '../lib/state.svelte.js';
+  import { app, prefs } from '../lib/state.svelte.js';
+  import { voiceKeys, label as keyLabel, onMac } from '../voice/keys.js';
 
   // the project's names, kept up to date for the recognizer (not on every keystroke)
   let timer = null;
   $effect(() => { app.version; app.sheet; app.project; clearTimeout(timer); timer = setTimeout(refreshNames, 900); return () => clearTimeout(timer); });
 
   const off = $derived(voice.mic === 'off' || voice.mic === 'error');
+  const key = $derived.by(() => { const k = voiceKeys(prefs.voice.keys, onMac()).listen; return k ? ` (${keyLabel(k, onMac())})` : ''; });
   const label = $derived(voice.mic === 'loading' ? `Loading ${voice.loadPct}%` : off ? 'Mic Off' : voice.asleep ? 'Asleep' : 'Listening');
   const live = $derived(!off && (voice.mic === 'hearing' || voice.mic === 'working' || !!voice.partial));
   const CHIPS = { text: 'Text', command: 'Command', fail: 'Command', ignored: 'Ignored' };
@@ -24,7 +26,7 @@
 </script>
 
 <div class="vstrip" role="status" aria-live="polite">
-  <button class="mic" class:off class:asleep={!off && voice.asleep} title={off ? 'Start Listening (⌥⌘L)' : voice.asleep ? 'Wake Up' : 'Stop Listening (⌥⌘L)'} onclick={press}>
+  <button class="mic" class:off class:asleep={!off && voice.asleep} title={off ? `Start Listening${key}` : voice.asleep ? 'Wake Up' : `Stop Listening${key}`} onclick={press}>
     <span class="dot" aria-hidden="true"></span><Icon name={off ? 'mic-off' : 'mic'} size={14} /><span>{label}</span>
     {#if !off}<span class="meter" aria-hidden="true"><i style:transform={`scaleX(${voice.level.toFixed(3)})`}></i></span>{/if}
   </button>

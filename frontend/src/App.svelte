@@ -14,8 +14,9 @@
   import Login from './components/Login.svelte';
   import MarkupBar from './components/MarkupBar.svelte';
   import VoiceStrip from './components/VoiceStrip.svelte';
-  import { connect as connectVoice } from './voice/voice.svelte.js';
-  import { toggleListening, isListening } from './voice/mic.js';
+  import { connect as connectVoice, voice } from './voice/voice.svelte.js';
+  import { toggleListening, isListening, startListening, stopListening } from './voice/mic.js';
+  import { voiceKeys, matches as isKey, label as keyLabel } from './voice/keys.js';
   import { app, prefs, store, start, back, forward, setPanes, persist, openSheet, openProject, closeProject, toast, select } from './lib/state.svelte.js';
   import { ui, menuUnder, openDialog, confirm } from './lib/ui.svelte.js';
   import { newSheet, newHandwrittenSheet, newGroup, trashSheets, newProject, newFilter, targetGroup, goalFor, glue } from './lib/actions.js';
@@ -96,7 +97,9 @@
     previousSheet: () => stepSheet(-1), nextSheet: () => stepSheet(1),
     panel: (kind) => { if (kind === 'export') exportCurrent(); else if (kind === 'statistics') COMMANDS.dashboardView('progress'); else if (kind === 'navigation') COMMANDS.dashboardView('outline'); else if (kind === 'markup') editorRun('markupPanel'); },
     // voice (docs/VOICE.md): on and off in Settings › Voice; listening started and stopped here
-    voice: () => { prefs.voice.on = !prefs.voice.on; persist(); }, listen: () => { if (prefs.voice.on) toggleListening(); },
+    // their keys (voice/keys.js) too; 'on' is a key pressed in another app, which only ever starts
+    voice: (how) => { if (how === 'on' || !prefs.voice.on) voiceOn(); else { prefs.voice.on = false; persist(); } },
+    listen: (how) => { if (!prefs.voice.on || how === 'on') voiceOn(); else toggleListening(); },
     checkText: () => { const v = pane && pane.activeView(); if (!v || !app.sheet) return; app.revision = true; app.dashboard = true; app.dashboardView = 'annotations'; import('./lib/check.svelte.js').then((m) => m.checkText(app.sheet, v.state.doc.toString())); },
   };
   /** The sheets a Sheet command acts on: those picked in the list, or the open one. */
@@ -238,6 +241,44 @@
     if (app.project) { closeProject(); app.phone = 'library'; return true; }
     return false;
   };
+  /** Voice on, and listening: what either voice key does first. */
+  function voiceOn() {
+    if (!prefs.voice.on) { prefs.voice.on = true; persist(); }
+    if (!isListening()) startListening();
+  }
+  // voice off is listening off too
+  $effect(() => { if (!prefs.voice.on && isListening()) stopListening(); });
+
+  // The voice keys (voice/keys.js): the page's, and the system's too where the app can
+  // register them (mosheShell.voiceKeys), so they work from another app. A key the app
+  // holds never reaches the page; while Settings is waiting for a new key, none is held.
+  const keys = $derived(voiceKeys(prefs.voice.keys, mac));
+  $effect(() => {
+    const none = { voice: '', listen: '' };
+    const menu = voice.recordingKey ? none : keys;
+    const held = voice.recordingKey || prefs.voice.anyApp === false ? none : keys;
+    if (window.mosheShell && window.mosheShell.voiceKeys) {
+      Promise.resolve(window.mosheShell.voiceKeys({ ...held, menu, labels: { voice: menu.voice ? keyLabel(menu.voice, mac) : '', listen: menu.listen ? keyLabel(menu.listen, mac) : '' } })).catch(() => {});
+    }
+  });
+  function voiceKey(e) {
+    if (app.phase !== 'ready' || voice.recordingKey || e.repeat) return;
+    const which = isKey(keys.voice, e) ? 'voice' : isKey(keys.listen, e) ? 'listen' : null;
+    if (!which) return;
+    e.preventDefault();
+    e.stopPropagation();
+    COMMANDS[which]();
+  }
+  // ?listen (Android's Start Listening shortcut): voice on and listening, once the library is open
+  $effect(() => {
+    if (app.phase !== 'ready') return;
+    const u = new URL(location.href);
+    if (!u.searchParams.has('listen')) return;
+    u.searchParams.delete('listen');
+    history.replaceState(null, '', u.pathname + (u.search.length > 1 ? u.search : '') + u.hash);
+    COMMANDS.listen('on');
+  });
+
   window.mosheCommand = (name, arg) => { const f = COMMANDS[name]; if (f && app.phase === 'ready') f(arg); return !!f; };
 
   onMount(() => {
@@ -313,7 +354,6 @@
     if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && e.altKey && inEditor && pane && pane.switchEditor && pane.switchEditor()) { e.preventDefault(); return; }
     if (k === 'i' && e.shiftKey) { e.preventDefault(); import('./lib/importer.js').then((m) => m.chooseAndImport()); return; }
     if (k === 'e' && e.shiftKey) { e.preventDefault(); COMMANDS.revision(); return; }
-    if (e.code === 'KeyL' && e.altKey && !e.shiftKey && !ctrlCmd && prefs.voice.on) { e.preventDefault(); toggleListening(); return; }
   }
 
   /** Sheets one place up or down in their group, where it is sorted by hand. */
@@ -398,7 +438,7 @@
   const listTitle = $derived.by(() => { app.version; return store ? store.sheetList(app.selection).title : ''; });
 </script>
 
-<svelte:window onkeydown={keydown} onkeydowncapture={focusKey} onpointermovecapture={focusMove} onpointerdowncapture={focusDown} onpointerupcapture={focusUp} />
+<svelte:window onkeydown={keydown} onkeydowncapture={(e) => { voiceKey(e); focusKey(e); }} onpointermovecapture={focusMove} onpointerdowncapture={focusDown} onpointerupcapture={focusUp} />
 
 {#if app.phase === 'login'}
   <Login />

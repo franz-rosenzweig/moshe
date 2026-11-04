@@ -18,6 +18,8 @@ This page lists every key Moshe knows. They're the usual keys of a Mac writing a
 | **⌥⌘←** / **⌥⌘→** | Move between the two editors |
 | **⇧⌘T** | Translation mode |
 | **⇧⌘E** | Revision mode |
+| **⌥⇧⌘L** | Voice on and listening, or voice off ([Writing by voice](voice-guide.md); from any app, and changeable in Settings › Voice) |
+| **⌥⌘L** | Start or stop listening (the same) |
 | **⌘6** | Export |
 | **⌘7** | The dashboard's Progress view |
 | **⌘8** | The dashboard's Outline view |

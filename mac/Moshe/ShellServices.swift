@@ -27,6 +27,8 @@ final class ShellServices: NSObject, WKScriptMessageHandlerWithReply {
         copy: (what) => call('copy', { text: String((what && what.text) || ''), html: what && what.html ? String(what.html) : '' }),
         print: (html, fileName) => call('print', { html: String(html), fileName: String(fileName || 'Print') }),
         sharePdf: (html, fileName) => call('sharePdf', { html: String(html), fileName: String(fileName || 'Export.pdf') }),
+        voiceKeys: (k) => call('voiceKeys', { voice: String((k && k.voice) || ''), listen: String((k && k.listen) || ''),
+          menu: { voice: String((k && k.menu && k.menu.voice) || ''), listen: String((k && k.menu && k.menu.listen) || '') } }),
     \(VoiceService.available ? VoiceService.script : "")
       });
     })();
@@ -61,6 +63,8 @@ final class ShellServices: NSObject, WKScriptMessageHandlerWithReply {
         switch op {
         case "voiceStart", "voiceStop", "voiceLanguage":
             return try await voice.answer(op, args)
+        case "voiceKeys":
+            return VoiceKeys.set(args)
         case "savePdf":
             guard let html = args["html"] as? String else { throw ShellError("no HTML to print") }
             let name = Self.withExtension(args["fileName"] as? String ?? "Export", "pdf")

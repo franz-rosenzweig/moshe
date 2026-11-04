@@ -32,6 +32,8 @@ static class Scripts
             sharePdf: (html, fileName) => call('sharePdf', { html: String(html), fileName: String(fileName || 'Export.pdf') }),
             openExternal: (url) => call('openExternal', { url: String(url) }),
             copy: (what) => call('copy', { text: String((what && what.text) || ''), html: what && what.html ? String(what.html) : '' }),
+            voiceKeys: (k) => call('voiceKeys', { voice: String((k && k.voice) || ''), listen: String((k && k.listen) || ''),
+              labels: { voice: String((k && k.labels && k.labels.voice) || ''), listen: String((k && k.labels && k.labels.listen) || '') } }),
         {{(VoiceService.Available ? VoiceService.Script : "")}}
           });
 
