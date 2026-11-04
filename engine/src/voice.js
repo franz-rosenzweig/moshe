@@ -46,9 +46,10 @@ const THAT = '(?:that|it|this)';
  */
 export const COMMANDS = [
   // Listening
-  { id: 'sleep', group: 'Listening', say: 'go to sleep', example: 'go to sleep', does: 'Stops listening. Only “wake up” works until then.', re: R('go to sleep|stop listening|pause listening|mic(?:rophone)? off'), also: ['stop listening'] },
+  { id: 'sleep', group: 'Listening', say: 'go to sleep', example: 'go to sleep', does: 'Takes in nothing but “wake up” until then. The microphone stays on, so waking needs no hands.', re: R('go to sleep|stop listening|pause listening'), also: ['stop listening'] },
   { id: 'wake', group: 'Listening', say: 'wake up', example: 'wake up', does: 'Listens again.', re: R('wake up|start listening') },
-  { id: 'type', group: 'Listening', say: 'type ‹words›', example: 'type delete that', does: 'Types the words, even when they sound like a command.', re: R('(?:type|literally) (.+)'), exact: true },
+  { id: 'micOff', group: 'Listening', say: 'microphone off', example: 'microphone off', does: 'Turns the microphone off. A key, or the strip’s button, turns it on again.', re: R('(?:turn (?:the )?)?mic(?:rophone)? off|turn off the mic(?:rophone)?'), also: ['mic off', 'turn the microphone off'], exact: true },
+  { id: 'type', group: 'Listening', say: 'type ‹words›', example: 'type delete that', does: 'Types the words, even when they sound like a command.', re: R('type (.+)'), exact: true },
   { id: 'language', group: 'Listening', say: 'switch to Hebrew · English', example: 'switch to Hebrew', does: 'Changes the language of dictation.', re: R('(?:switch to |dictate in )?(hebrew|english)|(עברית|אנגלית)'), exact: true },
   // Writing
   { id: 'newParagraph', group: 'Writing', say: 'new paragraph', example: 'new paragraph', does: 'Starts a paragraph.', re: R('new paragraph|new line|next line|start a new paragraph|paragraph break|line break'), also: ['new line'] },
@@ -87,7 +88,7 @@ export const COMMANDS = [
   { id: 'format', group: 'Editing', say: 'bold · italicize · highlight ‹words›', example: 'highlight the water tower', does: 'Also “mark ‹words›”.', re: R('(bold|embolden|italicize|italic|italics|emphasize|highlight|mark) (.+)') },
   { id: 'makeFormat', group: 'Editing', say: 'bold · italicize · highlight that', example: 'highlight that', does: 'The selection, or what was just said. “Make that bold” is heard better.', re: R(`(?:make|turn|put) ${THAT} (?:in(?:to)? )?(bold|italic|italics|highlighted)|(bold|embolden|italicize|highlight|mark) (?:the selection|${THAT})`),
     also: ['make that bold', 'make that italic', 'make that highlighted', 'bold that', 'italicize that', 'mark that'] },
-  { id: 'transform', group: 'Editing', say: 'capitalize · uppercase · lowercase that', example: 'capitalize that', does: 'The selection, or what was just said.', re: R(`(capitalize|uppercase|upper case|lowercase|lower case) (?:${THAT}|the selection|the word)`), also: ['uppercase that', 'lowercase that'] },
+  { id: 'transform', group: 'Editing', say: 'capitalize · uppercase · lowercase that', example: 'capitalize that', does: 'The selection, or what was just said; “the word”, the word at the cursor.', re: R(`(capitalize|uppercase|upper case|lowercase|lower case) (?:${THAT}|the selection|(the word))`), also: ['uppercase that', 'lowercase that', 'capitalize the word'] },
   { id: 'quote', group: 'Editing', say: 'put that in quotes', example: 'put that in quotes', does: 'Quotation marks around it.', re: R(`(?:put )?${THAT} in quotes|quote ${THAT}|put quotes around ${THAT}`), also: ['quote that'] },
   { id: 'list', group: 'Editing', say: 'make that a list', example: 'make that a list', does: 'Also “a numbered list”.', re: R(`(?:make|turn) ${THAT} (?:into )?(?:a )?(bulleted |bullet |numbered )?list|bullet ${THAT}`), also: ['make that a numbered list', 'bullet that'] },
   { id: 'heading', group: 'Editing', say: 'make that a heading', example: 'make that a heading', does: 'The paragraph at the cursor; also “subheading”, “title”.', re: R(`(?:make|turn) ${THAT} (?:into )?(?:a )?(heading|subheading|title)|(heading|subheading)`), also: ['make that a subheading', 'make that a title'] },
@@ -110,13 +111,13 @@ export const COMMANDS = [
   { id: 'readNumbered', group: 'Reading', say: 'read sentence ‹n›', example: 'read sentence 2', does: 'Also “paragraph ‹n›”.', re: R(`read (sentence|paragraph) ${NUM}`) },
   { id: 'readFrom', group: 'Reading', say: 'read from here', example: 'read from here', does: 'To the end of the sheet.', re: R('read (?:from here|on|to the end)') },
   { id: 'stopReading', group: 'Reading', say: 'stop reading', example: 'stop reading', does: 'Stops it.', re: R('stop reading|stop talking'), also: ['stop talking'] },
-  { id: 'stop', group: 'Reading', say: 'stop', example: 'stop', does: 'Only while it is reading; otherwise it’s a word.', re: R('stop|quiet'), when: 'reading', whyNot: 'Nothing was being read, so “stop” was typed.' },
+  { id: 'stop', group: 'Reading', say: 'stop', example: 'stop', does: 'Only while it is reading; otherwise it’s a word.', re: R('stop|quiet'), when: 'reading', whyNot: 'Nothing was being read, so it was typed.' },
   { id: 'wordCount', group: 'Reading', say: 'word count', example: 'word count', does: 'How many words the sheet has.', re: R('word count|how many words|count (?:the )?words') },
   // The app
   { id: 'help', group: 'App', say: 'what can I say', example: 'what can I say', does: 'Suggestions for the moment, in the dashboard.', re: R('what can i say|what are the commands|show (?:the )?commands|help|commands'), also: ['show commands'] },
   { id: 'dashboard', group: 'App', say: 'show · hide the dashboard', example: 'hide the dashboard', does: 'The pane on the right.', re: R('(show|hide|close|open) (?:the )?dashboard'), exact: true },
   { id: 'panel', group: 'App', say: 'show words · voice · annotations · outline', example: 'show annotations', does: 'That view of the dashboard.', re: R('show (?:the )?(words|voice|heard|marks|annotations|outline|overview|progress)') },
-  { id: 'focusMode', group: 'App', say: 'focus mode', example: 'focus mode', does: 'Only the page; again, and everything is back.', re: R('focus mode|hide (?:the )?interface|show (?:the )?interface'), app: 'hideInterface', exact: true },
+  { id: 'focusMode', group: 'App', say: 'focus mode', example: 'focus mode', does: 'Only the page; again, and everything is back. “Hide the interface” and “show the interface” do just that.', re: R('focus mode|(hide|show) (?:the )?interface|(leave|exit) focus mode'), also: ['hide the interface', 'show the interface', 'leave focus mode'], exact: true },
   { id: 'back', group: 'App', say: 'go back · go forward', example: 'go back', does: 'The sheets visited before and after.', re: R('go (back|forward)'), exact: true },
   { id: 'export', group: 'App', say: 'export', example: 'export', does: 'The Export window, for the open sheet.', re: R('export(?: (?:this|the) sheet)?'), app: 'export', exact: true },
   { id: 'translation', group: 'App', say: 'translation mode', example: 'translation mode', does: 'The sheet and its translation side by side.', re: R('translation mode'), app: 'translation', exact: true },
@@ -197,7 +198,11 @@ const CHOICE = new RegExp(`^(?:number |use |pick |choose |take |option |the )?${
 export function parse(said, ctx = {}) {
   const l = lite(said);
   if (!/[\p{L}\p{N}]/u.test(l)) return { kind: 'empty' };
-  if (ctx.asleep) return WAKE.test(l) ? { kind: 'command', id: 'wake', groups: [], command: COMMANDS.find((c) => c.id === 'wake') } : { kind: 'ignored' };
+  if (ctx.asleep) {
+    // asleep, only waking counts, or the microphone off for good
+    const c = WAKE.test(l) ? COMMANDS.find((x) => x.id === 'wake') : COMMANDS.find((x) => x.id === 'micOff' && x.re.test(l));
+    return c ? { kind: 'command', id: c.id, groups: [], command: c } : { kind: 'ignored' };
+  }
   if (ctx.choosing) { const m = CHOICE.exec(l); if (m) return { kind: 'choice', n: numberOf(m[1]) }; }
   let why = '';
   for (const c of ORDERED) {
@@ -213,13 +218,22 @@ export function parse(said, ctx = {}) {
 // ---- dictation: cleaned up, then placed
 
 const FILLERS = /(^|\s)(?:u+m+|u+h+|e+r+m*|hmm+|mm+)(?:[,.…]+)?(?=\s|$)/giu;
-const SPOKEN = [[/\s*\bcomma\b/giu, ','], [/\s*\b(?:period|full stop)\b/giu, '.'], [/\s*\bquestion mark\b/giu, '?'],
-  [/\s*\bexclamation (?:point|mark)\b/giu, '!'], [/\s*\bsemicolon\b/giu, ';'], [/\s*\bcolon\b/giu, ':']];
-/** What a recognizer wrote, tidied: fillers out, spoken punctuation in. Never a word changed. */
+const SPOKEN = /\s*\b(full stop|question mark|exclamation (?:point|mark)|semicolon|colon|comma|period)\b/giu;
+const MARK = { 'full stop': '.', 'question mark': '?', 'exclamation point': '!', 'exclamation mark': '!', semicolon: ';', colon: ':', comma: ',', period: '.' };
+// after these, a mark's name is the thing itself: "a period of calm", "the Oxford comma", "his colon"
+const A_THING = new Set(['a', 'an', 'the', 'this', 'that', 'these', 'those', 'my', 'your', 'his', 'her', 'its', 'our', 'their', 'one', 'each',
+  'every', 'any', 'some', 'no', 'another', 'which', 'what', 'whose', 'long', 'short', 'brief', 'whole', 'trial', 'grace', 'same', 'first',
+  'last', 'next', 'final', 'oxford', 'serial']);
+/** What a recognizer wrote, tidied: fillers out, spoken punctuation in, where a mark is meant. Never a word changed. */
 export function cleanDictation(said, { lang = 'en' } = {}) {
   let t = String(said || '').replace(/\s+/gu, ' ').trim(), fillers = 0;
   t = t.replace(FILLERS, (m, p) => { fillers++; return p; }).replace(/\s{2,}/gu, ' ').replace(/^[,.\s]+/u, '').trim();
-  if (lang === 'en') for (const [re, p] of SPOKEN) t = t.replace(re, p);
+  if (lang === 'en') {
+    t = t.replace(SPOKEN, (m, name, at, all) => {
+      const before = (all.slice(0, at).match(/([\p{L}']+)[^\p{L}']*$/u) || [])[1] || '';
+      return A_THING.has(before.toLowerCase()) || /^\s+of\b/iu.test(all.slice(at + m.length)) ? m : MARK[name.toLowerCase()];
+    });
+  }
   return { text: t, fillers };
 }
 

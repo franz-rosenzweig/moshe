@@ -131,17 +131,23 @@ public class MainActivity extends Activity {
         libraryShortcut();
     }
 
-    /** Long-press Moshe's icon → Library: where the library lives (SettingsActivity). */
+    /** Long-press Moshe's icon → Start Listening: voice on, listening (docs/VOICE.md);
+     *  → Library: where the library lives (SettingsActivity). */
     private void libraryShortcut() {
         ShortcutManager sm = getSystemService(ShortcutManager.class);
         if (sm == null) return;
+        ShortcutInfo listen = new ShortcutInfo.Builder(this, "listen")
+                .setShortLabel(getString(R.string.shortcut_listen))
+                .setIcon(Icon.createWithResource(this, R.mipmap.ic_launcher))
+                .setIntent(new Intent(Intent.ACTION_VIEW).setClass(this, MainActivity.class).putExtra(LISTEN, true))
+                .build();
         ShortcutInfo library = new ShortcutInfo.Builder(this, "library")
                 .setShortLabel(getString(R.string.shortcut_library))
                 .setIcon(Icon.createWithResource(this, R.mipmap.ic_launcher))
                 .setIntent(new Intent(Intent.ACTION_VIEW).setClass(this, SettingsActivity.class))
                 .build();
         try {
-            sm.setDynamicShortcuts(java.util.Collections.singletonList(library));
+            sm.setDynamicShortcuts(java.util.Arrays.asList(listen, library));
         } catch (IllegalStateException | IllegalArgumentException ignored) {
             // the launcher's limit on shortcuts; nothing lost but the shortcut
         }
@@ -179,7 +185,14 @@ public class MainActivity extends Activity {
     private String startUrl(Intent intent) {
         String base = serverMode ? server.toString() : ORIGIN + "/";
         String shared = sharedText(intent);
-        return shared == null ? base : base + "?share=" + Uri.encode(shared);
+        if (shared != null) return base + "?share=" + Uri.encode(shared);
+        return listening(intent) ? base + "?listen" : base;
+    }
+
+    /** The Start Listening shortcut: the page turns voice on and listens once its library is open. */
+    static final String LISTEN = "moshe.listen";
+    private static boolean listening(Intent intent) {
+        return intent != null && intent.getBooleanExtra(LISTEN, false);
     }
 
     private static String sharedText(Intent intent) {
@@ -220,6 +233,10 @@ public class MainActivity extends Activity {
         super.onNewIntent(intent);
         setIntent(intent);
         testVoiceFile(intent);
+        if (web != null && listening(intent) && sharedText(intent) == null) {
+            web.evaluateJavascript("window.mosheCommand && window.mosheCommand('listen', 'on')", null);
+            return;
+        }
         if (web == null || sharedText(intent) == null) return;
         // what is being typed is saved before the page starts again with the share
         web.evaluateJavascript("(window.__mosheLocal ? window.__mosheLocal.flush() : Promise.resolve()).catch(() => {})"

@@ -31,6 +31,7 @@ export const voice = $state({
   names: [],           // the project's names, given to the recognizer and put right after it
   words: null,         // the Words view: {kind: syn | def | fix, word, entry?, list?, used?}
   count: 0,            // utterances handled so far (what the self-tests wait on)
+  recordingKey: null,  // Settings › Voice waiting for a new key: voice | listen
 });
 
 let host = null;        // what the app lends: {view(), command(name, arg), editor(name, arg)}
@@ -111,11 +112,19 @@ async function run(said, meta) {
   const r = await carryOut(p, said);
   // an open-ended command that found nothing ("highlight dad") may be a near miss of an exact one ("highlight that")
   if (r.fail && /^Not found/u.test(r.fail)) { const near = nearCommand(said); if (near && near.act && (await guess(near.phrase, said, meta))) return; }
+  // else, said all on its own, it may be a sentence that starts like one ("Change came to the village"): typed
+  if (r.fail && /^Not found/u.test(r.fail) && TYPED_IF_MISSING.has(p.id)) {
+    dictate(said, { why: `${r.fail.replace(/^Not found · /u, 'No ')} in the sheet, so it was typed. A command? “Scratch that”, and say it again.`, meta });
+    return;
+  }
   if (r.decline) { dictate(said, { why: r.decline, meta }); return; }
   if (r.dictate != null) { dictate(r.dictate, { why: r.why, meta, literal: true, said }); return; }
   report(said, r.fail ? 'fail' : 'command', r.fail || r.msg || p.command.say, r.why, meta);
   tone(r.fail ? 'fail' : 'command');
 }
+
+/** The commands that name words in the sheet and begin as a sentence may: when the words aren't there, the sentence is typed. */
+const TYPED_IF_MISSING = new Set(['selectPhrase', 'selectRange', 'deletePhrase', 'replace', 'insert', 'format', 'goNear']);
 
 /** A command, done: what its DO returns ({msg} | {fail} | {decline} | {dictate}), not yet reported. */
 async function carryOut(p, said) {
@@ -307,6 +316,7 @@ const units = (v, kind) => (kind === 'sentence' ? sentenceRanges(textOf(v)) : pr
 const DO = {
   sleep() { voice.asleep = true; stopReading(); partial(''); return { msg: 'Asleep' }; },
   wake() { const was = voice.asleep; voice.asleep = false; return { msg: was ? 'Listening' : 'Listening already' }; },
+  micOff() { voice.asleep = false; stopReading(); command('listen', 'off'); return { msg: 'Microphone off' }; },
   type: (g, said) => ({ dictate: fromSaid(said, g[0]), why: '“type” in front: typed as words.' }),
   language(g) {
     voice.lang = /hebrew|עברית/iu.test(g.join(' ')) ? 'he' : 'en';
@@ -452,8 +462,8 @@ const DO = {
     return DO.format([{ bold: 'bold', embolden: 'bold', italic: 'italicize', italics: 'italicize', italicize: 'italicize' }[verb] || 'highlight', 'that'], said, v);
   },
   transform(g, said, v) {
-    const r = thatRange(v);
-    if (!r) return { fail: 'Nothing selected' };
+    const r = g[1] ? wordAt(textOf(v), v.state.selection.main.head) : thatRange(v);
+    if (!r) return { fail: g[1] ? 'No word at the cursor' : 'Nothing selected' };
     const how = g[0].toLowerCase().replace(' ', ''), t = textOf(v).slice(r[0], r[1]);
     const out = how === 'uppercase' ? t.toUpperCase() : how === 'lowercase' ? t.toLowerCase() : t.replace(/(^|[\s“"(])(\p{Ll})/gu, (m, a, b) => a + b.toUpperCase());
     if (out === t) return { msg: 'Already so' };
@@ -594,6 +604,12 @@ const DO = {
     return { msg: `Dashboard · ${g[0].toLowerCase()}` };
   },
   back(g) { command(/back/iu.test(g[0]) ? 'back' : 'forward'); return { msg: /back/iu.test(g[0]) ? 'Back' : 'Forward' }; },
+  // "focus mode" goes in and out; "hide the interface" only hides it, "show the interface" only shows it
+  focusMode(g) {
+    const want = g[1] || /show/iu.test(g[0]) ? false : /hide/iu.test(g[0]) ? true : !app.interfaceHidden;
+    if (!!app.interfaceHidden !== want) command('hideInterface');
+    return { msg: want ? 'Focus mode' : 'Focus mode off' };
+  },
 };
 
 // ---- reading aloud, in the system's voices, or the app's (Android's WebView has none)

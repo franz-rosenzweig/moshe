@@ -103,7 +103,18 @@ try {
   // voice on, the dashboard's Voice view, and Late Apples' second chapter open
   const lib = JSON.parse(readFileSync(join(dir, 'library.json'), 'utf8'));
   const arrival = Object.keys(lib.files).find((p) => lib.files[p].includes('## Two: Arrival'));
-  await ev(`(() => { if (!mosheMenuState().dashboardViews.some((v) => v.id === 'voice')) mosheCommand('voice'); mosheCommand('select', ${JSON.stringify(arrival.slice(0, arrival.lastIndexOf('/')))}); return 1; })()`);
+  // voice on without listening yet, as Settings › Voice does it (View › Voice and its key listen at once)
+  await ev(`(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    if (!mosheMenuState().voice) {
+      mosheCommand('settings'); await wait(300);
+      [...document.querySelectorAll('.tabs button')].find((b) => b.textContent.includes('Voice')).click(); await wait(200);
+      document.querySelector('.form input[type=checkbox]').click(); await wait(100);
+      document.querySelector('.close').click();
+    }
+    mosheCommand('select', ${JSON.stringify(arrival.slice(0, arrival.lastIndexOf('/')))});
+    return 1;
+  })()`);
   await sleep(600);
   const st = () => ev('__mosheVoice.state()');
   const say = async (text, alternatives = []) => {
@@ -217,6 +228,28 @@ try {
       ['select the house found her first', (c) => c.picked === 'The house found her first'],
       ['synonyms', (c) => c.s.words.kind === 'syn' && c.s.words.word === 'first'],   // more than a word selected: the one at the cursor
       ['cancel', (c) => !c.s.choice],
+      // a sentence that starts like a command: typed, when what it names isn't in the sheet
+      ['Add salt before serving.', (c) => c.last.kind === 'text' && /add salt before serving\./iu.test(c.doc) && /No “serving” in the sheet/u.test(c.last.why)],
+      ['scratch that', (c) => !/add salt/iu.test(c.doc)],
+      ['Select the ripest apples for the pie.', (c) => c.last.kind === 'text' && /select the ripest apples for the pie\./iu.test(c.doc)],
+      ['scratch that', (c) => !c.doc.includes('ripest apples')],
+      ['Literally everyone was there.', (c) => /literally everyone was there\./iu.test(c.doc)],
+      ['scratch that', (c) => !/literally everyone/iu.test(c.doc)],
+      // a mark's name that is the word itself
+      ['There was a period of calm.', (c) => c.doc.includes('a period of calm.')],
+      ['scratch that', (c) => !c.doc.includes('a period of calm')],
+      ['Quiet.', (c) => c.last.kind === 'text' && !/“stop”/u.test(c.last.why)],
+      ['scratch that', (c) => !/\bQuiet\.?\s*$/u.test(c.doc.slice(0, c.sel[0]))],
+      ['select the house found her first', (c) => c.picked === 'The house found her first'],
+      ['cancel', (c) => !c.s.choice],
+      ['capitalize the word', (c) => c.doc.includes('The house found her First')],
+      ['scratch that', (c) => c.doc.includes('The house found her first')],
+      // focus mode: "hide" only hides, "show" only shows
+      ['hide the interface', (c) => c.menu.interfaceHidden === true],
+      ['hide the interface', (c) => c.menu.interfaceHidden === true],
+      ['show the interface', (c) => c.menu.interfaceHidden === false],
+      ['show the interface', (c) => c.menu.interfaceHidden === false],
+      ['microphone off', (c) => c.last.msg === 'Microphone off' && c.menu.listening === false],
     ];
     for (const [step, ok] of STEPS) {
       const [said, alternatives] = Array.isArray(step) ? step : [step, []];

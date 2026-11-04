@@ -109,6 +109,27 @@ test('a command counts only as the whole utterance', () => {
   const ty = parse('type new paragraph');
   assert.equal(ty.id, 'type');
   assert.equal(ty.groups[0], 'new paragraph');
+  // “literally” starts sentences: it's a word, not “type”
+  assert.equal(parse('Literally everyone was there.').kind, 'text');
+});
+
+test('the microphone off, and asleep, are different', () => {
+  // asleep: the microphone stays on, so “wake up” needs no hands
+  for (const s of ['go to sleep', 'Stop listening.', 'pause listening']) assert.equal(parse(s).id, 'sleep', s);
+  // off: the microphone really stops; never guessed
+  for (const s of ['microphone off', 'Mic off.', 'turn the microphone off', 'turn off the mic']) assert.equal(parse(s).id, 'micOff', s);
+  assert.ok(COMMANDS.find((c) => c.id === 'micOff').exact);
+  assert.equal(parse('microphone off', { asleep: true }).id, 'micOff', 'asleep, it can still be turned off');
+  assert.equal(parse('new paragraph', { asleep: true }).kind, 'ignored');
+});
+
+test('commands that say which way', () => {
+  assert.deepEqual(parse('show the interface').groups.slice(0, 2), ['show', '']);
+  assert.deepEqual(parse('hide the interface').groups.slice(0, 2), ['hide', '']);
+  assert.equal(parse('leave focus mode').groups[1], 'leave');
+  assert.deepEqual(parse('focus mode').groups.slice(0, 2), ['', '']);
+  assert.equal(parse('capitalize the word').groups[1], 'the word');
+  assert.equal(parse('capitalize that').groups[1], '');
 });
 
 test('the exact phrases win over the open-ended ones', () => {
@@ -139,6 +160,7 @@ test('what is going on decides some of it', () => {
   const st = parse('Stop.');
   assert.equal(st.kind, 'text');
   assert.match(st.why, /Nothing was being read/);
+  assert.doesNotMatch(parse('Quiet.').why, /“stop”/, 'what was said, not another word');
   assert.equal(parse('stop reading').id, 'stopReading');
 });
 
@@ -155,6 +177,14 @@ test('dictation is tidied, never reworded', () => {
   assert.deepEqual(cleanDictation('Um, she stood in the doorway and uh listened.'), { text: 'she stood in the doorway and listened.', fillers: 2 });
   assert.equal(cleanDictation('she paused comma then left period').text, 'she paused, then left.');
   assert.equal(cleanDictation('was it question mark').text, 'was it?');
+  // a mark's name after "a", "the", "his"…, or before "of", is the word itself
+  assert.equal(cleanDictation('a period of calm').text, 'a period of calm');
+  assert.equal(cleanDictation('it was a long period comma and then it rained period').text, 'it was a long period, and then it rained.');
+  assert.equal(cleanDictation('that period of my life').text, 'that period of my life');
+  assert.equal(cleanDictation('she never used the Oxford comma').text, 'she never used the Oxford comma');
+  assert.equal(cleanDictation('Dear Sir colon').text, 'Dear Sir:');
+  assert.equal(cleanDictation('a question mark hung over it').text, 'a question mark hung over it');
+  assert.equal(cleanDictation('he lists three things semicolon then stops').text, 'he lists three things; then stops');
   assert.equal(cleanDictation('umbrella and humble').text, 'umbrella and humble', 'only whole fillers');
   assert.equal(cleanDictation('שלום comma', { lang: 'he' }).text, 'שלום comma', 'spoken punctuation is English only');
 });

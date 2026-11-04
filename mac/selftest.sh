@@ -5,7 +5,7 @@
 # from another app arriving, pictures, PDF export, translation mode.
 #
 #   ./selftest.sh                       # every section
-#   ./selftest.sh keys,menus            # some: load window conformance keys menus shortcuts outside images services pdf translation proof hebrew settings panes reload voice
+#   ./selftest.sh keys,menus            # some: load window conformance keys menus shortcuts outside images services pdf translation proof hebrew settings panes reload voicekeys voice
 #
 # It runs as its own app (xyz.tiresia.moshe.selftest), so Moshe itself can stay
 # open and keeps its settings. It takes the keyboard for about half a minute:

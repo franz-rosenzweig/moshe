@@ -55,7 +55,7 @@ The title bar has five menus, with everything the Mac app's eight have and **Ctr
 
 ## Writing by voice
 
-Turn it on in **Settings › Voice**, or **View › Voice**, then **Ctrl+Alt+L** or **View › Start Listening** starts and stops listening. What voice can do, and the rule it follows, is in [Voice](VOICE.md). On Windows, Moshe listens with Whisper on your PC: nothing you say leaves it, and it works offline from the first time. It writes each sentence down about half a second after you pause.
+**Ctrl+Alt+Shift+L** or **View › Voice** turns it on and starts listening, and **Ctrl+Alt+L** or **View › Start Listening** starts and stops listening. Both keys work from any app, and **Settings › Voice** can change them. How to use it, with every command, is in [Writing by voice](voice-guide.md). On Windows, Moshe listens with Whisper on your PC: nothing you say leaves it, and it works offline from the first time. It writes each sentence down about half a second after you pause.
 
 - **View › Voice Model** chooses between **Whisper base.en**, built in and quicker, and **Whisper small.en**, which hears more exactly and takes about four times as long. The first time you choose small.en, Moshe fetches it (488 MB) from Hugging Face.
 - Moshe's own Whisper hears English. For Hebrew, choose **Whisper, on This Computer** in **Settings › Voice**: Moshe's page has a multilingual model.

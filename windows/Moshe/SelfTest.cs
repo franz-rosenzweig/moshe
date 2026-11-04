@@ -171,8 +171,15 @@ static class SelfTest
     static async Task Voice(ShellWindow window)
     {
         var view = window.MenuItems("View").ToList();
-        Add("voice: View has Voice, Start Listening (Ctrl+Alt+L) and Voice Model",
-            view.Contains("Voice") && view.Contains("Start Listening (Ctrl+Alt+L)") && view.Contains("Voice Model"), string.Join(", ", view));
+        Add("voice: View has Voice (Ctrl+Alt+Shift+L), Start Listening (Ctrl+Alt+L) and Voice Model",
+            view.Contains("Voice (Ctrl+Alt+Shift+L)") && view.Contains("Start Listening (Ctrl+Alt+L)") && view.Contains("Voice Model"), string.Join(", ", view));
+        // the voice keys from any app (VoiceKeys.cs): held with Windows once the page has said which they are
+        var holding = false;
+        for (var i = 0; i < 50 && !holding; i++) { holding = VoiceKeys.Holding.Count == 2; if (!holding) await Task.Delay(100); }
+        Add("voice keys: both held with Windows, so they work from any app", holding, string.Join(", ", VoiceKeys.Holding));
+        Add("voice keys: the page's keys as Windows' keys",
+            VoiceKeys.Parse("Ctrl+Alt+KeyL") == (2u | 1u, 0x4Cu) && VoiceKeys.Parse("F6") == (0u, 0x75u) && VoiceKeys.Parse("Hyper+KeyL") == null,
+            $"{VoiceKeys.Parse("Ctrl+Alt+KeyL")} {VoiceKeys.Parse("F6")}");
         var model = VoiceModels.Current;
         Add("voice: a Whisper model is here, and the shell offers its recognizer",
             model != null && J.Bool(await window.Evaluate("!!(window.mosheShell && window.mosheShell.voice)")), model?.Path ?? "no model");
@@ -180,10 +187,11 @@ static class SelfTest
         if (App.Options.VoiceFile is not { } file || !File.Exists(file)) Add("voice: the spoken file is there", false, "selftest.ps1 makes it with System.Speech");
         else
         {
-            await window.Evaluate("mosheMenuState().voice || mosheCommand('voice'), mosheCommand('newSheet'), 1");
+            await window.Evaluate("mosheCommand('newSheet'), 1");
             await Task.Delay(800);
             var before = J.Int(await window.Evaluate("__mosheVoice.state().count"));
-            await window.Evaluate("mosheCommand('listen'), 1");
+            // voice on and listening, as its key does
+            await window.Evaluate("mosheMenuState().voice ? mosheCommand('listen') : mosheCommand('voice'), 1");
             // the Mac's nine, then "Two." on its own (typed: there is no list) and "Scratch that."
             var all = J.Bool(await Until(window, $"__mosheVoice.state().count >= {before + 11}", TimeSpan.FromSeconds(150)));
             await window.Evaluate("mosheCommand('listen'), 1");                                  // stop
@@ -201,6 +209,7 @@ static class SelfTest
         }
 
         // Ctrl+Alt+L, as the menu says: the page hears it and starts listening, and again stops
+        // (a key straight into the page, as DevTools sends it; one from the keyboard is Windows' to hand over)
         window.Key("l", "KeyL", 0x4C, 1 | 2);
         var on = J.Bool(await Until(window, "mosheMenuState().listening", TimeSpan.FromSeconds(5)));
         window.Key("l", "KeyL", 0x4C, 1 | 2);

@@ -40,6 +40,8 @@ sealed class ShellServices(ShellWindow owner)
         {
             case "voiceStart" or "voiceStop" or "voiceLanguage":
                 return await Voice.Answer(op, args);
+            case "voiceKeys":
+                return Moshe.VoiceKeys.Set(args);
             case "savePdf":
             {
                 var html = J.Text(args["html"]) ?? throw new ShellError("no HTML to print");

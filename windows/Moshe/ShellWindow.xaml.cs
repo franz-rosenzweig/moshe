@@ -382,6 +382,20 @@ public sealed partial class ShellWindow : Window
         _ = web?.CoreWebView2?.ExecuteScriptAsync($"window.mosheCommand ? window.mosheCommand({J.Quote(name)}, {a}) : false");
     }
 
+    /// <summary>The voice keys on this window's View menu (VoiceKeys.cs).</summary>
+    public void VoiceKeys(string? voice, string? listen) => menus.VoiceKeys(voice, listen);
+
+    /// <summary>This window in front, from wherever it was (a voice key pressed in another app).</summary>
+    public void BringForward()
+    {
+        if (AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized } presenter) presenter.Restore();
+        Activate();
+        SetForegroundWindow(Handle);
+    }
+
+    [DllImport("user32.dll")]
+    static extern bool SetForegroundWindow(IntPtr window);
+
     /// <summary>The keyboard to the page: after a menu, so typing goes on where it was.</summary>
     public void FocusPage() => web?.Focus(FocusState.Programmatic);
 

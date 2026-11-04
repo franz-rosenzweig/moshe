@@ -28,6 +28,7 @@ sealed class Menus
     readonly List<Action<JsonObject>> updates = [];
     readonly List<(MenuFlyoutItemBase Item, Func<string> Command)> pageItems = [];
     int groups;
+    MenuFlyoutItem? voiceItem, listenItem;
 
     public Menus(ShellWindow owner, MenuBar bar)
     {
@@ -47,6 +48,13 @@ sealed class Menus
         var commands = state["commands"] is JsonArray names ? names.Select(J.Text).OfType<string>().ToHashSet() : null;
         foreach (var (item, command) in pageItems) item.IsEnabled = commands == null || commands.Contains(command());
         foreach (var update in updates) update(state);
+    }
+
+    /// <summary>View › Voice and Start Listening, with the keys the page has chosen for them (none: no key shown).</summary>
+    public void VoiceKeys(string? voice, string? listen)
+    {
+        if (voiceItem != null) voiceItem.KeyboardAcceleratorTextOverride = voice ?? "";
+        if (listenItem != null) listenItem.KeyboardAcceleratorTextOverride = listen ?? "";
     }
 
     /// <summary>Alt and a letter (F, E, O, V, H) opens that menu; Alt alone puts the keyboard on the menu bar.</summary>
@@ -242,9 +250,10 @@ sealed class Menus
         Toggle(view, "Revision Mode", "revision", "revision", "Ctrl+Shift+E");
         Toggle(view, "Focus Mode", "hideInterface", "interfaceHidden", "Ctrl+.");
         Line(view);
-        // writing by voice (docs/VOICE.md): on in Settings › Voice or here; the page hears Ctrl+Alt+L itself
-        Toggle(view, "Voice", "voice", "voice");
-        Swap(view, "Start Listening", "Stop Listening", "listening", "listen", key: "Ctrl+Alt+L");
+        // writing by voice (docs/VOICE.md): on in Settings › Voice or here. Their keys are the page's to
+        // choose; the page hears them itself, and Windows hands them to Moshe from any app (VoiceKeys.cs)
+        voiceItem = Toggle(view, "Voice", "voice", "voice", "Ctrl+Alt+Shift+L");
+        listenItem = Swap(view, "Start Listening", "Stop Listening", "listening", "listen", key: "Ctrl+Alt+L");
         VoiceModel(Sub(view, "Voice Model").Items);
         Line(view);
         var text = Sub(view, "Text");
@@ -318,7 +327,7 @@ sealed class Menus
     }
 
     /// <summary>An item whose title says what it will do: Add to Favorites, or Remove from Favorites when the sheet is one.</summary>
-    void Swap(IList<MenuFlyoutItemBase> into, string off, string on, string state, string offCommand, string? onCommand = null, string? key = null)
+    MenuFlyoutItem Swap(IList<MenuFlyoutItemBase> into, string off, string on, string state, string offCommand, string? onCommand = null, string? key = null)
     {
         var item = new MenuFlyoutItem { Text = off };
         Key(item, key);
@@ -332,6 +341,7 @@ sealed class Menus
             item.Text = yes ? on : off;
             now = yes ? onCommand ?? offCommand : offCommand;
         });
+        return item;
     }
 
     /// <summary>A submenu of choices, the one in use ticked (Appearance › Dark).</summary>
