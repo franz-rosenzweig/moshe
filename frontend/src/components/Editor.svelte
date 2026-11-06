@@ -335,6 +335,7 @@
         return;
       }
       if (current !== path && current !== r.path) return;       // another sheet is open now: nothing to show
+      if (!view) return;                                         // the editor has closed (a phone, back to its list): saved, nothing to show
       if (r.path !== current) { states.delete(current); current = r.path; }
       const now = view.state.doc.toString();
       if (now === body) {

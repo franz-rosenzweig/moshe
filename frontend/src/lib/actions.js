@@ -25,6 +25,7 @@ export function newSheet({ material = false, text = '' } = {}) {
   if (!store.sheetList(app.selection).sections.some((s) => s.sheets.some((x) => x.path === p))) select(dir, { keepSheet: true });
   openSheet(p);
   app.focus = 'editor';
+  app.phone = 'editor';   // on a phone, the new sheet is the pane you see (said by voice, too)
   setTimeout(() => window.dispatchEvent(new CustomEvent('moshe:focus-editor')), 30);
   return p;
 }
