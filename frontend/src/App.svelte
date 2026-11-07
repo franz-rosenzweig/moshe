@@ -14,6 +14,8 @@
   import Login from './components/Login.svelte';
   import MarkupBar from './components/MarkupBar.svelte';
   import VoiceStrip from './components/VoiceStrip.svelte';
+  import TutorialCard from './components/TutorialCard.svelte';
+  import { startTutorial } from './lib/tutorial.svelte.js';
   import { connect as connectVoice, voice } from './voice/voice.svelte.js';
   import { toggleListening, isListening, startListening, stopListening } from './voice/mic.js';
   import { voiceKeys, matches as isKey, label as keyLabel } from './voice/keys.js';
@@ -70,7 +72,7 @@
     merge: async () => { const p = picked(); if (p.length > 1 && (await confirm('Merge these sheets?', 'Their text becomes one sheet, in this order; the others go to the Trash.', 'Merge'))) openSheet(store.mergeSheets(p)); },
     share: () => exportCurrent({ share: true }), print: () => exportCurrent({ print: true }),
     browseBackups: () => openDialog('backups'), gettingStarted: () => { app.settingsOpen = null; select(addGettingStarted(store)); },
-    voiceGuide: () => { app.settingsOpen = null; const p = addVoiceGuide(store); openSheet(p); revealSheet(p); app.phone = 'editor'; }, keywordManager: () => openDialog('keywordManager'),
+    voiceGuide: () => { app.settingsOpen = null; const p = addVoiceGuide(store); openSheet(p); revealSheet(p); app.phone = 'editor'; }, voiceTutorial: () => startTutorial(), keywordManager: () => openDialog('keywordManager'),
     // Edit, Markup, Insert: the text's own (Editor.svelte's run)
     copyAs: (k) => editorRun('copyAs', k), pasteAs: (a) => editorRun('pasteAs', a), pasteFrom: (a) => editorRun('pasteFrom', a), split: () => editorRun('split'),
     code: () => editorRun('code'), markDelete: () => editorRun('markDelete'), markInsert: () => editorRun('markInsert'), annotate: () => editorRun('annotate'),
@@ -531,6 +533,7 @@
   {#if narrow.on || touchFirst.on}<MarkupBar view={() => pane && pane.activeView()} />{/if}
   <QuickOpen />
   <Settings />
+  <TutorialCard />
 {/if}
 <Menu />
 <Dialogs />

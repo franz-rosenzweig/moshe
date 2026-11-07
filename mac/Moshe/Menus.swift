@@ -77,6 +77,7 @@ enum Menus {
         helpItem.target = MenuTarget.shared
         help.addItem(helpItem)
         page(help, "Getting Started", "gettingStarted")   // the welcome sheets, into the Inbox again
+        page(help, "Voice Tutorial", "voiceTutorial")     // voice, a step at a time, in the page
         bar.addItem(submenu(help))
         NSApp.helpMenu = help
         return bar
