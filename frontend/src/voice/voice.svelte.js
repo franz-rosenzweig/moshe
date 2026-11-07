@@ -138,7 +138,9 @@ async function carryOut(p, said) {
   const fn = DO[p.id] || (p.command.app && (() => { command(p.command.app); return { msg: p.command.say }; }));
   if (!fn) return { fail: 'Not done yet' };
   if (NEEDS_TEXT.has(p.command.group) && !v) return { fail: 'Open a sheet first' };
+  const doc0 = v && v.state.doc, sel0 = v && v.state.selection;
   const r = (await fn(p.groups, said, v)) || {};
+  if (v && view() === v && !UNDOS.has(p.id)) noteBefore(v, doc0, sel0);
   if (!r.fail && !r.decline && r.dictate == null && !['undo', 'redo', 'undoMany', 'help', 'wordCount'].includes(p.id)) lastDone = said;
   return r;
 }
@@ -218,6 +220,23 @@ function moveTo(v, pos, msg) {
   v.dispatch({ selection: EditorSelection.cursor(pos), scrollIntoView: true, effects: setVoice.of({ matches: [], target: null }) });
   return { msg };
 }
+// ---- where "scratch that" leaves the cursor
+
+/** The cursor (or selection) before each voice command that changed the text, with the text as it was then.
+ *  Undo puts back the selection from just before the change, and a command that selects first ("bold the
+ *  frost") would leave its words selected, for the next words said to type over. */
+const UNDOS = new Set(['undo', 'redo', 'undoMany']);
+const befores = [];
+function noteBefore(v, doc, sel) {
+  if (v.state.doc.eq(doc)) return;
+  befores.unshift({ doc, sel });
+  if (befores.length > 30) befores.length = 30;
+}
+/** Back to where the cursor was before the command just taken back: only when the text is just as it was then. */
+function putBackCursor(v) {
+  const d = v.state.doc, b = befores.find((x) => x.doc.length === d.length && x.doc.eq(d));
+  if (b && !b.sel.eq(v.state.selection)) v.dispatch({ selection: b.sel, scrollIntoView: true });
+}
 /** What "that" is: the selection, or else what was just said. */
 function thatRange(v) {
   const s = v.state.selection.main;
@@ -244,7 +263,9 @@ function pick(n, said, meta) {
   const act = picked;
   voice.choice = null;
   picked = null;
+  const v = view(), doc0 = v && v.state.doc, sel0 = v && v.state.selection;
   const r = (act && act(n - 1)) || {};
+  if (v && view() === v) noteBefore(v, doc0, sel0);
   report(said, r.fail ? 'fail' : 'command', r.fail || r.msg || `Number ${n}`, r.why, { ...meta, id: 'choice' });
   tone(r.fail ? 'fail' : 'command');
 }
@@ -339,13 +360,14 @@ const DO = {
     apply(v, { from, to: s.to, insert }, { cursor: from + insert.length });
     return { msg: `“${mark}”` };
   },
-  undo(g, said, v) { closeChoice(v); if (voice.words && voice.words.used) voice.words = { ...voice.words, used: null }; return undo(v) ? { msg: 'Undone' } : { fail: 'Nothing to undo' }; },
+  undo(g, said, v) { closeChoice(v); if (voice.words && voice.words.used) voice.words = { ...voice.words, used: null }; if (!undo(v)) return { fail: 'Nothing to undo' }; putBackCursor(v); return { msg: 'Undone' }; },
   redo(g, said, v) { return redo(v) ? { msg: 'Redone' } : { fail: 'Nothing to redo' }; },
   undoMany(g, said, v) {
     closeChoice(v);
     const n = Math.min(20, numberOf(g[0] || g[1]) || 0);
     let k = 0;
     while (k < n && undo(v)) k++;
+    if (k) putBackCursor(v);
     return k ? { msg: `Undone ${k} step${k > 1 ? 's' : ''}` } : { fail: 'Nothing to undo' };
   },
 
