@@ -139,7 +139,7 @@ not read it itself from a menu).
 - **Moshe**: About Moshe · Settings… ⌘, (`settings`) · Library Folder… · Show
   Library in Finder · Use the Server… · Services · Hide/Hide Others/Show All ·
   Quit.
-- **Help**: Moshe Help (the README) · Getting Started (`gettingStarted`: the Getting Started sheets added to the Inbox again) · the search field macOS adds.
+- **Help**: Moshe Help (the README) · Getting Started (`gettingStarted`: the Getting Started sheets added to the Inbox again) · Voice Tutorial (`voiceTutorial`: voice, a step at a time, in a card over the strip) · the search field macOS adds.
 
 ## Shell services the page uses if they are there
 

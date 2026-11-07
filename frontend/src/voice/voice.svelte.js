@@ -24,7 +24,7 @@ export const voice = $state({
   asleep: false,       // "go to sleep": nothing but "wake up" counts
   partial: '',         // the recognizer's guess while she's still talking
   last: null,          // the newest of `heard`, on the strip
-  heard: [],           // {said, kind: text | command | fail | ignored, msg, why, how}, newest first
+  heard: [],           // {said, kind: text | command | fail | ignored, msg, why, how, id: the command's, or 'choice'}, newest first
   choice: null,        // a numbered list showing: {kind: match | syn | fix | sheet, label, items: [{label, sub?}]}
   reading: false,      // reading aloud
   lang: 'en',          // dictation's language: en | he
@@ -119,7 +119,7 @@ async function run(said, meta) {
   }
   if (r.decline) { dictate(said, { why: r.decline, meta }); return; }
   if (r.dictate != null) { dictate(r.dictate, { why: r.why, meta, literal: true, said }); return; }
-  report(said, r.fail ? 'fail' : 'command', r.fail || r.msg || p.command.say, r.why, meta);
+  report(said, r.fail ? 'fail' : 'command', r.fail || r.msg || p.command.say, r.why, { ...meta, id: p.id });
   tone(r.fail ? 'fail' : 'command');
 }
 
@@ -150,13 +150,13 @@ async function guess(phrase, said, meta) {
   if (q.kind !== 'command') return false;
   const r = await carryOut(q, phrase);
   if (r.fail || r.decline || r.dictate != null) return false;
-  report(said, 'command', r.msg || q.command.say, `Heard “${lite(said)}”, taken as “${phrase}”.`, meta);
+  report(said, 'command', r.msg || q.command.say, `Heard “${lite(said)}”, taken as “${phrase}”.`, { ...meta, id: q.id });
   tone('command');
   return true;
 }
 
 function report(said, kind, msg, why = '', meta = {}) {
-  const item = { said: String(said || '').trim(), kind, msg, why: why || '', how: meta.how || '' };
+  const item = { said: String(said || '').trim(), kind, msg, why: why || '', how: meta.how || '', id: meta.id || '' };
   voice.last = item;
   voice.heard = [item, ...voice.heard].slice(0, 40);
   voice.count++;
@@ -245,7 +245,7 @@ function pick(n, said, meta) {
   voice.choice = null;
   picked = null;
   const r = (act && act(n - 1)) || {};
-  report(said, r.fail ? 'fail' : 'command', r.fail || r.msg || `Number ${n}`, r.why, meta);
+  report(said, r.fail ? 'fail' : 'command', r.fail || r.msg || `Number ${n}`, r.why, { ...meta, id: 'choice' });
   tone(r.fail ? 'fail' : 'command');
 }
 /** A phrase, found: done at once when it's there once (or the nearest will do), numbered when it's there more. */

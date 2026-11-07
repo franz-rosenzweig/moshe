@@ -21,6 +21,8 @@ Voice is off until you turn it on. A strip appears under the text, and the dashb
 
 The microphone button at the left of the strip starts and stops listening too.
 
+**To learn it a step at a time,** choose **Help › Voice Tutorial**, or **Settings › Voice › Voice Tutorial**. A card shows you one thing to say, and when Moshe sees it done, it ticks it off and shows the next. There are fifteen steps, on a practice sheet in the Inbox, and at the end you can trash the sheet.
+
 **Listen With**, in the same settings, chooses what hears you. Start with the first choice: the app's own recognizer where the app has one, and otherwise Whisper, which runs on your computer, so your voice never leaves it. Whisper downloads its model the first time, and the strip counts up while it does. **The Browser's Own** sends your voice to Google (in Chrome) or Apple (in Safari).
 
 ## The one rule

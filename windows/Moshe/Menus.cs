@@ -276,6 +276,7 @@ sealed class Menus
         var help = Top("Help", "H");
         Shell(help, "Moshe Help", () => Outside.Open(new Uri("https://github.com/franz-rosenzweig/moshe#readme")));
         Page(help, "Getting Started", "gettingStarted");
+        Page(help, "Voice Tutorial", "voiceTutorial");
         Line(help);
         Shell(help, "About Moshe", async () => await owner.Tell("Moshe", $"Version {App.Version}, for Windows.\nhttps://github.com/franz-rosenzweig/moshe"));
     }

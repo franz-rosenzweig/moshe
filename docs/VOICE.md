@@ -55,6 +55,7 @@ three layers, from the safest:
 | `frontend/src/voice/whisper-worker.js` | Whisper, in a worker. |
 | `frontend/src/voice/words.js` | Loads the word files as they're needed. |
 | `VoiceStrip.svelte`, `VoicePanel.svelte` | The strip; the dashboard's Voice and Words views. |
+| `engine/src/tutorial.js`, `frontend/src/lib/tutorial.svelte.js`, `TutorialCard.svelte` | The voice tutorial (Help › Voice Tutorial): its steps, each with what to say and when it's done (a line heard, by the `id` of the command it was, or the microphone's state); its place; and its card. |
 
 Each command in `COMMANDS` has an example, and a test checks that the example
 parses to that command. The Voice view's **All Commands** is built from the same
@@ -303,7 +304,7 @@ base.en got 9 of 9, 0.6 s each on average.
 ## Tests
 
 ```sh
-cd engine && node --test test/voice.test.js test/words.test.js
+cd engine && node --test test/voice.test.js test/words.test.js test/tutorial.test.js
 node tools/voice-e2e.mjs APP_DIR             # the real app, what's said handed over as if heard
 node tools/voice-e2e.mjs APP_DIR --audio --gpu   # spoken by the Mac's `say` into a fake microphone, heard by Whisper
 ```
