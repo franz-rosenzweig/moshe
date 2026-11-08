@@ -22,8 +22,8 @@ android {
         applicationId 'xyz.tiresia.moshe'
         minSdk 30
         targetSdk 36
-        versionCode 14
-        versionName '0.5.4'
+        versionCode 15
+        versionName '0.5.5'
         resValue 'string', 'app_name', 'Moshe'
         manifestPlaceholders = [shareAuthority: 'xyz.tiresia.moshe.share']
         buildConfigField 'String', 'DEFAULT_SERVER', '"' + defaultServer.replace('\\', '').replace('"', '') + '"'
