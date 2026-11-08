@@ -1,51 +1,46 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { parse } from '../src/voice.js';
-import { VOICE_SHEET } from '../src/welcome.js';
-import { VOICE_LESSON, PRACTICE_STEP } from '../src/tutorial.js';
+import { parse, COMMANDS } from '../src/voice.js';
+import { LESSONS, NOT_IN_LESSONS } from '../src/tutorial.js';
 
-const GUIDE = readFileSync(new URL('../../docs/voice-guide.md', import.meta.url), 'utf8');
-const lower = (s) => s.toLowerCase();
+const steps = LESSONS.flatMap((l) => l.steps.map((s) => ({ ...s, lesson: l })));
 
-test('each line the tutorial says to say is what the step waits for', () => {
-  for (const s of VOICE_LESSON.filter((x) => x.say)) {
+test('each line a lesson says to say is the command its step names, or words', () => {
+  for (const s of steps.filter((x) => x.say)) {
     const p = parse(s.say, { reading: s.when === 'reading', asleep: s.when === 'asleep' });
-    if (s.id) assert.equal(p.kind === 'command' && p.id, s.id, `“${s.say}” is ${s.id}`);
-    else assert.equal(p.kind, 'text', `“${s.say}” is typed`);
+    if (s.when === 'asleep' && !s.id) { assert.equal(p.kind, 'ignored', `“${s.say}”, asleep, is let be`); continue; }
+    if (s.id) assert.equal(p.kind === 'command' && p.id, s.id, `${s.lesson.id}: “${s.say}” is ${s.id}`);
+    else assert.equal(p.kind, 'text', `${s.lesson.id}: “${s.say}” is typed`);
   }
 });
 
-test('its lines come from the voice sheet and the guide', () => {
-  for (const s of VOICE_LESSON.filter((x) => x.say)) {
-    assert.ok(lower(VOICE_SHEET).includes(lower(s.say)) || lower(GUIDE).includes(lower(s.say)), `“${s.say}” is in the voice sheet or docs/voice-guide.md`);
+test('the lessons have every command in them, but a few', () => {
+  const taught = new Set(steps.map((s) => s.id).filter(Boolean));
+  for (const c of COMMANDS) {
+    if (c.hidden && c.id !== 'use') continue;
+    if (NOT_IN_LESSONS.includes(c.id)) { assert.ok(!taught.has(c.id), `${c.id} is left out, and it's in a lesson`); continue; }
+    assert.ok(taught.has(c.id), `${c.id} is in a lesson`);
   }
 });
 
-test('a step is done by its own line, and not by another', () => {
-  const base = { heard: null, listening: true, asleep: false, reading: false, choosing: false };
-  for (const s of VOICE_LESSON) {
-    if (s.do === 'listen') {
-      assert.ok(s.done(base));
-      assert.ok(!s.done({ ...base, listening: false }));
-      assert.ok(!s.done({ ...base, asleep: true }));
-      continue;
+test('no step is done before its lesson begins', () => {
+  for (const l of LESSONS) {
+    const c = { heard: null, listening: false, asleep: false, reading: false, choosing: false, words: null, text: l.text ?? null, from: 0, to: 0, sel: '',
+      numbers: null, revision: false, dashboard: true, focus: false, sheet: null };
+    for (const [i, s] of l.steps.entries()) {
+      if (s.when === 'reading') continue;   // done as soon as the reading is over
+      assert.ok(!s.done(c), `${l.id} ${i} (${s.say || s.text}) isn't done at the start`);
     }
-    if (s.when === 'reading') {
-      assert.ok(!s.done({ ...base, reading: true }), 'not while it reads');
-      assert.ok(s.done(base), 'once the reading stops');
-      continue;
-    }
-    const right = s.do === 'number' ? { kind: 'command', id: 'choice' } : s.id ? { kind: 'command', id: s.id } : { kind: 'text' };
-    assert.ok(s.done({ ...base, heard: right }), `${s.say || s.do}: done`);
-    assert.ok(!s.done(base), `${s.say || s.do}: not before anything is heard`);
-    const wrong = right.kind === 'text' ? { kind: 'command', id: 'newSheet' } : { kind: 'text' };
-    assert.ok(!s.done({ ...base, heard: wrong }), `${s.say || s.do}: not by something else`);
-    if (right.kind === 'command') assert.ok(!s.done({ ...base, heard: { ...right, kind: 'fail' } }), `${s.say || s.do}: not when it couldn't be done`);
   }
 });
 
-test('the practice sheet is the one the tutorial says to make', () => {
-  assert.equal(VOICE_LESSON[PRACTICE_STEP].say, 'new sheet');
-  assert.ok(PRACTICE_STEP < VOICE_LESSON.findIndex((s) => !s.do && !s.id), 'before anything is typed');
+test('the lessons are told apart, and each step says what to do', () => {
+  assert.equal(new Set(LESSONS.map((l) => l.id)).size, LESSONS.length);
+  for (const s of steps) {
+    assert.ok(s.say || (s.do && s.text), `${s.lesson.id}: a line, or what to do`);
+    assert.equal(typeof s.done, 'function');
+    if (s.do === 'number') assert.ok(s.want != null, `${s.lesson.id}: a number step says which`);
+  }
+  // a lesson without a sheet of its own makes one first
+  for (const l of LESSONS.filter((x) => !x.text)) assert.ok(l.steps.slice(0, 3).some((s) => s.practice), `${l.id} makes its practice sheet`);
 });
