@@ -25,7 +25,7 @@ that and left" is typed. The pause is 0.7 s.
 - **"stop" and "quiet" are commands only while Moshe is reading aloud.** Otherwise they're words.
 - **Asleep** ("go to sleep", "stop listening"): nothing counts but "wake up", and "microphone off". The microphone stays on, so waking needs no hands. "Microphone off" stops it, and then only a key or the strip's button starts it.
 - **A numbered list showing:** a number picks from it. "Two", "to", "too", "2" and "use two" all mean 2. That's how recognizers write it.
-- **Undo:** every command and every dictated sentence is one step of the editor's own undo. "Scratch that" is undo.
+- **Undo:** every command and every dictated sentence is one step of the editor's own undo. "Scratch that" is undo, and it puts the cursor back where it was before the command (`putBackCursor`), so a command that selected first ("bold the frost") doesn't leave its words selected for the next words to type over.
 
 The strip always shows what was heard and whether it was taken as text or as a
 command. It also shows why, when that isn't obvious.
