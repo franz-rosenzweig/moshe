@@ -71,6 +71,7 @@ same, for people rather than developers: [Sheets from outside](automation.md).
 tools/test-gate.sh     # engine and server, in Node
 tools/e2e.py           # the real app in headless Chrome: as the web app, and as the Mac and Android apps (folder mode)
 node tools/voice-e2e.mjs APP_DIR [--audio]   # voice, end to end (docs/VOICE.md)
+node tools/lessons-e2e.mjs APP_DIR [--phone] # every lesson of the voice tutorial
 ```
 
 GitHub runs the engine's and the server's tests and the web app's build on

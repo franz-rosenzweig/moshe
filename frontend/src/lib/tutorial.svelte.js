@@ -1,60 +1,122 @@
 // The voice tutorial (Help › Voice Tutorial, Settings › Voice): engine/src/tutorial.js has its
-// steps, TutorialCard.svelte shows them, and this keeps its place and moves it on.
-import { VOICE_LESSON, PRACTICE_STEP } from '@engine/tutorial.js';
+// lessons, TutorialCard.svelte shows them, and this keeps the place and moves it on.
+import { LESSONS } from '@engine/tutorial.js';
 import { app, prefs, store, select, persist } from './state.svelte.js';
-import { trashSheets } from './actions.js';
-import { voice } from '../voice/voice.svelte.js';
+import { newSheet, trashSheets } from './actions.js';
+import { voice, sheetNow } from '../voice/voice.svelte.js';
 
-export const LESSON = VOICE_LESSON;
+export { LESSONS };
 export const tutorial = $state({
   on: false,
-  step: 0,           // LESSON's; LESSON.length at the end
+  lesson: null,      // the lesson's id; null: the list of lessons
+  step: 0,           // the lesson's; its length at the end
   ticked: false,     // the step is done, and the next comes in a moment
-  practice: null,    // the sheet made at "new sheet", which the end offers to trash
+  miss: false,       // something was said in the step, and it isn't done
+  practice: [],      // the practice sheets made, which the end of a lesson offers to trash
   since: 0,          // voice.count when the step began: only what's heard after it counts
 });
 let timer = null;
 
-/** From the beginning: voice on, the Inbox (where the practice sheet goes), the first step. */
+export const lessonOf = (id) => LESSONS.find((l) => l.id === id) || null;
+const LISTENING = new Set(['listening', 'hearing', 'working']);
+const listening = () => LISTENING.has(voice.mic) && !voice.asleep;
+
+/** The list of lessons: voice on, and the Inbox (where practice sheets go). */
 export function startTutorial() {
   app.settingsOpen = null;
   if (!prefs.voice.on) { prefs.voice.on = true; persist(); }
-  select('Notes', { keepSheet: true });
   clearTimeout(timer);
-  Object.assign(tutorial, { on: true, step: 0, ticked: false, practice: null, since: voice.count });
+  Object.assign(tutorial, { on: true, lesson: null, step: 0, ticked: false, miss: false });
 }
 
 export function stopTutorial() { clearTimeout(timer); tutorial.on = false; }
 
-/** The next step (Skip, or after a tick). */
-export function nextStep() {
+/** A lesson from its first step, on a practice sheet of its own when it has one. */
+export function startLesson(id) {
+  const l = lessonOf(id);
+  if (!l) return;
   clearTimeout(timer);
-  tutorial.step = Math.min(tutorial.step + 1, LESSON.length);
-  // a step for while it reads, once the reading is over: passed over
-  while (LESSON[tutorial.step] && LESSON[tutorial.step].when === 'reading' && !voice.reading) tutorial.step++;
-  tutorial.ticked = false;
-  tutorial.since = voice.count;
+  select('Notes', { keepSheet: true });
+  if (l.text) { const p = newSheet({ text: l.text }); if (p) tutorial.practice = [...tutorial.practice, p]; }
+  Object.assign(tutorial, { on: true, lesson: id, step: -1 });
+  nextStep();
 }
 
-const LISTENING = new Set(['listening', 'hearing', 'working']);
-/** Asked whenever voice changes: is the step done? Then a tick, and the next step after a moment. */
+/** The lessons, with those done. */
+export function lessonList() {
+  const done = new Set(prefs.lessonsDone || []);
+  return LESSONS.map((l) => ({ id: l.id, title: l.title, count: l.steps.filter((s) => s.do !== 'listen').length, done: done.has(l.id) }));
+}
+
+/** The next step (Skip, or after a tick); a step that has nothing to do now is passed over. What was said
+ *  from `since` on counts for it: after a tick, what's said in the moment before the next step shows. */
+export function nextStep(since = voice.count) {
+  clearTimeout(timer);
+  const l = lessonOf(tutorial.lesson);
+  if (!l) return;
+  let i = Math.min(tutorial.step + 1, l.steps.length);
+  for (; l.steps[i]; i++) {
+    const s = l.steps[i];
+    if (s.do === 'listen' && listening()) continue;                  // already listening
+    if (s.when === 'reading' && !voice.reading) continue;            // the reading is over
+    break;
+  }
+  Object.assign(tutorial, { step: i, ticked: false, miss: false, since });
+  if (i >= l.steps.length && !(prefs.lessonsDone || []).includes(l.id)) { prefs.lessonsDone = [...(prefs.lessonsDone || []), l.id]; persist(); }
+}
+
+/** What a step is asked about: what's going on, and the sheet. */
+function context() {
+  const now = sheetNow();
+  return {
+    heard: null, listening: LISTENING.has(voice.mic), asleep: voice.asleep, reading: voice.reading, choosing: !!voice.choice,
+    words: (voice.words && voice.words.kind) || null, text: now ? now.text : null, from: now ? now.from : 0, to: now ? now.to : 0,
+    sel: now ? now.text.slice(now.from, now.to) : '', numbers: now ? now.numbers : null,
+    revision: !!app.revision, dashboard: !!app.dashboard, focus: !!app.interfaceHidden, sheet: app.sheet,
+  };
+}
+
+/** Asked whenever voice or the sheet changes: is the step done? Then a tick, and the next step after a moment. */
 export function checkStep() {
-  const s = tutorial.on && !tutorial.ticked && LESSON[tutorial.step];
+  const l = tutorial.on && !tutorial.ticked && lessonOf(tutorial.lesson);
+  const s = l && l.steps[tutorial.step];
   if (!s) return;
-  const c = { heard: null, listening: LISTENING.has(voice.mic), asleep: voice.asleep, reading: voice.reading, choosing: !!voice.choice };
+  const c = context();
   // what was heard since the step began, oldest first (two lines can land between looks)
   const fresh = voice.heard.slice(0, Math.max(0, Math.min(voice.count - tutorial.since, voice.heard.length))).reverse();
   const done = s.done(c) || fresh.some((heard) => s.done({ ...c, heard }));
-  if (!done) return;
-  if (tutorial.step === PRACTICE_STEP) tutorial.practice = app.sheet;
+  if (!done) {
+    if (s.do !== 'listen' && fresh.some((h) => h.kind !== 'ignored' || s.when === 'asleep')) tutorial.miss = true;
+    return;
+  }
+  if (s.practice && app.sheet && !tutorial.practice.includes(app.sheet)) tutorial.practice = [...tutorial.practice, app.sheet];
   tutorial.ticked = true;
-  timer = setTimeout(nextStep, 900);
+  tutorial.miss = false;
+  const at = voice.count;
+  timer = setTimeout(() => nextStep(at), 900);
 }
 
-/** The end's Trash Practice Sheet. */
+/** The practice sheets still there. */
+export const practiceLeft = () => tutorial.practice.filter((p) => store && store.exists(p));
+
+/** Trash Practice Sheets. */
 export function trashPractice() {
-  const p = tutorial.practice;
-  if (p && store && store.exists(p)) trashSheets([p]);
-  tutorial.practice = null;
-  stopTutorial();
+  const left = practiceLeft();
+  if (left.length) trashSheets(left);
+  tutorial.practice = [];
+}
+
+// for self-tests (tools/lessons-e2e.mjs): where the tutorial is, and a lesson started
+if (typeof window !== 'undefined') {
+  window.__mosheTutorial = {
+    lessons: () => LESSONS.map((l) => ({ id: l.id, title: l.title, steps: l.steps.length })),
+    start: (id) => { startTutorial(); startLesson(id); return true; },
+    stop: () => { stopTutorial(); return true; },
+    context: () => { const c = context(); return { ...c, fresh: voice.heard.slice(0, Math.max(0, Math.min(voice.count - tutorial.since, voice.heard.length))).map((h) => ({ kind: h.kind, id: h.id, said: h.said })) }; },
+    state: () => {
+      const l = lessonOf(tutorial.lesson), s = l && l.steps[tutorial.step];
+      return { on: tutorial.on, lesson: tutorial.lesson, step: tutorial.step, of: l ? l.steps.length : 0, ticked: tutorial.ticked, miss: tutorial.miss,
+        practice: practiceLeft(), card: s ? { say: s.say || null, do: s.do || null, text: s.text || null, want: s.want ?? null, when: s.when || null, id: s.id || null } : null };
+    },
+  };
 }

@@ -55,7 +55,7 @@ three layers, from the safest:
 | `frontend/src/voice/whisper-worker.js` | Whisper, in a worker. |
 | `frontend/src/voice/words.js` | Loads the word files as they're needed. |
 | `VoiceStrip.svelte`, `VoicePanel.svelte` | The strip; the dashboard's Voice and Words views. |
-| `engine/src/tutorial.js`, `frontend/src/lib/tutorial.svelte.js`, `TutorialCard.svelte` | The voice tutorial (Help › Voice Tutorial): its steps, each with what to say and when it's done (a line heard, by the `id` of the command it was, or the microphone's state); its place; and its card. |
+| `engine/src/tutorial.js`, `frontend/src/lib/tutorial.svelte.js`, `TutorialCard.svelte`, `tools/lessons-e2e.mjs` | The voice tutorial (Help › Voice Tutorial): eleven lessons, each on a practice sheet of its own, with every command but a few (`NOT_IN_LESSONS`). A step has what to say and when it's done, mostly by what the sheet reads, so any way of saying it that works counts. Then its place, its card, and the e2e that says every line of every lesson to the real app. |
 
 Each command in `COMMANDS` has an example, and a test checks that the example
 parses to that command. The Voice view's **All Commands** is built from the same
@@ -306,6 +306,7 @@ base.en got 9 of 9, 0.6 s each on average.
 ```sh
 cd engine && node --test test/voice.test.js test/words.test.js test/tutorial.test.js
 node tools/voice-e2e.mjs APP_DIR             # the real app, what's said handed over as if heard
+node tools/lessons-e2e.mjs APP_DIR [--phone] # every lesson of the tutorial, said as written and as a recognizer writes it
 node tools/voice-e2e.mjs APP_DIR --audio --gpu   # spoken by the Mac's `say` into a fake microphone, heard by Whisper
 ```
 
@@ -315,6 +316,15 @@ things, from "select the water tower" and "two" to "accept all". After each one
 it checks what the text became. The second run speaks nine of them and needs
 Chromium, a Mac and the network (Whisper's first download). On Windows it runs
 in Edge (`CHROME`), and speaks with Windows' own voice.
+
+`tools/lessons-e2e.mjs` goes through every lesson of the tutorial, step by step,
+saying what the card says to: once as written ("replace six with five") and once
+as a recognizer writes it ("Replace 6 with 5."). A step counts when the card ticks
+it, which it does by what the sheet now reads. Then it dictates sentences that
+begin with a command's words ("Define your terms.", "Go to sleep, the mother
+said.") into a sheet whose words they don't name, and checks each was typed.
+Reading aloud can't be heard headless, so its steps for while it reads are mostly
+passed over.
 
 The apps' own recognizers have their self-tests: `mac/selftest.sh voice` and
 `windows/selftest.ps1`. The Windows pause gate's tests, on made-up sound, are

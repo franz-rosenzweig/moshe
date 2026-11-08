@@ -21,7 +21,7 @@ Voice is off until you turn it on. A strip appears under the text, and the dashb
 
 The microphone button at the left of the strip starts and stops listening too.
 
-**To learn it a step at a time,** choose **Help › Voice Tutorial**, or **Settings › Voice › Voice Tutorial**. A card shows you one thing to say, and when Moshe sees it done, it ticks it off and shows the next. There are fifteen steps, on a practice sheet in the Inbox, and at the end you can trash the sheet.
+**To learn it a step at a time,** choose **Help › Voice Tutorial**, or **Settings › Voice › Voice Tutorial**. You pick a lesson: The Basics, Fixing Mistakes, Selecting, Changing Words, Formatting, Moving Around, Finding Words, Reading Aloud, Commands or Words, Sheets and the App, and Revision Mode. Each one sets up a short practice sheet in your Inbox, and a card shows you one thing to say at a time. When the sheet reads the way it should, Moshe ticks the step off and shows the next, so another way of saying it that works counts too. If what you said didn't do it, the card says **Not yet**, and **Skip** moves on. Lessons you've finished get a tick, and **Trash Practice Sheets** clears the practice away.
 
 **Listen With**, in the same settings, chooses what hears you. Start with the first choice: the app's own recognizer where the app has one, and otherwise Whisper, which runs on your computer, so your voice never leaves it. Whisper downloads its model the first time, and the strip counts up while it does. **The Browser's Own** sends your voice to Google (in Chrome) or Apple (in Safari).
 
@@ -38,6 +38,7 @@ A pause of just under a second (0.7 s) is the end of what you said, and that's w
 - **Say a command in one go,** then pause. A pause in the middle cuts it in two, and each half is typed.
 - **In a sentence, pauses are fine.** What comes next is typed after it and joins up. But a pause right before words that sound like a command can make them one, so carry on to the end of the sentence when you can.
 - **Politeness doesn't get in the way.** "Okay, new paragraph, please" is a new paragraph, and so is "um, new paragraph". "Please", "okay", "can you…" and "…for me" around a command are left out.
+- **However the recognizer writes it.** "Replace 6 with 5." finds "six" in your sheet and puts "five" in its place, and a comma after a command's first word ("Type, change came…") doesn't stop it being a command.
 
 ### What gets typed
 
@@ -46,6 +47,7 @@ Moshe tidies what you dictate, but it never changes your words.
 - A sentence starts with a capital, and a finished sentence at the end of a paragraph gets its full stop. In the middle of a sentence, the capital a recognizer puts in anyway is taken out, except for "I" and the names in your project.
 - "Um" and "uh" are left out, and the strip says how many.
 - Say "comma", "period", "question mark", "exclamation mark", "colon" or "semicolon" as you go, and you get the mark (in English). After "a", "the", "his" and the like, or before "of", the name stays a word: "a period of calm", "the Oxford comma".
+- A mark said on its own right after a sentence Moshe finished with a full stop takes the full stop's place, so "it would pass" then "comma" gives "it would pass,". "Period" where there's a full stop already adds nothing.
 - Whatever is selected is replaced by what you dictate next.
 - In Revision Mode, what you dictate goes in as an insertion, and over a selection as a change.
 
@@ -134,7 +136,7 @@ Voice is meant to be enough on its own, and a few habits make it so.
 - **One key, from anywhere.** Choose a key you can press easily (an F-key alone, if that's easiest) for **Voice On and Off** in **Settings › Voice**. From any app, it brings Moshe forward listening.
 - **Leave it listening.** Starting to listen takes a key or a click, and Moshe doesn't start listening by itself when it opens. So once it's listening, leave it on. Say "go to sleep" when the phone rings or someone comes in: nothing you say is typed or done, and the strip says **Asleep**. Say "wake up" when you're back. "Stop listening" puts it to sleep too. Only "microphone off" turns the microphone off, and then it takes a key or the strip's button to start again.
 - **Point with numbers.** Rather than naming words, say "show numbers", and every sentence gets a number. "Sentence 4" selects that one, and "read sentence 4" reads it. "Show paragraph numbers" and "paragraph 2" do the same with paragraphs, and "hide numbers" takes the numbers away. Say "sentence" or "paragraph" with the number: a number on its own is typed.
-- **Pick from lists by number.** When "select ‹words›" finds the words in more than one place, each place gets a number in the text (and in the dashboard's **Voice** view). Synonyms, other guesses and "show sheets" are numbered too. Say the number any way it comes out: "two", "2", "to" and "too" all mean 2, and so do "use two", "number two" and "pick two". A number that isn't on the list does nothing, and the strip says which numbers there are. "Cancel" closes the list.
+- **Pick from lists by number.** When "select ‹words›" finds the words in more than one place, each place gets a number in the text (and in the dashboard's **Voice** view). Synonyms, other guesses and "show sheets" are numbered too. Say the number any way it comes out: "two", "2", "to" and "too" all mean 2, and so do "use two", "number two", "pick two" and "the second one". A number that isn't on the list does nothing, and the strip says which numbers there are. "Cancel" closes the list.
 - **Listen instead of reading.** "Read that back" reads what you just said, "read this paragraph" the paragraph you're in, and "read from here" goes to the end of the sheet, lighting each word as it goes. The speakers carry Moshe's voice back into the microphone, so while it reads, it listens only for "stop" (and "stop reading", or "go to sleep"). **Settings › Voice › Reading Aloud** sets how fast it reads.
 - **Hear what happened.** Turn on **Settings › Voice › A Tone for Each Command**: two rising notes for a command, one note for text, and a low note for a command that couldn't be done. Then you only need to look at the strip when something sounds wrong.
 - **Revise without losing anything.** In Revision Mode ("revision mode"), deleting marks words rather than taking them out, and what you dictate goes in as an insertion. Words struck by mistake are still there, and "accept all" or "reject all" settles everything at the end.
@@ -205,7 +207,7 @@ How to read the tables:
 | Say | What it does | Or say |
 | --- | --- | --- |
 | **delete that** | Deletes what's selected, or what you just said. In Revision Mode it's marked for deletion instead. | "erase that", "remove that" |
-| **delete last word · last sentence** | Deletes the word or the sentence before the cursor. | "delete the previous word" |
+| **delete last word · last sentence** | Deletes the word, the sentence or (“last paragraph”) the paragraph before the cursor. | "delete the previous word" |
 | **delete ‹words› · strike ‹words›** | "Delete" deletes them, or marks them in Revision Mode. "Strike" always marks them for deletion, as the pen does. | "remove ‹words›", "cross out ‹words›" |
 | **replace ‹words› with ‹words›** | Puts the new words in place of the old ones. In Revision Mode it's kept as a change. | "change ‹words› to ‹words›" |
 | **insert ‹words› after ‹words›** | Adds words at that place. Also "before". In Revision Mode it's an insertion mark. | "insert ‹words› before ‹words›", "add ‹words› after ‹words›" |

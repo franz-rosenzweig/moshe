@@ -7,7 +7,7 @@ import { undo, redo, isolateHistory } from '@codemirror/commands';
 import { EditorSelection } from '@codemirror/state';
 import {
   parse, nearCommand, commandAmong, lite, fromSaid, numberOf, cleanDictation, placeDictation, phraseRanges, nearest, proseLines, sentenceRanges, wordAt, headingsOf,
-  marksOf, spokenText, snapNames, namesIn, alternatesFor, settleChanges,
+  marksOf, spokenText, snapNames, namesIn, alternatesFor, settleChanges, likeNumber,
 } from '@engine/voice.js';
 import { strikeChanges, insertChanges, commentChanges, fitToMarkup } from '@engine/pen.js';
 import { splitSheet } from '@engine/sheet.js';
@@ -49,6 +49,13 @@ if (typeof window !== 'undefined') {
     selection: () => { const v = view(); return v ? [v.state.selection.main.from, v.state.selection.main.to] : null; },
     state: () => JSON.parse(JSON.stringify({ ...voice, heard: voice.heard.slice(0, 40) })),
   };
+}
+/** The sheet open now, for the tutorial: its text, the selection and the numbers showing. Null with none open. */
+export function sheetNow() {
+  const v = view();
+  if (!v) return null;
+  const s = v.state.selection.main;
+  return { text: v.state.doc.toString(), from: s.from, to: s.to, numbers: voiceState(v).numbers || null };
 }
 /** Called when the language changes (the microphone side restarts in it). */
 export function onLanguage(fn) { listeners.add(fn); return () => listeners.delete(fn); }
@@ -124,7 +131,7 @@ async function run(said, meta) {
 }
 
 /** The commands that name words in the sheet and begin as a sentence may: when the words aren't there, the sentence is typed. */
-const TYPED_IF_MISSING = new Set(['selectPhrase', 'selectRange', 'deletePhrase', 'replace', 'insert', 'format', 'goNear']);
+const TYPED_IF_MISSING = new Set(['selectPhrase', 'selectRange', 'deletePhrase', 'replace', 'insert', 'format', 'goNear', 'correct']);
 
 /** A command, done: what its DO returns ({msg} | {fail} | {decline} | {dictate}), not yet reported. */
 async function carryOut(p, said) {
@@ -275,6 +282,8 @@ function withPhrase(v, phrase, act, nearestWillDo = false) {
   if (!found.length) return { fail: `Not found · “${phrase}”` };
   if (found.length === 1 || nearestWillDo) return act(nearest(found, head));
   const ranges = found.length > 9 ? [...found].sort((a, b) => Math.abs(a[0] - head) - Math.abs(b[0] - head)).slice(0, 9).sort((a, b) => a[0] - b[0]) : found;
+  // asked for other words, she has moved on from what was selected: the next words said don't type over it
+  if (!v.state.selection.main.empty) v.dispatch({ selection: EditorSelection.cursor(head) });
   choose(v, { kind: 'match', label: `“${phrase}”`, ranges, items: ranges.map((r) => ({ label: around(doc, r) })) }, (i) => { const vv = view(); return vv ? act(ranges[i]) : { fail: 'The sheet closed' }; });
   return { msg: `${found.length} matches · say a number` };
 }
@@ -356,6 +365,10 @@ const DO = {
     const doc = textOf(v), s = v.state.selection.main, opens = mark === '“';
     let from = s.from;
     if (!opens) while (from > 0 && doc[from - 1] === ' ') from--;
+    // a full stop where a sentence has ended already ("Type period." heard with its own): nothing more
+    if (mark === '.' && s.empty && /[.!?…]/u.test(doc[from - 1] || '')) return { msg: 'A full stop is there' };
+    // "comma" or "question mark" just after a full stop (one dictation put at the end of a sentence): in its place
+    if (!opens && mark !== '.' && mark !== '…' && mark !== '”' && doc[from - 1] === '.' && doc[from - 2] !== '.' && /[\p{L}\p{N})”’]/u.test(doc[from - 2] || '')) from--;
     const insert = opens && from > 0 && !/[\s(]/u.test(doc[from - 1]) ? ` ${mark}` : mark;
     apply(v, { from, to: s.to, insert }, { cursor: from + insert.length });
     return { msg: `“${mark}”` };
@@ -387,8 +400,9 @@ const DO = {
     return r ? select(v, r, `Selected the ${kind}`) : { fail: `No ${which} ${kind}` };
   },
   selectRange(g, said, v) {
-    const doc = textOf(v), a = phraseRanges(doc, g[0]), b = phraseRanges(doc, g[1]);
-    if (!a.length || !b.length) return { fail: `Not found · “${!a.length ? g[0] : g[1]}”` };
+    const [from, to] = g[0] ? [g[0], g[1]] : [g[2], g[3]];   // "select ‹a› through ‹b›", or "select from ‹a› to ‹b›"
+    const doc = textOf(v), a = phraseRanges(doc, from), b = phraseRanges(doc, to);
+    if (!a.length || !b.length) return { fail: `Not found · “${!a.length ? from : to}”` };
     const s = nearest(a, v.state.selection.main.head), e = b.filter((x) => x[1] > s[0]).sort((x, y) => x[0] - y[0])[0];
     return e ? select(v, [s[0], e[1]]) : { fail: 'The end comes before the start' };
   },
@@ -458,11 +472,17 @@ const DO = {
   deleteThat(g, said, v) { const r = thatRange(v); return r ? strikeOrDelete(v, r, 'delete') : { fail: 'Nothing to delete' }; },
   deleteLast(g, said, v) {
     const doc = textOf(v), head = v.state.selection.main.head;
-    const r = /word/iu.test(g[0]) ? wordAt(doc, head) : sentenceRanges(doc).filter((x) => x[0] < head).pop();
+    let r;
+    if (/word/iu.test(g[0])) r = wordAt(doc, head);
+    else if (/paragraph/iu.test(g[0])) {
+      // the paragraph, with the blank line before it (or after it, the first)
+      const p = proseLines(doc).filter((x) => x[0] < head).pop();
+      if (p) { let [a, b] = p; while (a > 0 && doc[a - 1] === '\n') a--; if (a === 0) while (b < doc.length && doc[b] === '\n') b++; r = [a, b]; }
+    } else r = sentenceRanges(doc).filter((x) => x[0] < head).pop();
     return r ? strikeOrDelete(v, r, 'delete') : { fail: 'Nothing before the cursor' };
   },
   deletePhrase: (g, said, v) => withPhrase(v, g[1], (r) => strikeOrDelete(v, r, g[0].toLowerCase()), true),
-  replace: (g, said, v) => withPhrase(v, g[0], (r) => replaceRange(v, r, fromSaid(said, g[1]).replace(/[.!?]+$/u, '')), true),
+  replace: (g, said, v) => withPhrase(v, g[0], (r) => replaceRange(v, r, likeNumber(textOf(v).slice(r[0], r[1]), fromSaid(said, g[1]).replace(/[.!?]+$/u, ''))), true),
   insert(g, said, v) {
     const words = asSaid(said, g[0]), after = /after/iu.test(g[1]);
     return withPhrase(v, g[2], (r) => {
@@ -575,6 +595,8 @@ const DO = {
     const phrase = g.find(Boolean) || '', r = !phrase || /^(that|it|this)$/iu.test(phrase) ? targetWord(v, '') : null;
     const word = r ? textOf(v).slice(r[0], r[1]) : phrase;
     const entry = await lookup(word);
+    // "Define your terms.": words of the writer's own, and no definition of them
+    if (!entry && !r && /\s/u.test(word.trim())) return { decline: `No definition for “${word}”, so it was typed. A command? “Scratch that”, and say it again.` };
     voice.words = { kind: 'def', word, entry };
     showView('words');
     return entry ? { msg: `Defined · ${entry.lemma}` } : { msg: `No definition for “${word}”` };
@@ -598,7 +620,8 @@ const DO = {
   spell(g, said, v) {
     const w = g[0].replace(/[^a-z]/giu, '').toLowerCase(), t = voiceState(v).target, s = v.state.selection.main;
     const r = t || (!s.empty ? [s.from, s.to] : null);
-    if (!r) return { dictate: w, why: 'Nothing was being corrected, so the spelled word was typed.' };
+    // nothing to spell: letters said one by one are the word, typed; "Spell it out" is a sentence
+    if (!r) return /[\s.,-]/u.test(g[0].trim()) ? { dictate: w, why: 'Nothing was being corrected, so the spelled word was typed.' } : { decline: 'Nothing was being corrected, so it was typed.' };
     closeChoice(v);
     return replaceRange(v, r, w);
   },
