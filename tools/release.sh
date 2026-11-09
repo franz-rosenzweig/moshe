@@ -32,6 +32,9 @@ TAP=franz-rosenzweig/homebrew-tap
 KEY=${MOSHE_MAC_KEY/#\~/$HOME}
 mac() { ssh -o BatchMode=yes -o ConnectTimeout=15 -i "$KEY" "$MOSHE_MAC" "$@"; }
 say() { echo "== $*"; }
+# Commits and tags that go public carry GitHub's noreply address, whatever
+# this machine's own git identity is (it may be a personal one)
+NOREPLY=(-c user.name=franz-rosenzweig -c user.email=159979406+franz-rosenzweig@users.noreply.github.com)
 
 # 1. the version, on master and tagged
 git fetch -q origin
@@ -42,8 +45,8 @@ code=$(( $(perl -ne 'print $1 if /versionCode (\d+)/' android/app/build.gradle) 
 build=$(( $(perl -ne 'print $1 if /CURRENT_PROJECT_VERSION: "(\d+)"/' mac/project.yml) + 1 ))
 perl -pi -e "s/versionCode \d+/versionCode $code/; s/versionName '[^']*'/versionName '$V'/" android/app/build.gradle
 perl -pi -e "s/MARKETING_VERSION: \"[^\"]*\"/MARKETING_VERSION: \"$V\"/; s/CURRENT_PROJECT_VERSION: \"\d+\"/CURRENT_PROJECT_VERSION: \"$build\"/" mac/project.yml
-git commit -q -m "Moshe $V" android/app/build.gradle mac/project.yml
-git tag -a "v$V" -m "Moshe $V"
+git "${NOREPLY[@]}" commit -q -m "Moshe $V" android/app/build.gradle mac/project.yml
+git "${NOREPLY[@]}" tag -a "v$V" -m "Moshe $V"
 git push -q origin HEAD:master "v$V"
 say "v$V tagged at $(git rev-parse --short HEAD) (Android $code, Mac build $build)"
 
@@ -108,7 +111,7 @@ cd "$OUT/tap"
 ROW='| [moshe](Casks/moshe.rb) | [Moshe](https://github.com/franz-rosenzweig/moshe): writing over a folder of plain Markdown files |'
 grep -qF '[moshe](Casks/moshe.rb)' README.md || printf '%s\n' "$ROW" >> README.md
 git add Casks/moshe.rb README.md
-git commit -q -m "moshe $V"
-git pull -q --rebase
+git "${NOREPLY[@]}" commit -q -m "moshe $V"
+git "${NOREPLY[@]}" pull -q --rebase
 git push -q
 say "released: https://github.com/$REPO/releases/tag/v$V, and the cask is at $V"
