@@ -96,6 +96,7 @@ const DAV_PREFLIGHT = {
  * @param {string} [cfg.backupDir]  where backups go (none if unset)
  * @param {boolean} [cfg.watch]     watch the folder for others' changes (default true)
  * @param {string} [cfg.languageTool]  a LanguageTool server's address, for Check Text (none if unset)
+ * @param {string} [cfg.hwrModel]  a handwriting model learned from your own writing, served at /api/hwr/model (none if unset)
  */
 export async function createApp(cfg) {
   const log = cfg.log || ((...a) => console.error(...a));
@@ -341,6 +342,23 @@ export async function createApp(cfg) {
     req.on('close', () => { clearInterval(alive); streams.delete(entry); });
   }
 
+  // The handwriting model learned from your own writing (FineNotes' "Learn my handwriting"), for
+  // lib/hwr: read from its file each time, since learning again replaces it; the ETag spares a
+  // device that has it already. 404 when there's none, and the page reads with Grape as shipped.
+  function hwrModel(req, res) {
+    let st = null;
+    try { st = cfg.hwrModel ? statSync(cfg.hwrModel) : null; } catch { st = null; }
+    if (!st || !st.isFile()) return send(res, 404, { error: 'no learned handwriting model' });
+    const etag = `"${Math.round(st.mtimeMs).toString(16)}-${st.size.toString(16)}"`;
+    const headers = { 'Cache-Control': 'private, no-cache', ETag: etag };
+    const asked = String(req.headers['if-none-match'] || '').split(',').map((t) => t.trim());
+    if (asked.includes(etag)) { res.writeHead(304, headers); return res.end(); }
+    res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Length': st.size, ...headers });
+    if (req.method === 'HEAD') return res.end();
+    createReadStream(cfg.hwrModel).pipe(res);
+    return undefined;
+  }
+
   function serveStatic(req, res, pathname) {
     const head = req.method === 'HEAD';
     if (!staticDir) return send(res, 404, { error: 'the app is not built; run frontend/build.sh' });
@@ -383,6 +401,7 @@ export async function createApp(cfg) {
       if (path === '/api/events' && method === 'GET') return stream(req, res);
       if (path.startsWith('/api/fs/')) return fsApi(req, res, path, method, url);
       if (path === '/api/proof') return proofApi(req, res, method);
+      if (path === '/api/hwr/model' && (method === 'GET' || method === 'HEAD')) return hwrModel(req, res);
       if (path === '/api/backups' || path.startsWith('/api/backups/')) return backupsApi(req, res, path, method);
       if (path === '/api/tokens' || path.startsWith('/api/tokens/')) return tokens(req, res, path, method);
       return send(res, 404, { error: 'no such endpoint' });

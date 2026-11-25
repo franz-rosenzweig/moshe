@@ -79,6 +79,7 @@ The server speaks plain HTTP on port 8430, so put HTTPS in front of it before it
 | `MOSHE_AUTH_FILE` | The password and session secret | `.moshe/auth.json` inside the library |
 | `MOSHE_BACKUPS` | Where the backups go | No backups |
 | `MOSHE_LANGUAGETOOL` | A LanguageTool server for Check Text | No Check Text |
+| `MOSHE_HWR_MODEL` | A handwriting model learned from your own writing, for **To Text** (below) | Grape as it comes |
 | `MOSHE_WATCH` | `0` to stop watching the folder for changes from other apps | Watching |
 | `MOSHE_STATIC` | The built app | The image's own |
 | `PORT`, `HOST` | Where it listens | `8430`, all addresses |
@@ -88,6 +89,10 @@ The server speaks plain HTTP on port 8430, so put HTTPS in front of it before it
 ## Check Text and LanguageTool
 
 **Check Text** needs a LanguageTool server that Moshe's server can reach, given in `MOSHE_LANGUAGETOOL`. LanguageTool is a Java program that wants several hundred megabytes of memory, so on my server it doesn't run all the time: systemd starts it on the first check and stops it after 15 minutes with none, and while it's stopped it costs nothing. [languagetool/README.md](../languagetool/README.md) has the Dockerfile, the systemd units and the numbers. Any LanguageTool server works too, if you'd rather keep one running.
+
+## Your own handwriting model
+
+FineNotes, the Obsidian plugin Moshe's handwriting reader comes from, can learn your handwriting: you copy some printed lines in its practice notebook, and it tunes Grape on them and keeps the result as one file (`personal.bin` in its plugin folder). Give that file to Moshe in `MOSHE_HWR_MODEL` and **To Text** reads with it, which gets a good deal more of your writing right. In Docker, mount the folder the file is in, read only, rather than the file itself, because learning again replaces the file and a mounted single file would keep the old one. Moshe reads the file each time it's asked for, so a new one reaches your devices on its own. Without the setting, or if the file is missing or can't be read, Moshe reads with Grape as it comes.
 
 ## Updating
 
