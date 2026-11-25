@@ -5,6 +5,9 @@
 let worker = null, seq = 0;
 const waiting = new Map();
 const MODEL = `${import.meta.env.BASE_URL || '/'}hwr/grape-2.0.bin`;
+// The model learned from your own writing, when the page came from a Moshe server that has one;
+// anywhere else that address doesn't give a model and the worker reads with Grape as shipped.
+const LEARNED = '/api/hwr/model';
 
 function ask(msg) {
   if (!worker) {
@@ -20,7 +23,7 @@ function ask(msg) {
   return new Promise((resolve, reject) => {
     const id = ++seq;
     waiting.set(id, { resolve, reject });
-    worker.postMessage({ id, ...msg, url: new URL(MODEL, location.href).href });
+    worker.postMessage({ id, ...msg, urls: [LEARNED, MODEL].map((u) => new URL(u, location.href).href) });
   });
 }
 

@@ -7,6 +7,7 @@
 //   MOSHE_BACKUPS     where backups go                    (default: none kept)
 //   MOSHE_WATCH       0 to not watch the folder           (default on)
 //   MOSHE_LANGUAGETOOL  a LanguageTool server for Check Text, e.g. http://languagetool:8010 (default: none)
+//   MOSHE_HWR_MODEL   a handwriting model learned from your own writing (FineNotes' personal.bin), read before Grape (default: none)
 //   PORT, HOST        where to listen                     (default 8430, 0.0.0.0)
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -24,6 +25,7 @@ export async function start(env = process.env) {
     backupDir: env.MOSHE_BACKUPS || null,
     watch: (env.MOSHE_WATCH ?? '1') !== '0',
     languageTool: env.MOSHE_LANGUAGETOOL || null,
+    hwrModel: env.MOSHE_HWR_MODEL || null,
   });
   const port = Number(env.PORT || 8430), host = env.HOST || '0.0.0.0';
   const where = await app.listen(port, host);
